@@ -5,6 +5,8 @@ import {
   MagnifyingGlassIcon,
   FunnelIcon,
   DocumentArrowDownIcon,
+  EyeIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../hooks/useAuth'
 
@@ -23,8 +25,11 @@ export default function VehicleSearch() {
   })
   const [vehiclePage, setVehiclePage] = useState(1)
   const [showFilters, setShowFilters] = useState(false)
+  const [hasSearched, setHasSearched] = useState(false)
+  const [selectedVehicle, setSelectedVehicle] = useState<any>(null)
+  const [showDetailsModal, setShowDetailsModal] = useState(false)
 
-  // Fetch Excel vehicles for search
+  // Fetch Excel vehicles for search - only when hasSearched is true
   const { data: vehiclesData, isLoading: vehiclesLoading } = useQuery({
     queryKey: ['excel-vehicles', { vehicleSearch, vehicleFilters, vehiclePage }],
     queryFn: () => excelAPI.searchVehicles({ 
@@ -33,10 +38,36 @@ export default function VehicleSearch() {
       page: vehiclePage, 
       limit: 20 
     }),
+    enabled: hasSearched, // Only run query when user has searched
   })
 
   const vehicles = vehiclesData?.data?.data || []
   const vehiclePagination = vehiclesData?.data?.pagination
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    setHasSearched(true)
+    setVehiclePage(1) // Reset to first page on new search
+  }
+
+  const handleClearSearch = () => {
+    setVehicleSearch('')
+    setVehicleFilters({
+      registration_number: '',
+      loan_number: '',
+      customer_name: '',
+      branch: '',
+      make: '',
+      model: ''
+    })
+    setVehiclePage(1)
+    setHasSearched(false)
+  }
+
+  const handleViewDetails = (vehicle: any) => {
+    setSelectedVehicle(vehicle)
+    setShowDetailsModal(true)
+  }
 
   const handleExportToExcel = async () => {
     try {
@@ -118,19 +149,6 @@ export default function VehicleSearch() {
     }
   }
 
-  const clearFilters = () => {
-    setVehicleSearch('')
-    setVehicleFilters({
-      registration_number: '',
-      loan_number: '',
-      customer_name: '',
-      branch: '',
-      make: '',
-      model: ''
-    })
-    setVehiclePage(1)
-  }
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -158,111 +176,133 @@ export default function VehicleSearch() {
         </div>
       </div>
 
-      {/* Search Filters */}
+      {/* Search Form */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-6">
-          {/* Main Search */}
-          <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">Quick Search</label>
-            <div className="relative">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search across all fields (registration, customer, loan number, etc.)..."
-                value={vehicleSearch}
-                onChange={(e) => setVehicleSearch(e.target.value)}
-                className="input pl-10 w-full"
-              />
-            </div>
-          </div>
-
-          {/* Advanced Filters */}
-          {showFilters && (
-            <div className="space-y-4 border-t pt-6">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900">Advanced Filters</h3>
-                <button
-                  onClick={clearFilters}
-                  className="text-sm text-blue-600 hover:text-blue-800"
-                >
-                  Clear All Filters
-                </button>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number</label>
-                  <input
-                    type="text"
-                    placeholder="Registration number"
-                    value={vehicleFilters.registration_number}
-                    onChange={(e) => setVehicleFilters(prev => ({ ...prev, registration_number: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Loan Number</label>
-                  <input
-                    type="text"
-                    placeholder="Loan number"
-                    value={vehicleFilters.loan_number}
-                    onChange={(e) => setVehicleFilters(prev => ({ ...prev, loan_number: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
-                  <input
-                    type="text"
-                    placeholder="Customer name"
-                    value={vehicleFilters.customer_name}
-                    onChange={(e) => setVehicleFilters(prev => ({ ...prev, customer_name: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-                  <input
-                    type="text"
-                    placeholder="Branch"
-                    value={vehicleFilters.branch}
-                    onChange={(e) => setVehicleFilters(prev => ({ ...prev, branch: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
-                  <input
-                    type="text"
-                    placeholder="Make"
-                    value={vehicleFilters.make}
-                    onChange={(e) => setVehicleFilters(prev => ({ ...prev, make: e.target.value }))}
-                    className="input"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-                  <input
-                    type="text"
-                    placeholder="Model"
-                    value={vehicleFilters.model}
-                    onChange={(e) => setVehicleFilters(prev => ({ ...prev, model: e.target.value }))}
-                    className="input"
-                  />
-                </div>
+          <form onSubmit={handleSearch}>
+            {/* Main Search */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Quick Search</label>
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search across all fields (registration, customer, loan number, etc.)..."
+                  value={vehicleSearch}
+                  onChange={(e) => setVehicleSearch(e.target.value)}
+                  className="input pl-10 w-full"
+                />
               </div>
             </div>
-          )}
+
+            {/* Advanced Filters */}
+            {showFilters && (
+              <div className="space-y-4 border-t pt-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-medium text-gray-900">Advanced Filters</h3>
+                  <button
+                    type="button"
+                    onClick={handleClearSearch}
+                    className="text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    Clear All Filters
+                  </button>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number</label>
+                    <input
+                      type="text"
+                      placeholder="Registration number"
+                      value={vehicleFilters.registration_number}
+                      onChange={(e) => setVehicleFilters(prev => ({ ...prev, registration_number: e.target.value }))}
+                      className="input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Loan Number</label>
+                    <input
+                      type="text"
+                      placeholder="Loan number"
+                      value={vehicleFilters.loan_number}
+                      onChange={(e) => setVehicleFilters(prev => ({ ...prev, loan_number: e.target.value }))}
+                      className="input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
+                    <input
+                      type="text"
+                      placeholder="Customer name"
+                      value={vehicleFilters.customer_name}
+                      onChange={(e) => setVehicleFilters(prev => ({ ...prev, customer_name: e.target.value }))}
+                      className="input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
+                    <input
+                      type="text"
+                      placeholder="Branch"
+                      value={vehicleFilters.branch}
+                      onChange={(e) => setVehicleFilters(prev => ({ ...prev, branch: e.target.value }))}
+                      className="input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
+                    <input
+                      type="text"
+                      placeholder="Make"
+                      value={vehicleFilters.make}
+                      onChange={(e) => setVehicleFilters(prev => ({ ...prev, make: e.target.value }))}
+                      className="input"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
+                    <input
+                      type="text"
+                      placeholder="Model"
+                      value={vehicleFilters.model}
+                      onChange={(e) => setVehicleFilters(prev => ({ ...prev, model: e.target.value }))}
+                      className="input"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Search Button */}
+            <div className="flex justify-end space-x-3 pt-4">
+              <button
+                type="button"
+                onClick={handleClearSearch}
+                className="btn-secondary"
+              >
+                Clear
+              </button>
+              <button
+                type="submit"
+                className="btn-primary"
+                disabled={!vehicleSearch && Object.values(vehicleFilters).every(v => !v)}
+              >
+                <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
+                Search Vehicles
+              </button>
+            </div>
+          </form>
         </div>
       </div>
 
       {/* Results Summary */}
-      {vehicles.length > 0 && (
+      {hasSearched && vehicles.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -283,7 +323,15 @@ export default function VehicleSearch() {
       {/* Vehicles List */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-6">
-          {vehiclesLoading ? (
+          {!hasSearched ? (
+            <div className="text-center py-12">
+              <MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">Ready to search</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                Enter your search criteria above to find vehicles.
+              </p>
+            </div>
+          ) : vehiclesLoading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
               <p className="mt-4 text-sm text-gray-500">Searching vehicles...</p>
@@ -297,98 +345,41 @@ export default function VehicleSearch() {
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {vehicles.map((vehicle: any) => (
-                <div key={vehicle._id} className="border border-gray-200 rounded-lg p-6 hover:shadow-md transition-shadow">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {/* Primary Info */}
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Registration Number</p>
-                        <p className="text-sm text-gray-600 font-mono">{vehicle.registration_number || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Customer Name</p>
-                        <p className="text-sm text-gray-600">{vehicle.customer_name || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Loan Number</p>
-                        <p className="text-sm text-gray-600 font-mono">{vehicle.loan_number || 'N/A'}</p>
-                      </div>
-                    </div>
-
-                    {/* Vehicle Details */}
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Make & Model</p>
-                        <p className="text-sm text-gray-600">{vehicle.make || 'N/A'} {vehicle.model || ''}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Branch</p>
-                        <p className="text-sm text-gray-600">{vehicle.branch || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">EMI</p>
-                        <p className="text-sm text-gray-600">{vehicle.emi || 'N/A'}</p>
+                <div key={vehicle._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Registration</p>
+                          <p className="text-sm text-gray-600 font-mono">{vehicle.registration_number || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Customer</p>
+                          <p className="text-sm text-gray-600">{vehicle.customer_name || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Loan Number</p>
+                          <p className="text-sm text-gray-600 font-mono">{vehicle.loan_number || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-gray-900">Make & Model</p>
+                          <p className="text-sm text-gray-600">{vehicle.make || 'N/A'} {vehicle.model || ''}</p>
+                        </div>
                       </div>
                     </div>
-
-                    {/* Technical Details */}
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Chassis Number</p>
-                        <p className="text-sm text-gray-600 font-mono">{vehicle.chasis_number || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Engine Number</p>
-                        <p className="text-sm text-gray-600 font-mono">{vehicle.engine_number || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Address</p>
-                        <p className="text-sm text-gray-600 truncate">{vehicle.address || 'N/A'}</p>
-                      </div>
-                    </div>
-
-                    {/* Additional Info */}
-                    <div className="space-y-3">
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">POS</p>
-                        <p className="text-sm text-gray-600">{vehicle.pos || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Bucket</p>
-                        <p className="text-sm text-gray-600">{vehicle.bucket || 'N/A'}</p>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-900">Product Name</p>
-                        <p className="text-sm text-gray-600">{vehicle.product_name || 'N/A'}</p>
-                      </div>
+                    <div className="ml-4">
+                      <button
+                        onClick={() => handleViewDetails(vehicle)}
+                        className="btn-secondary"
+                        title="View Details"
+                      >
+                        <EyeIcon className="h-4 w-4" />
+                        View
+                      </button>
                     </div>
                   </div>
-
-                  {/* Confirmer Details (if available) */}
-                  {(vehicle.first_confirmer_name || vehicle.second_confirmer_name || vehicle.third_confirmer_name) && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
-                      <h4 className="text-sm font-medium text-gray-900 mb-2">Confirmer Details</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                        {vehicle.first_confirmer_name && (
-                          <div>
-                            <p className="text-gray-600">1st Confirmer: {vehicle.first_confirmer_name} ({vehicle.first_confirmer_no})</p>
-                          </div>
-                        )}
-                        {vehicle.second_confirmer_name && (
-                          <div>
-                            <p className="text-gray-600">2nd Confirmer: {vehicle.second_confirmer_name} ({vehicle.second_confirmer_no})</p>
-                          </div>
-                        )}
-                        {vehicle.third_confirmer_name && (
-                          <div>
-                            <p className="text-gray-600">3rd Confirmer: {vehicle.third_confirmer_name} ({vehicle.third_confirmer_no})</p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -397,7 +388,7 @@ export default function VehicleSearch() {
       </div>
 
       {/* Vehicle Pagination */}
-      {vehiclePagination && vehiclePagination.pages > 1 && (
+      {hasSearched && vehiclePagination && vehiclePagination.pages > 1 && (
         <div className="flex justify-center">
           <nav className="flex space-x-2">
             {/* Previous Page */}
@@ -435,6 +426,150 @@ export default function VehicleSearch() {
               </button>
             )}
           </nav>
+        </div>
+      )}
+
+      {/* Vehicle Details Modal */}
+      {showDetailsModal && selectedVehicle && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-900">Vehicle Details</h3>
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="max-h-96 overflow-y-auto">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Primary Info */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-900 border-b pb-2">Primary Information</h4>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Registration Number</p>
+                    <p className="text-sm text-gray-900 font-mono">{selectedVehicle.registration_number || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Customer Name</p>
+                    <p className="text-sm text-gray-900">{selectedVehicle.customer_name || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Loan Number</p>
+                    <p className="text-sm text-gray-900 font-mono">{selectedVehicle.loan_number || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Branch</p>
+                    <p className="text-sm text-gray-900">{selectedVehicle.branch || 'N/A'}</p>
+                  </div>
+                </div>
+
+                {/* Vehicle Details */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-900 border-b pb-2">Vehicle Information</h4>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Make</p>
+                    <p className="text-sm text-gray-900">{selectedVehicle.make || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Model</p>
+                    <p className="text-sm text-gray-900">{selectedVehicle.model || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Chassis Number</p>
+                    <p className="text-sm text-gray-900 font-mono">{selectedVehicle.chasis_number || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Engine Number</p>
+                    <p className="text-sm text-gray-900 font-mono">{selectedVehicle.engine_number || 'N/A'}</p>
+                  </div>
+                </div>
+
+                {/* Financial Details */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-900 border-b pb-2">Financial Information</h4>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">EMI</p>
+                    <p className="text-sm text-gray-900">{selectedVehicle.emi || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">POS</p>
+                    <p className="text-sm text-gray-900">{selectedVehicle.pos || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Bucket</p>
+                    <p className="text-sm text-gray-900">{selectedVehicle.bucket || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Product Name</p>
+                    <p className="text-sm text-gray-900">{selectedVehicle.product_name || 'N/A'}</p>
+                  </div>
+                </div>
+
+                {/* Additional Details */}
+                <div className="space-y-3">
+                  <h4 className="font-medium text-gray-900 border-b pb-2">Additional Information</h4>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Address</p>
+                    <p className="text-sm text-gray-900">{selectedVehicle.address || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Sec 17</p>
+                    <p className="text-sm text-gray-900">{selectedVehicle.sec_17 || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Seasoning</p>
+                    <p className="text-sm text-gray-900">{selectedVehicle.seasoning || 'N/A'}</p>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">TBR</p>
+                    <p className="text-sm text-gray-900">{selectedVehicle.tbr || 'N/A'}</p>
+                  </div>
+                </div>
+
+                {/* Confirmer Details */}
+                {(selectedVehicle.first_confirmer_name || selectedVehicle.second_confirmer_name || selectedVehicle.third_confirmer_name) && (
+                  <div className="space-y-3 md:col-span-2 lg:col-span-3">
+                    <h4 className="font-medium text-gray-900 border-b pb-2">Confirmer Details</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {selectedVehicle.first_confirmer_name && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">1st Confirmer</p>
+                          <p className="text-sm text-gray-900">{selectedVehicle.first_confirmer_name}</p>
+                          <p className="text-sm text-gray-600">{selectedVehicle.first_confirmer_no}</p>
+                        </div>
+                      )}
+                      {selectedVehicle.second_confirmer_name && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">2nd Confirmer</p>
+                          <p className="text-sm text-gray-900">{selectedVehicle.second_confirmer_name}</p>
+                          <p className="text-sm text-gray-600">{selectedVehicle.second_confirmer_no}</p>
+                        </div>
+                      )}
+                      {selectedVehicle.third_confirmer_name && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-700">3rd Confirmer</p>
+                          <p className="text-sm text-gray-900">{selectedVehicle.third_confirmer_name}</p>
+                          <p className="text-sm text-gray-600">{selectedVehicle.third_confirmer_no}</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowDetailsModal(false)}
+                className="btn-secondary"
+              >
+                Close
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

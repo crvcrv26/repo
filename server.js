@@ -16,6 +16,7 @@ const taskRoutes = require('./routes/tasks');
 const proofRoutes = require('./routes/proofs');
 const uploadRoutes = require('./routes/upload');
 const excelRoutes = require('./routes/excel');
+const otpRoutes = require('./routes/otp');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -80,6 +81,7 @@ app.get('/health', (req, res) => {
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/otp', otpRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/vehicles', authenticateToken, vehicleRoutes);
 app.use('/api/tasks', authenticateToken, taskRoutes);

@@ -25,6 +25,7 @@ interface AuthContextType {
   user: User | null
   loading: boolean
   login: (email: string, password: string) => Promise<void>
+  loginWithOTP: (token: string, user: User) => void
   logout: () => Promise<void>
   updateProfile: (data: any) => Promise<void>
 }
@@ -72,6 +73,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser(user)
   }
 
+  const loginWithOTP = (token: string, user: User) => {
+    localStorage.setItem('token', token)
+    localStorage.setItem('user', JSON.stringify(user))
+    setUser(user)
+  }
+
   const logout = async () => {
     try {
       await authAPI.logout()
@@ -95,6 +102,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     user,
     loading,
     login,
+    loginWithOTP,
     logout,
     updateProfile,
   }

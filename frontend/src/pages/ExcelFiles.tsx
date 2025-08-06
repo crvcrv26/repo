@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
-import { excelAPI } from '../services/api'
+import { excelAPI, usersAPI } from '../services/api'
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -67,6 +67,8 @@ export default function ExcelFiles() {
     assignedTo: ''
   })
   const [isUploading, setIsUploading] = useState(false)
+  const [uploadProgress, setUploadProgress] = useState(0)
+  const [uploadStatus, setUploadStatus] = useState('')
 
   // Fetch Excel files
   const { data, isLoading, error } = useQuery({
@@ -76,10 +78,14 @@ export default function ExcelFiles() {
   })
 
   // Fetch admins for assignment (only for super admin)
-  const { data: adminsData } = useQuery({
+  const { data: adminsData, error: adminsError, isLoading: adminsLoading } = useQuery({
     queryKey: ['admins'],
-    queryFn: () => excelAPI.getFiles({ role: 'admin', status: 'active' }),
-    enabled: currentUser?.role === 'superAdmin' && showUploadModal,
+    queryFn: () => usersAPI.getAdmins(),
+    enabled: currentUser?.role === 'superAdmin',
+    retry: 1,
+    onError: (error) => {
+      console.error('Failed to fetch admins:', error)
+    }
   })
 
   // Mutations
@@ -121,7 +127,15 @@ export default function ExcelFiles() {
 
   const files = data?.data?.data || []
   const pagination = data?.data?.pagination
-  const admins = adminsData?.data?.data || []
+  const admins = Array.isArray(adminsData?.data?.data) ? adminsData.data.data : []
+  
+  // Debug logging
+  console.log('Current user role:', currentUser?.role)
+  console.log('Show upload modal:', showUploadModal)
+  console.log('Admins data:', adminsData)
+  console.log('Admins array:', admins)
+  console.log('Admins loading:', adminsLoading)
+  console.log('Admins error:', adminsError)
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -157,6 +171,26 @@ export default function ExcelFiles() {
     }
 
     setIsUploading(true)
+    setUploadProgress(0)
+    setUploadStatus('Starting upload...')
+    
+    // Start progress simulation
+    const progressInterval = setInterval(() => {
+      setUploadProgress(prev => {
+        if (prev >= 90) return 90 // Cap at 90% until actual completion
+        return prev + Math.random() * 10 + 5 // Random increment between 5-15%
+      })
+    }, 500)
+
+    // Update status messages
+    const statusInterval = setInterval(() => {
+      setUploadStatus(prev => {
+        if (prev.includes('Processing')) return 'Validating data...'
+        if (prev.includes('Validating')) return 'Processing rows...'
+        if (prev.includes('Processing rows')) return 'Creating vehicles...'
+        return 'Processing...'
+      })
+    }, 1500)
     
     try {
       const formData = new FormData()
@@ -167,6 +201,27 @@ export default function ExcelFiles() {
       }
 
       await uploadMutation.mutateAsync(formData)
+      
+      // Complete the progress
+      setUploadProgress(100)
+      setUploadStatus('Upload completed!')
+      
+      // Clear intervals
+      clearInterval(progressInterval)
+      clearInterval(statusInterval)
+      
+      // Reset after a short delay
+      setTimeout(() => {
+        setUploadProgress(0)
+        setUploadStatus('')
+      }, 2000)
+      
+    } catch (error) {
+      // Clear intervals on error
+      clearInterval(progressInterval)
+      clearInterval(statusInterval)
+      setUploadProgress(0)
+      setUploadStatus('')
     } finally {
       setIsUploading(false)
     }
@@ -487,57 +542,93 @@ export default function ExcelFiles() {
                   </p>
                 </div>
 
-                {currentUser?.role === 'superAdmin' && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Assign to Admin
-                    </label>
-                    <select
-                      value={uploadForm.assignedTo}
-                      onChange={(e) => setUploadForm(prev => ({ ...prev, assignedTo: e.target.value }))}
-                      className="input"
-                      required
-                    >
-                      <option value="">Select an admin</option>
-                      {admins.map((admin: any) => (
-                        <option key={admin._id} value={admin._id}>
-                          {admin.name} ({admin.email})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                                 {currentUser?.role === 'superAdmin' && (
+                   <div>
+                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                       Assign to Admin
+                     </label>
+                     {adminsLoading ? (
+                       <div className="text-blue-600 text-sm mb-2">
+                         Loading admins...
+                       </div>
+                     ) : adminsError ? (
+                       <div className="text-red-600 text-sm mb-2">
+                         Failed to load admins. Please try again.
+                       </div>
+                     ) : (
+                       <select
+                         value={uploadForm.assignedTo}
+                         onChange={(e) => setUploadForm(prev => ({ ...prev, assignedTo: e.target.value }))}
+                         className="input"
+                         required
+                       >
+                         <option value="">Select an admin</option>
+                         {admins.map((admin: any) => (
+                           <option key={admin._id} value={admin._id}>
+                             {admin.name} ({admin.email})
+                           </option>
+                         ))}
+                       </select>
+                     )}
+                     {admins.length === 0 && !adminsError && !adminsLoading && (
+                       <p className="text-sm text-gray-500 mt-1">
+                         No admins available. Please create an admin user first.
+                       </p>
+                     )}
+                   </div>
+                 )}
 
-                <div className="flex justify-end space-x-3 pt-4">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowUploadModal(false)
-                      resetUploadForm()
-                    }}
-                    className="btn-secondary"
-                    disabled={isUploading}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="btn-primary"
-                    disabled={isUploading || !uploadForm.file}
-                  >
-                    {isUploading ? (
-                      <>
-                        <ArrowPathIcon className="h-5 w-5 animate-spin" />
-                        Uploading...
-                      </>
-                    ) : (
-                      <>
-                        <DocumentArrowUpIcon className="h-5 w-5" />
-                        Upload
-                      </>
-                    )}
-                  </button>
-                </div>
+                                 {/* Progress Indicator */}
+                 {isUploading && (
+                   <div className="pt-4 border-t border-gray-200">
+                     <div className="space-y-3">
+                       <div className="flex justify-between text-sm text-gray-600">
+                         <span>{uploadStatus}</span>
+                         <span>{uploadProgress}%</span>
+                       </div>
+                       <div className="w-full bg-gray-200 rounded-full h-2">
+                         <div 
+                           className="bg-blue-600 h-2 rounded-full transition-all duration-300 ease-out"
+                           style={{ width: `${uploadProgress}%` }}
+                         ></div>
+                       </div>
+                       <div className="text-xs text-gray-500 text-center">
+                         {uploadProgress < 100 ? 'Please wait while we process your file...' : 'Upload completed successfully!'}
+                       </div>
+                     </div>
+                   </div>
+                 )}
+
+                 <div className="flex justify-end space-x-3 pt-4">
+                   <button
+                     type="button"
+                     onClick={() => {
+                       setShowUploadModal(false)
+                       resetUploadForm()
+                     }}
+                     className="btn-secondary"
+                     disabled={isUploading}
+                   >
+                     Cancel
+                   </button>
+                   <button
+                     type="submit"
+                     className="btn-primary"
+                     disabled={isUploading || !uploadForm.file}
+                   >
+                     {isUploading ? (
+                       <>
+                         <ArrowPathIcon className="h-5 w-5 animate-spin" />
+                         Uploading...
+                       </>
+                     ) : (
+                       <>
+                         <DocumentArrowUpIcon className="h-5 w-5" />
+                         Upload
+                       </>
+                     )}
+                   </button>
+                 </div>
               </form>
             </div>
           </div>

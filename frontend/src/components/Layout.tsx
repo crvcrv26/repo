@@ -13,6 +13,7 @@ import {
   XMarkIcon,
   DocumentArrowUpIcon,
   MagnifyingGlassIcon,
+  KeyIcon,
 } from '@heroicons/react/24/outline'
 
 interface LayoutProps {
@@ -28,6 +29,11 @@ const getNavigation = (userRole?: string) => {
   if (userRole === 'superAdmin' || userRole === 'admin') {
     baseNavigation.push({ name: 'Users', href: '/users', icon: UsersIcon })
     baseNavigation.push({ name: 'Excel Files', href: '/excel-files', icon: DocumentArrowUpIcon })
+  }
+
+  // Add OTP Management for admin only
+  if (userRole === 'admin') {
+    baseNavigation.push({ name: 'OTP Management', href: '/otp-management', icon: KeyIcon })
   }
 
   if (userRole === 'auditor') {

@@ -12,6 +12,7 @@ import Tasks from './pages/Tasks'
 import Proofs from './pages/Proofs'
 import Upload from './pages/Upload'
 import Profile from './pages/Profile'
+import OTPManagement from './pages/OTPManagement'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -45,6 +46,7 @@ function AppContent() {
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/proofs" element={<Proofs />} />
         <Route path="/upload" element={<Upload />} />
+        <Route path="/otp-management" element={<OTPManagement />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

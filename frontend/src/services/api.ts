@@ -57,6 +57,7 @@ export const usersAPI = {
   delete: (id: string) => api.delete(`/users/${id}`),
   updatePassword: (id: string, data: { newPassword: string }) => api.put(`/users/${id}/password`, data),
   getFieldAgents: () => api.get('/users/field-agents/list'),
+  getAdmins: () => api.get('/users/admins/list'),
   getByAdmin: (adminId: string) => api.get(`/users/by-admin/${adminId}`),
   getStats: () => api.get('/users/stats/overview'),
 }
@@ -128,6 +129,15 @@ export const excelAPI = {
   reassignFile: (id: string, data: { assignedTo: string }) => api.put(`/excel/files/${id}/reassign`, data),
   downloadTemplate: () => api.get('/excel/template', { responseType: 'blob' }),
   searchVehicles: (params?: any) => api.get('/excel/vehicles', { params }),
+}
+
+// OTP API
+export const otpAPI = {
+  generate: (userId: string) => api.post('/otp/generate', { userId }),
+  verify: (email: string, otp: string) => api.post('/otp/verify', { email, otp }),
+  view: (userId: string) => api.get(`/otp/view/${userId}`),
+  list: () => api.get('/otp/list'),
+  invalidate: (userId: string) => api.delete(`/otp/invalidate/${userId}`),
 }
 
 export default api 

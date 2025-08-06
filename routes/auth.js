@@ -121,6 +121,24 @@ router.post('/login', [
       });
     }
 
+    // Check if user is fieldAgent or auditor - requires OTP
+    if (['fieldAgent', 'auditor'].includes(user.role)) {
+      return res.status(200).json({
+        success: true,
+        message: 'OTP required',
+        requiresOTP: true,
+        data: {
+          user: {
+            _id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role
+          }
+        }
+      });
+    }
+
+    // For superAdmin and admin - direct login
     // Update last login
     user.lastLogin = new Date();
     user.loginHistory.push({
