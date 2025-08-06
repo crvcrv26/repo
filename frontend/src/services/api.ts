@@ -55,7 +55,9 @@ export const usersAPI = {
   create: (data: any) => api.post('/users', data),
   update: (id: string, data: any) => api.put(`/users/${id}`, data),
   delete: (id: string) => api.delete(`/users/${id}`),
+  updatePassword: (id: string, data: { newPassword: string }) => api.put(`/users/${id}/password`, data),
   getFieldAgents: () => api.get('/users/field-agents/list'),
+  getByAdmin: (adminId: string) => api.get(`/users/by-admin/${adminId}`),
   getStats: () => api.get('/users/stats/overview'),
 }
 
@@ -111,6 +113,21 @@ export const uploadAPI = {
     })
   },
   downloadTemplate: () => api.get('/upload/template', { responseType: 'blob' }),
+}
+
+// Excel API
+export const excelAPI = {
+  upload: (formData: FormData) => api.post('/excel/upload', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
+  getFiles: (params?: any) => api.get('/excel/files', { params }),
+  getFileById: (id: string) => api.get(`/excel/files/${id}`),
+  deleteFile: (id: string) => api.delete(`/excel/files/${id}`),
+  reassignFile: (id: string, data: { assignedTo: string }) => api.put(`/excel/files/${id}/reassign`, data),
+  downloadTemplate: () => api.get('/excel/template', { responseType: 'blob' }),
+  searchVehicles: (params?: any) => api.get('/excel/vehicles', { params }),
 }
 
 export default api 

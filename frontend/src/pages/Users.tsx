@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersAPI } from '../services/api'
 import toast from 'react-hot-toast'
@@ -12,7 +12,11 @@ import {
   UserIcon,
   ShieldCheckIcon,
   UserGroupIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  XMarkIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
+  UsersIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../hooks/useAuth'
 
@@ -35,22 +39,78 @@ interface User {
   createdAt: string
 }
 
+interface CreateUserForm {
+  name: string
+  email: string
+  phone: string
+  password: string
+  role: 'admin' | 'fieldAgent' | 'auditor'
+  assignedTo?: string // Admin ID for field agents and auditors
+  location: {
+    city: string
+    state: string
+  }
+}
+
+
+
 export default function Users() {
   const { user: currentUser } = useAuth()
   const queryClient = useQueryClient()
   
   // State for filters and pagination
   const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
   const [role, setRole] = useState('')
   const [status, setStatus] = useState('')
   const [city, setCity] = useState('')
   const [page, setPage] = useState(1)
   const [showFilters, setShowFilters] = useState(false)
+  
+  // Debounce search input
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+      setPage(1) // Reset to first page when search changes
+    }, 500) // 500ms delay
+
+    return () => clearTimeout(timer)
+  }, [search])
+  
+  // Reset page when other filters change
+  useEffect(() => {
+    setPage(1)
+  }, [role, status, city])
+  
+  // State for modal and form
+  const [showCreateModal, setShowCreateModal] = useState(false)
+  const [expandedAdmins, setExpandedAdmins] = useState<Set<string>>(new Set())
+  const [createForm, setCreateForm] = useState<CreateUserForm>({
+    name: '',
+    email: '',
+    phone: '',
+    password: '',
+    role: 'fieldAgent',
+    assignedTo: '',
+    location: {
+      city: '',
+      state: ''
+    }
+  })
 
   // Fetch users with filters
   const { data, isLoading, error } = useQuery({
-    queryKey: ['users', { search, role, status, city, page }],
-    queryFn: () => usersAPI.getAll({ search, role, status, city, page, limit: 10 }),
+    queryKey: ['users', { search: debouncedSearch, role, status, city, page, currentUser: currentUser?.role, currentUserId: currentUser?._id, currentUserCreatedBy: currentUser?.createdBy?._id }],
+    queryFn: () => usersAPI.getAll({ search: debouncedSearch, role, status, city, page, limit: 50 }),
+    staleTime: 30000, // 30 seconds
+    cacheTime: 300000, // 5 minutes
+  })
+
+  // Fetch admins for assignment (only for super admin)
+  const { data: adminsData, isLoading: isLoadingAdmins } = useQuery({
+    queryKey: ['admins'],
+    queryFn: () => usersAPI.getAll({ role: 'admin', status: 'active' }),
+    enabled: currentUser?.role === 'superAdmin' && showCreateModal,
   })
 
   // Mutations
@@ -65,13 +125,85 @@ export default function Users() {
     }
   })
 
+  const createMutation = useMutation({
+    mutationFn: (userData: CreateUserForm) => {
+      // Only send assignedTo if super admin is creating field agent or auditor
+      if (currentUser?.role === 'superAdmin' && (userData.role === 'fieldAgent' || userData.role === 'auditor')) {
+        return usersAPI.create({
+          ...userData,
+          assignedTo: userData.assignedTo
+        })
+      }
+      // For admin users, don't send assignedTo - it will be automatically set
+      return usersAPI.create(userData)
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      toast.success('User created successfully')
+      setShowCreateModal(false)
+      resetForm()
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to create user')
+    }
+  })
+
   const users = data?.data?.data || []
+  const admins = adminsData?.data?.data || []
   const pagination = data?.data?.pagination
+  
+  // Check if search is in progress (debounced search differs from current search)
+  const isSearching = search !== debouncedSearch
+  
+
 
   const handleDelete = (userId: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
       deleteMutation.mutate(userId)
     }
+  }
+
+  const handleCreateUser = (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    // Validate admin assignment for field agents and auditors (only for super admin)
+    if ((createForm.role === 'fieldAgent' || createForm.role === 'auditor') && currentUser?.role === 'superAdmin') {
+      if (!createForm.assignedTo) {
+        toast.error('Please select an admin to assign this user to')
+        return
+      }
+      if (admins.length === 0) {
+        toast.error('No active admins available. Please create an admin first.')
+        return
+      }
+    }
+    
+    createMutation.mutate(createForm)
+  }
+
+  const resetForm = () => {
+    setCreateForm({
+      name: '',
+      email: '',
+      phone: '',
+      password: '',
+      role: 'fieldAgent',
+      assignedTo: '',
+      location: {
+        city: '',
+        state: ''
+      }
+    })
+  }
+
+  const toggleAdminExpansion = (adminId: string) => {
+    const newExpanded = new Set(expandedAdmins)
+    if (newExpanded.has(adminId)) {
+      newExpanded.delete(adminId)
+    } else {
+      newExpanded.add(adminId)
+    }
+    setExpandedAdmins(newExpanded)
   }
 
   const getRoleColor = (role: string) => {
@@ -96,6 +228,113 @@ export default function Users() {
 
   const canManageUsers = currentUser?.role === 'admin' || currentUser?.role === 'superAdmin'
   const canDelete = currentUser?.role === 'superAdmin'
+  const canCreateAdmins = currentUser?.role === 'superAdmin'
+
+  // Filter users based on current user role
+  const getFilteredUsers = () => {
+    if (!currentUser) return { superAdmins: [], adminUsers: [], fieldAgents: [], auditors: [] }
+    
+    switch (currentUser.role) {
+      case 'superAdmin':
+        return {
+          superAdmins: users.filter((user: User) => user.role === 'superAdmin'),
+          adminUsers: users.filter((user: User) => user.role === 'admin'),
+          fieldAgents: users.filter((user: User) => user.role === 'fieldAgent'),
+          auditors: users.filter((user: User) => user.role === 'auditor')
+        }
+      case 'admin':
+        return {
+          superAdmins: [],
+          adminUsers: [],
+          fieldAgents: users.filter((user: User) => user.role === 'fieldAgent' && user.createdBy && user.createdBy._id === currentUser._id),
+          auditors: users.filter((user: User) => user.role === 'auditor' && user.createdBy && user.createdBy._id === currentUser._id)
+        }
+      case 'auditor':
+        return {
+          superAdmins: [],
+          adminUsers: [],
+          fieldAgents: users.filter((user: User) => user.role === 'fieldAgent'),
+          auditors: []
+        }
+      default:
+        return { superAdmins: [], adminUsers: [], fieldAgents: [], auditors: [] }
+    }
+  }
+
+  const { superAdmins, adminUsers, fieldAgents, auditors } = getFilteredUsers()
+
+  // Group field agents and auditors by their admin
+  const getUsersByAdmin = (adminId: string) => {
+    return {
+      fieldAgents: fieldAgents.filter((user: User) => user.createdBy && user.createdBy._id === adminId),
+      auditors: auditors.filter((user: User) => user.createdBy && user.createdBy._id === adminId)
+    }
+  }
+
+  // UserCard component for displaying user information
+  interface UserCardProps {
+    user: User
+    compact?: boolean
+  }
+
+  const UserCard: React.FC<UserCardProps> = ({ user, compact = false }) => {
+    const RoleIcon = getRoleIcon(user.role)
+    
+    if (compact) {
+      return (
+        <div className="flex items-center justify-between p-2 bg-white rounded border">
+          <div className="flex items-center">
+            <div className="flex-shrink-0 h-8 w-8">
+              <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center">
+                <RoleIcon className="h-4 w-4 text-gray-600" />
+              </div>
+            </div>
+            <div className="ml-3">
+              <div className="text-sm font-medium text-gray-900">{user.name}</div>
+              <div className="text-xs text-gray-500">{user.email}</div>
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
+              {user.role.replace(/([A-Z])/g, ' $1').trim()}
+            </span>
+            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+              user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+            }`}>
+              {user.isActive ? 'Active' : 'Inactive'}
+            </span>
+          </div>
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+        <div className="flex items-center">
+          <div className="flex-shrink-0 h-10 w-10">
+            <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
+              <RoleIcon className="h-5 w-5 text-gray-600" />
+            </div>
+          </div>
+          <div className="ml-4">
+            <div className="text-sm font-medium text-gray-900">{user.name}</div>
+            <div className="text-sm text-gray-500">{user.email}</div>
+            <div className="text-sm text-gray-500">{user.location.city}, {user.location.state}</div>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
+          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
+            {user.role.replace(/([A-Z])/g, ' $1').trim()}
+          </span>
+          <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+            user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+          }`}>
+            {user.isActive ? 'Active' : 'Inactive'}
+          </span>
+        </div>
+      </div>
+    )
+  }
 
   if (isLoading) {
     return (
@@ -121,7 +360,10 @@ export default function Users() {
           <p className="text-gray-600">Manage system users and their roles</p>
         </div>
         {canManageUsers && (
-          <button className="btn-primary">
+          <button 
+            className="btn-primary"
+            onClick={() => setShowCreateModal(true)}
+          >
             <PlusIcon className="h-5 w-5" />
             Add User
           </button>
@@ -157,6 +399,11 @@ export default function Users() {
                     onChange={(e) => setSearch(e.target.value)}
                     className="input pl-10"
                   />
+                  {isSearching && (
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -203,171 +450,409 @@ export default function Users() {
         )}
       </div>
 
-      {/* Users Table */}
+      {/* Role-Based User View */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  User
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Role
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Location
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Created By
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user: User) => {
-                const RoleIcon = getRoleIcon(user.role)
-                return (
-                  <tr key={user._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="flex items-center">
-                        <div className="flex-shrink-0 h-10 w-10">
-                          <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                            <RoleIcon className="h-5 w-5 text-gray-600" />
-                          </div>
-                        </div>
-                        <div className="ml-4">
-                          <div className="text-sm font-medium text-gray-900">
-                            {user.name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {user.email}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {user.phone}
-                          </div>
-                        </div>
-                      </div>
-                    </td>
-                    
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
-                        {user.role.replace(/([A-Z])/g, ' $1').trim()}
-                      </span>
-                    </td>
-                    
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {user.location.city}, {user.location.state}
-                    </td>
-                    
-                    <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}>
-                        {user.isActive ? 'Active' : 'Inactive'}
-                      </span>
-                    </td>
-                    
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {user.createdBy ? (
-                        <div>
-                          <div className="text-sm text-gray-900">
-                            {user.createdBy.name}
-                          </div>
-                          <div className="text-sm text-gray-500">
-                            {user.createdBy.email}
-                          </div>
-                        </div>
-                      ) : (
-                        <span className="text-sm text-gray-500">System</span>
-                      )}
-                    </td>
-                    
-                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                      <div className="flex space-x-2">
-                        <button className="text-blue-600 hover:text-blue-900">
-                          <EyeIcon className="h-4 w-4" />
-                        </button>
-                        
-                        {canManageUsers && (
-                          <button className="text-green-600 hover:text-green-900">
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                        )}
-                        
-                        {canDelete && (
-                          <button 
-                            className="text-red-600 hover:text-red-900"
-                            onClick={() => handleDelete(user._id)}
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+        <div className="p-4 border-b border-gray-200">
+          <h3 className="text-lg font-medium text-gray-900">
+            {currentUser?.role === 'superAdmin' && 'All Users'}
+            {currentUser?.role === 'admin' && 'My Team'}
+            {currentUser?.role === 'auditor' && 'Field Agents'}
+          </h3>
         </div>
         
-        {/* Pagination */}
-        {pagination && (
-          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-            <div className="flex-1 flex justify-between sm:hidden">
-              <button
-                onClick={() => setPage(page - 1)}
-                disabled={page <= 1}
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-              >
-                Previous
-              </button>
-              <button
-                onClick={() => setPage(page + 1)}
-                disabled={page >= pagination.pages}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
-              >
-                Next
-              </button>
+        <div className="divide-y divide-gray-200">
+          {/* Super Admin View - Show all users */}
+          {currentUser?.role === 'superAdmin' && (
+            <>
+              {/* Super Admins */}
+              {superAdmins.length > 0 && (
+                <div className="p-4">
+                  <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                    <ShieldCheckIcon className="h-5 w-5 mr-2 text-red-600" />
+                    Super Admins ({superAdmins.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {superAdmins.map((user: User) => (
+                      <UserCard key={user._id} user={user} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Admins with their field agents and auditors */}
+              {adminUsers.length > 0 && (
+                <div className="p-4">
+                  <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                    <UserIcon className="h-5 w-5 mr-2 text-blue-600" />
+                    Admins ({adminUsers.length})
+                  </h4>
+                  <div className="space-y-4">
+                    {adminUsers.map((admin: User) => {
+                      const adminUsers = getUsersByAdmin(admin._id)
+                      const isExpanded = expandedAdmins.has(admin._id)
+                      
+                      return (
+                        <div key={admin._id} className="border border-gray-200 rounded-lg">
+                          <div className="flex items-center justify-between p-3 bg-blue-50">
+                            <div className="flex items-center">
+                              <button
+                                onClick={() => toggleAdminExpansion(admin._id)}
+                                className="mr-2 text-gray-500 hover:text-gray-700"
+                              >
+                                {isExpanded ? (
+                                  <ChevronDownIcon className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRightIcon className="h-4 w-4" />
+                                )}
+                              </button>
+                              <UserCard user={admin} />
+                            </div>
+                            <div className="text-xs text-gray-500">
+                              {adminUsers.fieldAgents.length} Field Agents, {adminUsers.auditors.length} Auditors
+                            </div>
+                          </div>
+                          
+                          {isExpanded && (
+                            <div className="p-4 bg-gray-50">
+                              {/* Field Agents */}
+                              {adminUsers.fieldAgents.length > 0 && (
+                                <div className="mb-4">
+                                  <h5 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                                    <UserGroupIcon className="h-4 w-4 mr-1 text-green-600" />
+                                    Field Agents ({adminUsers.fieldAgents.length})
+                                  </h5>
+                                  <div className="space-y-2">
+                                    {adminUsers.fieldAgents.map((user: User) => (
+                                      <UserCard key={user._id} user={user} compact />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Auditors */}
+                              {adminUsers.auditors.length > 0 && (
+                                <div>
+                                  <h5 className="text-sm font-medium text-gray-900 mb-2 flex items-center">
+                                    <DocumentTextIcon className="h-4 w-4 mr-1 text-purple-600" />
+                                    Auditors ({adminUsers.auditors.length})
+                                  </h5>
+                                  <div className="space-y-2">
+                                    {adminUsers.auditors.map((user: User) => (
+                                      <UserCard key={user._id} user={user} compact />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {adminUsers.fieldAgents.length === 0 && adminUsers.auditors.length === 0 && (
+                                <div className="text-center py-4 text-gray-500">
+                                  No field agents or auditors assigned to this admin yet.
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Orphaned Field Agents and Auditors */}
+              {fieldAgents.filter((user: User) => !user.createdBy).length > 0 && (
+                <div className="p-4">
+                  <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                    <UserGroupIcon className="h-5 w-5 mr-2 text-green-600" />
+                    Field Agents (Unassigned) ({fieldAgents.filter((user: User) => !user.createdBy).length})
+                  </h4>
+                  <div className="space-y-2">
+                    {fieldAgents.filter((user: User) => !user.createdBy).map((user: User) => (
+                      <UserCard key={user._id} user={user} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {auditors.filter((user: User) => !user.createdBy).length > 0 && (
+                <div className="p-4">
+                  <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                    <DocumentTextIcon className="h-5 w-5 mr-2 text-purple-600" />
+                    Auditors (Unassigned) ({auditors.filter((user: User) => !user.createdBy).length})
+                  </h4>
+                  <div className="space-y-2">
+                    {auditors.filter((user: User) => !user.createdBy).map((user: User) => (
+                      <UserCard key={user._id} user={user} />
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Admin View - Show their team */}
+          {currentUser?.role === 'admin' && (
+            <div className="p-4">
+              <div className="space-y-4">
+                {/* Field Agents */}
+                {fieldAgents.length > 0 && (
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                      <UserGroupIcon className="h-5 w-5 mr-2 text-green-600" />
+                      Field Agents ({fieldAgents.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {fieldAgents.map((user: User) => (
+                        <UserCard key={user._id} user={user} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Auditors */}
+                {auditors.length > 0 && (
+                  <div>
+                    <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                      <DocumentTextIcon className="h-5 w-5 mr-2 text-purple-600" />
+                      Auditors ({auditors.length})
+                    </h4>
+                    <div className="space-y-2">
+                      {auditors.map((user: User) => (
+                        <UserCard key={user._id} user={user} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {fieldAgents.length === 0 && auditors.length === 0 && (
+                  <div className="text-center py-8">
+                    <UsersIcon className="mx-auto h-12 w-12 text-gray-400" />
+                    <h3 className="mt-2 text-sm font-medium text-gray-900">No team members yet</h3>
+                    <p className="mt-1 text-sm text-gray-500">
+                      Start building your team by adding field agents and auditors.
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  Showing <span className="font-medium">{(page - 1) * pagination.limit + 1}</span> to{' '}
-                  <span className="font-medium">
-                    {Math.min(page * pagination.limit, pagination.total)}
-                  </span>{' '}
-                  of <span className="font-medium">{pagination.total}</span> results
-                </p>
+          )}
+
+          {/* Auditor View - Show field agents */}
+          {currentUser?.role === 'auditor' && (
+            <div className="p-4">
+              {fieldAgents.length > 0 ? (
+                <div>
+                  <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                    <UserGroupIcon className="h-5 w-5 mr-2 text-green-600" />
+                    Field Agents ({fieldAgents.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {fieldAgents.map((user: User) => (
+                      <UserCard key={user._id} user={user} />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8">
+                  <UsersIcon className="mx-auto h-12 w-12 text-gray-400" />
+                  <h3 className="mt-2 text-sm font-medium text-gray-900">No field agents found</h3>
+                  <p className="mt-1 text-sm text-gray-500">
+                    No field agents are currently assigned to your admin.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Create User Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">Create New User</h3>
+                <button
+                  onClick={() => setShowCreateModal(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XMarkIcon className="h-6 w-6" />
+                </button>
               </div>
-              <div>
-                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px">
-                  <button
-                    onClick={() => setPage(page - 1)}
-                    disabled={page <= 1}
-                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+              
+              <form onSubmit={handleCreateUser} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={createForm.name}
+                    onChange={(e) => setCreateForm({...createForm, name: e.target.value})}
+                    className="input w-full"
+                    placeholder="Enter full name"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={createForm.email}
+                    onChange={(e) => setCreateForm({...createForm, email: e.target.value})}
+                    className="input w-full"
+                    placeholder="Enter email address"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                  <input
+                    type="tel"
+                    required
+                    value={createForm.phone}
+                    onChange={(e) => setCreateForm({...createForm, phone: e.target.value})}
+                    className="input w-full"
+                    placeholder="Enter 10-digit phone number"
+                    pattern="[0-9]{10}"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                  <input
+                    type="password"
+                    required
+                    value={createForm.password}
+                    onChange={(e) => setCreateForm({...createForm, password: e.target.value})}
+                    className="input w-full"
+                    placeholder="Enter password (min 6 characters)"
+                    minLength={6}
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Role</label>
+                  <select
+                    required
+                    value={createForm.role}
+                    onChange={(e) => {
+                      const newRole = e.target.value as any
+                      setCreateForm({
+                        ...createForm, 
+                        role: newRole,
+                        // Reset assignedTo when role changes
+                        assignedTo: newRole === 'admin' ? '' : createForm.assignedTo
+                      })
+                    }}
+                    className="input w-full"
                   >
-                    Previous
+                    {canCreateAdmins && <option value="admin">Admin</option>}
+                    <option value="fieldAgent">Field Agent</option>
+                    <option value="auditor">Auditor</option>
+                  </select>
+                </div>
+
+                {/* Admin Assignment for Field Agents and Auditors */}
+                {(createForm.role === 'fieldAgent' || createForm.role === 'auditor') && currentUser?.role === 'superAdmin' && (
+                  <div>
+                    {admins.length > 0 ? (
+                      <>
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Assign to Admin *
+                        </label>
+                        <select
+                          required
+                          value={createForm.assignedTo}
+                          onChange={(e) => setCreateForm({...createForm, assignedTo: e.target.value})}
+                          className="input w-full"
+                          disabled={isLoadingAdmins}
+                        >
+                          <option value="">
+                            {isLoadingAdmins ? 'Loading admins...' : 'Select an admin'}
+                          </option>
+                          {admins.map((admin: User) => (
+                            <option key={admin._id} value={admin._id}>
+                              {admin.name} ({admin.email})
+                            </option>
+                          ))}
+                        </select>
+                        <p className="text-xs text-gray-500 mt-1">
+                          This user will be assigned to the selected admin
+                        </p>
+                      </>
+                    ) : (
+                      <div className="p-3 bg-red-50 rounded-md">
+                        <p className="text-sm text-red-700">
+                          No active admins available. Please create an admin first before creating field agents or auditors.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Info message for regular admins */}
+                {(createForm.role === 'fieldAgent' || createForm.role === 'auditor') && currentUser?.role === 'admin' && (
+                  <div className="p-3 bg-blue-50 rounded-md">
+                    <p className="text-sm text-blue-700">
+                      This user will be automatically assigned to you (your admin account).
+                    </p>
+                  </div>
+                )}
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">City</label>
+                    <input
+                      type="text"
+                      required
+                      value={createForm.location.city}
+                      onChange={(e) => setCreateForm({
+                        ...createForm, 
+                        location: {...createForm.location, city: e.target.value}
+                      })}
+                      className="input w-full"
+                      placeholder="Enter city"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">State</label>
+                    <input
+                      type="text"
+                      required
+                      value={createForm.location.state}
+                      onChange={(e) => setCreateForm({
+                        ...createForm, 
+                        location: {...createForm.location, state: e.target.value}
+                      })}
+                      className="input w-full"
+                      placeholder="Enter state"
+                    />
+                  </div>
+                </div>
+                
+                <div className="flex justify-end space-x-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateModal(false)}
+                    className="btn-secondary"
+                  >
+                    Cancel
                   </button>
                   <button
-                    onClick={() => setPage(page + 1)}
-                    disabled={page >= pagination.pages}
-                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    type="submit"
+                    disabled={createMutation.isPending}
+                    className="btn-primary"
                   >
-                    Next
+                    {createMutation.isPending ? 'Creating...' : 'Create User'}
                   </button>
-                </nav>
-              </div>
+                </div>
+              </form>
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 } 

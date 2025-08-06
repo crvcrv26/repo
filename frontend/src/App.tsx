@@ -5,6 +5,8 @@ import Layout from './components/Layout'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
+import ExcelFiles from './pages/ExcelFiles'
+import VehicleSearch from './pages/VehicleSearch'
 import Vehicles from './pages/Vehicles'
 import Tasks from './pages/Tasks'
 import Proofs from './pages/Proofs'
@@ -37,6 +39,8 @@ function AppContent() {
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/users" element={<Users />} />
+        <Route path="/excel-files" element={<ExcelFiles />} />
+        <Route path="/vehicle-search" element={<VehicleSearch />} />
         <Route path="/vehicles" element={<Vehicles />} />
         <Route path="/tasks" element={<Tasks />} />
         <Route path="/proofs" element={<Proofs />} />

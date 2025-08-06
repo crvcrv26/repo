@@ -7,22 +7,23 @@
     "@heroicons/react": "^2.0.18",
     "@tanstack/react-query": "^4.35.3",
     "axios": "^1.5.0",
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-hook-form": "^7.46.1",
-    "react-router-dom": "^6.16.0",
-    "react-hot-toast": "^2.4.1",
-    "recharts": "^2.8.0",
-    "date-fns": "^2.30.0",
     "clsx": "^2.0.0",
-    "react-dropzone": "^14.2.3",
-    "xlsx": "^0.18.5",
-    "jspdf": "^2.5.1",
-    "react-table": "^7.8.0",
-    "react-select": "^5.8.0",
-    "react-datepicker": "^4.21.0",
+    "date-fns": "^2.30.0",
     "framer-motion": "^10.16.4",
-    "react-intersection-observer": "^9.5.2"
+    "jspdf": "^2.5.1",
+    "multer": "^2.0.2",
+    "react": "^18.2.0",
+    "react-datepicker": "^4.21.0",
+    "react-dom": "^18.2.0",
+    "react-dropzone": "^14.2.3",
+    "react-hook-form": "^7.46.1",
+    "react-hot-toast": "^2.4.1",
+    "react-intersection-observer": "^9.5.2",
+    "react-router-dom": "^6.16.0",
+    "react-select": "^5.8.0",
+    "react-table": "^7.8.0",
+    "recharts": "^2.8.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/react": "^18.2.21",
@@ -53,4 +54,4 @@
       "last 1 safari version"
     ]
   }
-} 
+}

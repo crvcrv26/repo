@@ -4,7 +4,7 @@ const cors = require('cors');
 const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
-const rateLimit = require('express-rate-limit');
+// const rateLimit = require('express-rate-limit');
 const path = require('path');
 require('dotenv').config();
 
@@ -15,6 +15,7 @@ const vehicleRoutes = require('./routes/vehicles');
 const taskRoutes = require('./routes/tasks');
 const proofRoutes = require('./routes/proofs');
 const uploadRoutes = require('./routes/upload');
+const excelRoutes = require('./routes/excel');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -26,20 +27,34 @@ const app = express();
 app.use(helmet());
 app.use(compression());
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-  max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
-});
-app.use('/api/', limiter);
+// Rate limiting - exclude auth routes
+// const limiter = rateLimit({
+//   windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+//   max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100, // limit each IP to 100 requests per windowMs
+//   message: 'Too many requests from this IP, please try again later.',
+//   skip: (req) => req.path.startsWith('/api/auth/') // Skip rate limiting for auth routes
+// });
+
+// Specific rate limiter for auth routes with higher limits
+// const authLimiter = rateLimit({
+//   windowMs: 15 * 60 * 1000, // 15 minutes
+//   max: 100, // limit each IP to 50 requests per windowMs for auth
+//   message: 'Too many authentication attempts, please try again later.',
+//   standardHeaders: true,
+//   legacyHeaders: false,
+// });
+
+// app.use('/api/', limiter);
+// app.use('/api/auth', authLimiter);
 
 // CORS configuration
 app.use(cors({
   origin: process.env.NODE_ENV === 'production' 
     ? ['https://your-frontend-domain.com'] 
-    : ['http://localhost:3000', 'http://localhost:3001'],
-  credentials: true
+    : ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
 
 // Body parsing middleware
@@ -70,6 +85,7 @@ app.use('/api/vehicles', authenticateToken, vehicleRoutes);
 app.use('/api/tasks', authenticateToken, taskRoutes);
 app.use('/api/proofs', authenticateToken, proofRoutes);
 app.use('/api/upload', authenticateToken, uploadRoutes);
+app.use('/api/excel', authenticateToken, excelRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

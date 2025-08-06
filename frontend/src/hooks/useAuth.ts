@@ -14,6 +14,11 @@ interface User {
   isActive: boolean
   createdAt: string
   lastLogin?: string
+  createdBy?: {
+    _id: string
+    name: string
+    email: string
+  }
 }
 
 interface AuthContextType {

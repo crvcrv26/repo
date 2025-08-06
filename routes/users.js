@@ -8,8 +8,8 @@ const router = express.Router();
 
 // @desc    Get all users with role-based filtering
 // @route   GET /api/users
-// @access  Private (Admin, SuperAdmin)
-router.get('/', authenticateToken, authorizeRole('admin', 'superAdmin'), [
+// @access  Private (Admin, SuperAdmin, Auditor)
+router.get('/', authenticateToken, authorizeRole('admin', 'superAdmin', 'auditor'), [
   query('role').optional().custom((value) => {
     if (value === '') return true; // Allow empty string
     return ['superAdmin', 'admin', 'fieldAgent', 'auditor'].includes(value);
@@ -49,27 +49,67 @@ router.get('/', authenticateToken, authorizeRole('admin', 'superAdmin'), [
     if (req.user.role === 'admin') {
       // Admin can only see users they created
       filter.createdBy = req.user._id;
+    } else if (req.user.role === 'auditor') {
+      // Auditor can only see field agents under their admin
+      if (!req.user.createdBy) {
+        return res.status(403).json({
+          success: false,
+          message: 'Auditor not properly assigned to an admin. Please contact your administrator.'
+        });
+      }
+      filter.createdBy = req.user.createdBy;
+      filter.role = 'fieldAgent';
     }
+    // Super admin can see all users (no filter applied)
 
     // Apply filters
     if (role && role !== '') filter.role = role;
     if (city && city !== '') filter['location.city'] = new RegExp(city, 'i');
     if (status === 'active') filter.isActive = true;
     if (status === 'inactive') filter.isActive = false;
-    if (search && search !== '') {
-      filter.$text = { $search: search };
+    if (search && search.trim() !== '') {
+      // Use text search for better performance
+      filter.$text = { $search: search.trim() };
     }
 
     // Execute query with pagination
     const skip = (page - 1) * limit;
-    const users = await User.find(filter)
-      .populate('createdBy', 'name email')
-      .select('-password -resetPasswordToken -resetPasswordExpire')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit));
+    
+    let users;
+    try {
+      users = await User.find(filter)
+        .populate('createdBy', 'name email')
+        .select('-password -resetPasswordToken -resetPasswordExpire')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit));
+    } catch (error) {
+      // Fallback to regex search if text search fails
+      if (error.message.includes('text index') && search && search.trim() !== '') {
+        const fallbackFilter = { ...filter };
+        delete fallbackFilter.$text;
+        fallbackFilter.$or = [
+          { name: new RegExp(search.trim(), 'i') },
+          { email: new RegExp(search.trim(), 'i') },
+          { phone: new RegExp(search.trim(), 'i') },
+          { 'location.city': new RegExp(search.trim(), 'i') },
+          { 'location.state': new RegExp(search.trim(), 'i') }
+        ];
+        
+        users = await User.find(fallbackFilter)
+          .populate('createdBy', 'name email')
+          .select('-password -resetPasswordToken -resetPasswordExpire')
+          .sort({ createdAt: -1 })
+          .skip(skip)
+          .limit(parseInt(limit));
+      } else {
+        throw error;
+      }
+    }
 
     const total = await User.countDocuments(filter);
+    
+
 
     res.json({
       success: true,
@@ -136,6 +176,20 @@ router.post('/', authenticateToken, authorizeRole('admin', 'superAdmin'), [
   body('phone').matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
   body('role').isIn(['admin', 'fieldAgent', 'auditor']).withMessage('Valid role required'),
+  body('assignedTo').optional().custom((value, { req }) => {
+    // Only validate assignedTo if user is superAdmin and creating field agent or auditor
+    if (req.user.role === 'superAdmin' && (req.body.role === 'fieldAgent' || req.body.role === 'auditor')) {
+      if (!value) {
+        throw new Error('Admin assignment is required for field agents and auditors');
+      }
+      // Validate it's a valid MongoDB ObjectId
+      const mongoose = require('mongoose');
+      if (!mongoose.Types.ObjectId.isValid(value)) {
+        throw new Error('Valid admin ID required for assignment');
+      }
+    }
+    return true;
+  }),
   body('location.city').notEmpty().withMessage('City is required'),
   body('location.state').notEmpty().withMessage('State is required')
 ], async (req, res) => {
@@ -157,6 +211,14 @@ router.post('/', authenticateToken, authorizeRole('admin', 'superAdmin'), [
           message: 'You can only create field agents and auditors'
         });
       }
+    } else if (req.user.role === 'superAdmin') {
+      // Super admin can create admins, field agents, and auditors
+      if (!['admin', 'fieldAgent', 'auditor'].includes(req.body.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Invalid role for super admin to create'
+        });
+      }
     }
 
     // Check if user already exists
@@ -174,10 +236,30 @@ router.post('/', authenticateToken, authorizeRole('admin', 'superAdmin'), [
       });
     }
 
+    // Handle admin assignment for field agents and auditors
+    let createdBy = req.user._id;
+    
+    // If user is admin, automatically assign field agents and auditors to them
+    if (req.user.role === 'admin' && (req.body.role === 'fieldAgent' || req.body.role === 'auditor')) {
+      createdBy = req.user._id; // Admin creates users under themselves
+    }
+    // If assignedTo is provided and user is super admin, assign to that admin
+    else if (req.body.assignedTo && req.user.role === 'superAdmin') {
+      // Verify the assigned admin exists and is active
+      const assignedAdmin = await User.findById(req.body.assignedTo);
+      if (!assignedAdmin || assignedAdmin.role !== 'admin' || !assignedAdmin.isActive) {
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid admin assignment'
+        });
+      }
+      createdBy = req.body.assignedTo;
+    }
+
     const userData = {
       ...req.body,
       email: req.body.email.toLowerCase(),
-      createdBy: req.user._id
+      createdBy: createdBy
     };
 
     const user = await User.create(userData);
@@ -243,6 +325,14 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'superAdmin'), [
         return res.status(403).json({
           success: false,
           message: 'You can only update field agents and auditors'
+        });
+      }
+    } else if (req.user.role === 'superAdmin') {
+      // Super admin can update admins, field agents, and auditors
+      if (req.body.role && !['admin', 'fieldAgent', 'auditor'].includes(req.body.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Invalid role for super admin to update'
         });
       }
     }
@@ -322,6 +412,15 @@ router.delete('/:id', authenticateToken, authorizeRole('admin', 'superAdmin'), a
       });
     }
 
+    // If deleting an admin, also delete all associated users (field agents and auditors)
+    if (user.role === 'admin') {
+      const associatedUsers = await User.find({ createdBy: user._id });
+      for (const associatedUser of associatedUsers) {
+        associatedUser.isActive = false;
+        await associatedUser.save();
+      }
+    }
+
     user.isActive = false;
     await user.save();
 
@@ -367,16 +466,132 @@ router.get('/field-agents/list', authenticateToken, authorizeRole('admin', 'supe
   }
 });
 
+// @desc    Get users by admin (hierarchy view)
+// @route   GET /api/users/by-admin/:adminId
+// @access  Private (Admin, SuperAdmin)
+router.get('/by-admin/:adminId', authenticateToken, authorizeRole('admin', 'superAdmin'), async (req, res) => {
+  try {
+    const adminId = req.params.adminId;
+    
+    // Check if admin exists
+    const admin = await User.findById(adminId);
+    if (!admin) {
+      return res.status(404).json({
+        success: false,
+        message: 'Admin not found'
+      });
+    }
+
+    // Check access permissions
+    if (req.user.role === 'admin' && adminId !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    // Get field agents and auditors created by this admin
+    const [fieldAgents, auditors] = await Promise.all([
+      User.find({ createdBy: adminId, role: 'fieldAgent' })
+        .select('name email phone location isActive createdAt')
+        .sort({ name: 1 }),
+      User.find({ createdBy: adminId, role: 'auditor' })
+        .select('name email phone location isActive createdAt')
+        .sort({ name: 1 })
+    ]);
+
+    res.json({
+      success: true,
+      data: {
+        admin: {
+          _id: admin._id,
+          name: admin.name,
+          email: admin.email,
+          location: admin.location,
+          isActive: admin.isActive
+        },
+        fieldAgents,
+        auditors
+      }
+    });
+  } catch (error) {
+    console.error('Get users by admin error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// @desc    Update user password
+// @route   PUT /api/users/:id/password
+// @access  Private (Admin, SuperAdmin)
+router.put('/:id/password', authenticateToken, authorizeRole('admin', 'superAdmin'), [
+  body('newPassword').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+], async (req, res) => {
+  try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation error',
+        errors: errors.array()
+      });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Check access permissions
+    if (req.user.role === 'admin' && user.createdBy?.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied'
+      });
+    }
+
+    // Update password
+    user.password = req.body.newPassword;
+    await user.save();
+
+    res.json({
+      success: true,
+      message: 'Password updated successfully'
+    });
+  } catch (error) {
+    console.error('Update password error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
 // @desc    Get user statistics
 // @route   GET /api/users/stats/overview
-// @access  Private (Admin, SuperAdmin)
-router.get('/stats/overview', authenticateToken, authorizeRole('admin', 'superAdmin'), async (req, res) => {
+// @access  Private (Admin, SuperAdmin, Auditor)
+router.get('/stats/overview', authenticateToken, authorizeRole('admin', 'superAdmin', 'auditor'), async (req, res) => {
   try {
     let filter = { isActive: true };
 
     // Role-based filtering
     if (req.user.role === 'admin') {
       filter.createdBy = req.user._id;
+    } else if (req.user.role === 'auditor') {
+      // Auditor can only see field agents under their admin
+      if (!req.user.createdBy) {
+        return res.status(403).json({
+          success: false,
+          message: 'Auditor not properly assigned to an admin. Please contact your administrator.'
+        });
+      }
+      filter.createdBy = req.user.createdBy;
+      filter.role = 'fieldAgent';
     }
 
     const [

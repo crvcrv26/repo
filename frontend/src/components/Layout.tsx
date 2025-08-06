@@ -11,20 +11,44 @@ import {
   UserCircleIcon,
   Bars3Icon,
   XMarkIcon,
+  DocumentArrowUpIcon,
+  MagnifyingGlassIcon,
 } from '@heroicons/react/24/outline'
 
 interface LayoutProps {
   children: React.ReactNode
 }
 
-const navigation = [
-  { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'Users', href: '/users', icon: UsersIcon },
-  { name: 'Vehicles', href: '/vehicles', icon: TruckIcon },
-  { name: 'Tasks', href: '/tasks', icon: ClipboardDocumentListIcon },
-  { name: 'Proofs', href: '/proofs', icon: PhotoIcon },
-  { name: 'Upload', href: '/upload', icon: ArrowUpTrayIcon },
-]
+const getNavigation = (userRole?: string) => {
+  const baseNavigation = [
+    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
+  ]
+
+  // Add role-specific navigation items
+  if (userRole === 'superAdmin' || userRole === 'admin') {
+    baseNavigation.push({ name: 'Users', href: '/users', icon: UsersIcon })
+    baseNavigation.push({ name: 'Excel Files', href: '/excel-files', icon: DocumentArrowUpIcon })
+  }
+
+  if (userRole === 'auditor') {
+    baseNavigation.push({ name: 'Field Agents', href: '/users', icon: UsersIcon })
+  }
+
+  // Add common navigation items
+  baseNavigation.push(
+    { name: 'Vehicles', href: '/vehicles', icon: TruckIcon },
+    { name: 'Vehicle Search', href: '/vehicle-search', icon: MagnifyingGlassIcon },
+    { name: 'Tasks', href: '/tasks', icon: ClipboardDocumentListIcon },
+    { name: 'Proofs', href: '/proofs', icon: PhotoIcon }
+  )
+
+  // Only show upload for super admin and admin
+  if (userRole === 'superAdmin' || userRole === 'admin') {
+    baseNavigation.push({ name: 'Upload', href: '/upload', icon: ArrowUpTrayIcon })
+  }
+
+  return baseNavigation
+}
 
 export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -53,7 +77,7 @@ export default function Layout({ children }: LayoutProps) {
             </button>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">
-            {navigation.map((item) => {
+            {getNavigation(user?.role).map((item: any) => {
               const isActive = location.pathname === item.href
               return (
                 <Link
@@ -80,7 +104,7 @@ export default function Layout({ children }: LayoutProps) {
             <h1 className="text-xl font-semibold text-gray-900">Repo App</h1>
           </div>
           <nav className="flex-1 space-y-1 px-2 py-4">
-            {navigation.map((item) => {
+            {getNavigation(user?.role).map((item: any) => {
               const isActive = location.pathname === item.href
               return (
                 <Link
