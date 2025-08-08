@@ -706,6 +706,7 @@ router.get('/vehicles',
           pipeline: [
             {
               $project: {
+                filename: 1,
                 originalName: 1,
                 uploadedBy: 1,
                 assignedTo: 1,

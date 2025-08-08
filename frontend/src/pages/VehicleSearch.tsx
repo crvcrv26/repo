@@ -30,7 +30,7 @@ export default function VehicleSearch() {
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
 
-  // Fetch Excel vehicles for search - only when hasSearched is true
+  // Fetch Excel vehicles for search - automatically when search term has 4+ characters
   const { data: vehiclesData, isLoading: vehiclesLoading } = useQuery({
     queryKey: ['excel-vehicles', { vehicleSearch, searchType, vehicleFilters, vehiclePage }],
     queryFn: () => excelAPI.searchVehicles({ 
@@ -40,7 +40,7 @@ export default function VehicleSearch() {
       page: vehiclePage, 
       limit: 20 
     }),
-    enabled: hasSearched, // Only run query when user has searched
+    enabled: vehicleSearch.trim().length >= 4 || Object.values(vehicleFilters).some(v => v && v.trim().length > 0), // Auto-search when 4+ chars or filters used
   })
 
   const vehicles = vehiclesData?.data?.data || []
@@ -48,7 +48,7 @@ export default function VehicleSearch() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    setHasSearched(true)
+    // Search is now automatic, just reset page
     setVehiclePage(1) // Reset to first page on new search
   }
 
@@ -64,7 +64,6 @@ export default function VehicleSearch() {
       model: ''
     })
     setVehiclePage(1)
-    setHasSearched(false)
   }
 
   const handleViewDetails = (vehicle: any) => {
@@ -218,11 +217,11 @@ export default function VehicleSearch() {
                     onChange={(e) => setVehicleSearch(e.target.value)}
                     className="input pl-10 w-full"
                   />
-                  {vehicleSearch && vehicleSearch.trim().length < 4 && (
-                    <p className="text-sm text-orange-600 mt-1">
-                      Please enter at least 4 characters to search
-                    </p>
-                  )}
+                                     {vehicleSearch && vehicleSearch.trim().length < 4 && (
+                     <p className="text-sm text-orange-600 mt-1">
+                       Enter at least 4 characters to search automatically
+                     </p>
+                   )}
                 </div>
               </div>
             </div>
@@ -320,24 +319,24 @@ export default function VehicleSearch() {
               >
                 Clear
               </button>
-              <button
-                type="submit"
-                className="btn-primary"
-                disabled={
-                  (!vehicleSearch && Object.values(vehicleFilters).every(v => !v)) ||
-                  (vehicleSearch && vehicleSearch.trim().length < 4)
-                }
-              >
-                <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
-                Search Vehicles
-              </button>
+                             <button
+                 type="submit"
+                 className="btn-primary"
+                 disabled={
+                   (!vehicleSearch && Object.values(vehicleFilters).every(v => !v)) ||
+                   (vehicleSearch && vehicleSearch.trim().length < 4)
+                 }
+               >
+                 <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
+                 Reset Page
+               </button>
             </div>
           </form>
         </div>
       </div>
 
-      {/* Results Summary */}
-      {hasSearched && vehicles.length > 0 && (
+             {/* Results Summary */}
+       {(vehicleSearch.trim().length >= 4 || Object.values(vehicleFilters).some(v => v && v.trim().length > 0)) && vehicles.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -358,15 +357,15 @@ export default function VehicleSearch() {
       {/* Vehicles List */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-6">
-          {!hasSearched ? (
-            <div className="text-center py-12">
-              <MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">Ready to search</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Enter your search criteria above to find vehicles.
-              </p>
-            </div>
-          ) : vehiclesLoading ? (
+                     {!(vehicleSearch.trim().length >= 4 || Object.values(vehicleFilters).some(v => v && v.trim().length > 0)) ? (
+             <div className="text-center py-12">
+               <MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-400" />
+               <h3 className="mt-2 text-sm font-medium text-gray-900">Ready to search</h3>
+               <p className="mt-1 text-sm text-gray-500">
+                 Enter at least 4 characters to search automatically, or use filters below.
+               </p>
+             </div>
+           ) : vehiclesLoading ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
               <p className="mt-4 text-sm text-gray-500">Searching vehicles...</p>
@@ -423,7 +422,7 @@ export default function VehicleSearch() {
       </div>
 
              {/* Vehicle Pagination */}
-       {hasSearched && vehiclePagination && vehiclePagination.pages > 1 && (
+       {(vehicleSearch.trim().length >= 4 || Object.values(vehicleFilters).some(v => v && v.trim().length > 0)) && vehiclePagination && vehiclePagination.pages > 1 && (
          <div className="flex justify-center">
            <nav className="flex items-center space-x-1 max-w-full overflow-x-auto">
              {/* Previous Page */}
@@ -520,26 +519,30 @@ export default function VehicleSearch() {
             
             <div className="max-h-96 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {/* Primary Info */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-gray-900 border-b pb-2">Primary Information</h4>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Registration Number</p>
-                    <p className="text-sm text-gray-900 font-mono">{selectedVehicle.registration_number || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Customer Name</p>
-                    <p className="text-sm text-gray-900">{selectedVehicle.customer_name || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Loan Number</p>
-                    <p className="text-sm text-gray-900 font-mono">{selectedVehicle.loan_number || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Branch</p>
-                    <p className="text-sm text-gray-900">{selectedVehicle.branch || 'N/A'}</p>
-                  </div>
-                </div>
+                                 {/* Primary Info */}
+                 <div className="space-y-3">
+                   <h4 className="font-medium text-gray-900 border-b pb-2">Primary Information</h4>
+                                       <div>
+                      <p className="text-sm font-medium text-gray-700">Excel File</p>
+                      <p className="text-sm text-gray-900 font-mono">{selectedVehicle.excelFile?.filename || selectedVehicle.excelFile?.originalName || 'N/A'}</p>
+                    </div>
+                   <div>
+                     <p className="text-sm font-medium text-gray-700">Registration Number</p>
+                     <p className="text-sm text-gray-900 font-mono">{selectedVehicle.registration_number || 'N/A'}</p>
+                   </div>
+                   <div>
+                     <p className="text-sm font-medium text-gray-700">Customer Name</p>
+                     <p className="text-sm text-gray-900">{selectedVehicle.customer_name || 'N/A'}</p>
+                   </div>
+                   <div>
+                     <p className="text-sm font-medium text-gray-700">Loan Number</p>
+                     <p className="text-sm text-gray-900 font-mono">{selectedVehicle.loan_number || 'N/A'}</p>
+                   </div>
+                   <div>
+                     <p className="text-sm font-medium text-gray-700">Branch</p>
+                     <p className="text-sm text-gray-900">{selectedVehicle.branch || 'N/A'}</p>
+                   </div>
+                 </div>
 
                 {/* Vehicle Details */}
                 <div className="space-y-3">
