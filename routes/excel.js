@@ -635,7 +635,7 @@ router.get('/vehicles',
       // Build aggregation pipeline for optimized search
       const pipeline = [];
 
-      // Improved search logic with partial matching and minimum character requirement
+      // Optimized search logic - focus on 4 key fields for better performance
       if (search && search.trim().length >= 4) {
         const searchTerm = search.trim()
         
@@ -647,19 +647,14 @@ router.get('/vehicles',
             }
           })
         } else {
-          // Search across multiple fields with partial matching
+          // Search only in the 4 most important fields for faster performance
           pipeline.push({
             $match: {
               $or: [
                 { registration_number: { $regex: searchTerm, $options: 'i' } },
-                { customer_name: { $regex: searchTerm, $options: 'i' } },
                 { loan_number: { $regex: searchTerm, $options: 'i' } },
                 { chasis_number: { $regex: searchTerm, $options: 'i' } },
-                { engine_number: { $regex: searchTerm, $options: 'i' } },
-                { make: { $regex: searchTerm, $options: 'i' } },
-                { model: { $regex: searchTerm, $options: 'i' } },
-                { branch: { $regex: searchTerm, $options: 'i' } },
-                { address: { $regex: searchTerm, $options: 'i' } }
+                { engine_number: { $regex: searchTerm, $options: 'i' } }
               ]
             }
           })
@@ -696,6 +691,11 @@ router.get('/vehicles',
         pipeline.push({ $match: { model: new RegExp(model, 'i') } });
       }
 
+      // Sort by most recent first - do this BEFORE lookup to reduce memory usage
+      pipeline.push({
+        $sort: { createdAt: -1 }
+      });
+
       // Lookup Excel file details
       pipeline.push({
         $lookup: {
@@ -725,11 +725,6 @@ router.get('/vehicles',
         }
       });
 
-      // Sort by most recent first
-      pipeline.push({
-        $sort: { createdAt: -1 }
-      });
-
       // Add facet stage for pagination
       const facetedPipeline = [
         ...pipeline,
@@ -744,10 +739,10 @@ router.get('/vehicles',
         }
       ];
 
-      // Execute aggregation
+      // Execute aggregation with disk usage allowed for large datasets
       let result;
       try {
-        [result] = await ExcelVehicle.aggregate(facetedPipeline);
+        [result] = await ExcelVehicle.aggregate(facetedPipeline, { allowDiskUse: true });
       } catch (error) {
         console.error('Aggregation error:', error);
         throw error;

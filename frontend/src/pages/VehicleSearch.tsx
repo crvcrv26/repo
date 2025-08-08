@@ -15,7 +15,7 @@ export default function VehicleSearch() {
   
   // State for vehicle search
   const [vehicleSearch, setVehicleSearch] = useState('')
-  const [searchType, setSearchType] = useState('all') // 'all', 'registration_number', 'loan_number', 'chasis_number', 'engine_number'
+  const [searchType, setSearchType] = useState('all') // 'all', 'registration_number', 'loan_number', 'chasis_number', 'engine_number' (optimized for performance)
   const [vehicleFilters, setVehicleFilters] = useState({
     registration_number: '',
     loan_number: '',
@@ -210,7 +210,7 @@ export default function VehicleSearch() {
                     type="text"
                     placeholder={
                       searchType === 'all' 
-                        ? "Search across all fields (registration, customer, loan number, etc.)..."
+                        ? "Search in registration, loan, chassis, or engine number (minimum 4 characters)..."
                         : `Search by ${searchType.replace('_', ' ')} (minimum 4 characters)...`
                     }
                     value={vehicleSearch}
