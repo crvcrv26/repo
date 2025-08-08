@@ -167,7 +167,7 @@ router.post('/vehicle/:vehicleId', authenticateToken, authorizeRole('fieldAgent'
 // @desc    Delete a proof
 // @route   DELETE /api/proofs/:proofId
 // @access  Private (SuperAdmin only)
-router.delete('/:proofId', authenticateToken, authorizeRole('superAdmin'), async (req, res) => {
+router.delete('/:proofId', authenticateToken, authorizeRole('superSuperAdmin', 'superAdmin'), async (req, res) => {
   try {
     // Find vehicle containing this proof
     const vehicle = await Vehicle.findOne({

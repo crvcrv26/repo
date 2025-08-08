@@ -76,15 +76,15 @@ const EXPECTED_HEADERS = [
 
 // @desc    Upload Excel file
 // @route   POST /api/excel/upload
-// @access  Private (SuperAdmin, Admin)
+// @access  Private (SuperSuperAdmin, SuperAdmin, Admin)
 router.post('/upload', 
   authenticateToken, 
-  authorizeRole('superAdmin', 'admin'),
+  authorizeRole('superSuperAdmin', 'superAdmin', 'admin'),
   upload.single('excelFile'),
   [
     body('assignedTo').optional().custom((value, { req }) => {
-      // SuperAdmin must assign to an admin
-      if (req.user.role === 'superAdmin' && !value) {
+      // SuperSuperAdmin and SuperAdmin must assign to an admin
+      if ((req.user.role === 'superSuperAdmin' || req.user.role === 'superAdmin') && !value) {
         throw new Error('Admin assignment is required for super admin uploads');
       }
       return true;
@@ -110,7 +110,7 @@ router.post('/upload',
 
       // Determine assigned admin
       let assignedTo = req.user._id;
-      if (req.user.role === 'superAdmin') {
+      if (req.user.role === 'superSuperAdmin' || req.user.role === 'superAdmin') {
         if (!req.body.assignedTo) {
           return res.status(400).json({
             success: false,
@@ -296,7 +296,7 @@ router.post('/upload',
 // @access  Private (SuperAdmin, Admin)
 router.get('/files',
   authenticateToken,
-  authorizeRole('superAdmin', 'admin'),
+  authorizeRole('superSuperAdmin', 'superAdmin', 'admin'),
   async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
@@ -460,7 +460,7 @@ router.get('/files',
 // @access  Private (SuperAdmin, Admin)
 router.get('/files/:id',
   authenticateToken,
-  authorizeRole('superAdmin', 'admin'),
+  authorizeRole('superSuperAdmin', 'superAdmin', 'admin'),
   async (req, res) => {
     try {
       const excelFile = await ExcelFile.findById(req.params.id)
@@ -504,7 +504,7 @@ router.get('/files/:id',
 // @access  Private (SuperAdmin, Admin)
 router.delete('/files/:id',
   authenticateToken,
-  authorizeRole('superAdmin', 'admin'),
+  authorizeRole('superSuperAdmin', 'superAdmin', 'admin'),
   async (req, res) => {
     try {
       const excelFile = await ExcelFile.findById(req.params.id);
@@ -559,7 +559,7 @@ router.delete('/files/:id',
 // @access  Private (SuperAdmin)
 router.put('/files/:id/reassign',
   authenticateToken,
-  authorizeRole('superAdmin'),
+  authorizeRole('superSuperAdmin', 'superAdmin'),
   [
     body('assignedTo').notEmpty().withMessage('Admin ID is required')
   ],
@@ -840,7 +840,7 @@ async function getExcelFileIdsForAuditor(auditorId) {
 // @access  Private (SuperAdmin, Admin)
 router.get('/template',
   authenticateToken,
-  authorizeRole('superAdmin', 'admin'),
+  authorizeRole('superSuperAdmin', 'superAdmin', 'admin'),
   async (req, res) => {
     try {
       // Create template workbook

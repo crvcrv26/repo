@@ -157,7 +157,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 // @desc    Create new vehicle
 // @route   POST /api/vehicles
 // @access  Private (Admin, SuperAdmin)
-router.post('/', authenticateToken, authorizeRole('admin', 'superAdmin'), [
+router.post('/', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin'), [
   body('vehicleNumber').notEmpty().withMessage('Vehicle number is required'),
   body('ownerName').notEmpty().withMessage('Owner name is required'),
   body('ownerPhone').matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number required'),
@@ -216,7 +216,7 @@ router.post('/', authenticateToken, authorizeRole('admin', 'superAdmin'), [
 // @desc    Update vehicle
 // @route   PUT /api/vehicles/:id
 // @access  Private (Admin, SuperAdmin)
-router.put('/:id', authenticateToken, authorizeRole('admin', 'superAdmin'), [
+router.put('/:id', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin'), [
   body('vehicleNumber').optional().notEmpty().withMessage('Vehicle number cannot be empty'),
   body('ownerName').optional().notEmpty().withMessage('Owner name cannot be empty'),
   body('ownerPhone').optional().matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number required'),
@@ -288,7 +288,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'superAdmin'), [
 // @desc    Assign vehicle to agent
 // @route   PUT /api/vehicles/:id/assign
 // @access  Private (Admin, SuperAdmin)
-router.put('/:id/assign', authenticateToken, authorizeRole('admin', 'superAdmin'), [
+router.put('/:id/assign', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin'), [
   body('assignedTo').isMongoId().withMessage('Valid agent ID required')
 ], async (req, res) => {
   try {
@@ -420,7 +420,7 @@ router.put('/:id/status', authenticateToken, [
 // @desc    Delete vehicle (soft delete)
 // @route   DELETE /api/vehicles/:id
 // @access  Private (SuperAdmin only)
-router.delete('/:id', authenticateToken, authorizeRole('superAdmin'), async (req, res) => {
+router.delete('/:id', authenticateToken, authorizeRole('superSuperAdmin', 'superAdmin'), async (req, res) => {
   try {
     const vehicle = await Vehicle.findById(req.params.id);
     if (!vehicle) {

@@ -22,7 +22,7 @@ interface User {
   _id: string
   name: string
   email: string
-  role: 'superAdmin' | 'admin' | 'fieldAgent' | 'auditor'
+  role: 'superSuperAdmin' | 'superAdmin' | 'admin' | 'fieldAgent' | 'auditor'
   isActive: boolean
   location: {
     city: string
@@ -105,6 +105,8 @@ export default function Dashboard() {
     if (!currentUser) return []
     
     switch (currentUser.role) {
+      case 'superSuperAdmin':
+        return users
       case 'superAdmin':
         return users
       case 'admin':
@@ -166,6 +168,7 @@ export default function Dashboard() {
 
   const getRoleColor = (role: string) => {
     switch (role) {
+      case 'superSuperAdmin': return 'bg-orange-100 text-orange-800'
       case 'superAdmin': return 'bg-red-100 text-red-800'
       case 'admin': return 'bg-blue-100 text-blue-800'
       case 'fieldAgent': return 'bg-green-100 text-green-800'
@@ -176,6 +179,7 @@ export default function Dashboard() {
 
   const getRoleIcon = (role: string) => {
     switch (role) {
+      case 'superSuperAdmin': return ShieldCheckIcon
       case 'superAdmin': return ShieldCheckIcon
       case 'admin': return UserIcon
       case 'fieldAgent': return UserGroupIcon
@@ -202,6 +206,7 @@ export default function Dashboard() {
               Welcome back, {currentUser.name}!
             </h1>
             <p className="text-gray-600 mt-1">
+              {currentUser.role === 'superSuperAdmin' && 'Super Super Administrator Dashboard'}
               {currentUser.role === 'superAdmin' && 'Super Administrator Dashboard'}
               {currentUser.role === 'admin' && 'Admin Dashboard'}
               {currentUser.role === 'fieldAgent' && 'Field Agent Dashboard'}
@@ -274,23 +279,23 @@ export default function Dashboard() {
       )}
 
       {/* User Management Section */}
-      {(currentUser.role === 'superAdmin' || currentUser.role === 'admin' || currentUser.role === 'auditor') && (
+      {(currentUser.role === 'superSuperAdmin' || currentUser.role === 'superAdmin' || currentUser.role === 'admin' || currentUser.role === 'auditor') && (
         <div className="bg-white rounded-lg shadow">
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-medium text-gray-900">
-                  {currentUser.role === 'superAdmin' && 'All Users'}
+                  {(currentUser.role === 'superSuperAdmin' || currentUser.role === 'superAdmin') && 'All Users'}
                   {currentUser.role === 'admin' && 'My Team'}
                   {currentUser.role === 'auditor' && 'Field Agents'}
                 </h2>
                 <p className="text-sm text-gray-500 mt-1">
-                  {currentUser.role === 'superAdmin' && 'Manage all system users'}
+                  {(currentUser.role === 'superSuperAdmin' || currentUser.role === 'superAdmin') && 'Manage all system users'}
                   {currentUser.role === 'admin' && 'Manage your field agents and auditors'}
                   {currentUser.role === 'auditor' && 'View field agents under your admin'}
                 </p>
               </div>
-              {(currentUser.role === 'superAdmin' || currentUser.role === 'admin') && (
+              {(currentUser.role === 'superSuperAdmin' || currentUser.role === 'superAdmin' || currentUser.role === 'admin') && (
                 <button
                   onClick={() => setShowCreateUserModal(true)}
                   className="btn-primary"
@@ -369,7 +374,7 @@ export default function Dashboard() {
                             <KeyIcon className="h-4 w-4" />
                           </button>
                           
-                          {currentUser.role === 'superAdmin' && (
+                          {(currentUser.role === 'superSuperAdmin' || currentUser.role === 'superAdmin') && (
                             <button
                               onClick={() => handleDeleteUser(user._id)}
                               className="text-red-600 hover:text-red-900"
@@ -391,7 +396,7 @@ export default function Dashboard() {
                 <UsersIcon className="mx-auto h-12 w-12 text-gray-400" />
                 <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
                 <p className="mt-1 text-sm text-gray-500">
-                  {currentUser.role === 'superAdmin' && 'Get started by creating a new user.'}
+                  {(currentUser.role === 'superSuperAdmin' || currentUser.role === 'superAdmin') && 'Get started by creating a new user.'}
                   {currentUser.role === 'admin' && 'Start building your team by adding field agents and auditors.'}
                   {currentUser.role === 'auditor' && 'No field agents are currently assigned to your admin.'}
                 </p>

@@ -171,7 +171,7 @@ router.get('/stats/overview', authenticateToken, async (req, res) => {
 // @desc    Get agent performance statistics
 // @route   GET /api/tasks/agent-performance
 // @access  Private (Admin, SuperAdmin)
-router.get('/agent-performance', authenticateToken, authorizeRole('admin', 'superAdmin'), async (req, res) => {
+router.get('/agent-performance', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin'), async (req, res) => {
   try {
     let agentFilter = { role: 'fieldAgent', isActive: true };
 

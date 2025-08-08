@@ -25,7 +25,7 @@ interface User {
   name: string
   email: string
   phone: string
-  role: 'superAdmin' | 'admin' | 'fieldAgent' | 'auditor'
+  role: 'superSuperAdmin' | 'superAdmin' | 'admin' | 'fieldAgent' | 'auditor'
   isActive: boolean
   location: {
     city: string
@@ -44,7 +44,7 @@ interface CreateUserForm {
   email: string
   phone: string
   password: string
-  role: 'admin' | 'fieldAgent' | 'auditor'
+  role: 'superSuperAdmin' | 'superAdmin' | 'admin' | 'fieldAgent' | 'auditor'
   assignedTo?: string // Admin ID for field agents and auditors
   location: {
     city: string
@@ -62,7 +62,7 @@ export default function Users() {
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [role, setRole] = useState('')
-  const [status, setStatus] = useState('')
+  const [status, setStatus] = useState('active') // Default to show only active users
   const [city, setCity] = useState('')
   const [page, setPage] = useState(1)
   const [showFilters, setShowFilters] = useState(false)
@@ -106,29 +106,22 @@ export default function Users() {
     cacheTime: 300000, // 5 minutes
   })
 
-  // Fetch admins for assignment (only for super admin)
+  // Fetch admins for assignment (only for super admin and super super admin)
   const { data: adminsData, isLoading: isLoadingAdmins } = useQuery({
     queryKey: ['admins'],
     queryFn: () => usersAPI.getAll({ role: 'admin', status: 'active' }),
-    enabled: currentUser?.role === 'superAdmin' && showCreateModal,
+    enabled: (currentUser?.role === 'superAdmin' || currentUser?.role === 'superSuperAdmin') && showCreateModal,
   })
 
   // Mutations
   const deleteMutation = useMutation({
-    mutationFn: (userId: string) => usersAPI.delete(userId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['users'] })
-      toast.success('User deleted successfully')
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to delete user')
-    }
+    mutationFn: (userId: string) => usersAPI.delete(userId)
   })
 
   const createMutation = useMutation({
     mutationFn: (userData: CreateUserForm) => {
-      // Only send assignedTo if super admin is creating field agent or auditor
-      if (currentUser?.role === 'superAdmin' && (userData.role === 'fieldAgent' || userData.role === 'auditor')) {
+      // Only send assignedTo if super admin or super super admin is creating field agent or auditor
+      if ((currentUser?.role === 'superAdmin' || currentUser?.role === 'superSuperAdmin') && (userData.role === 'fieldAgent' || userData.role === 'auditor')) {
         return usersAPI.create({
           ...userData,
           assignedTo: userData.assignedTo
@@ -159,15 +152,26 @@ export default function Users() {
 
   const handleDelete = (userId: string) => {
     if (window.confirm('Are you sure you want to delete this user?')) {
-      deleteMutation.mutate(userId)
+      console.log('Deleting user:', userId)
+      deleteMutation.mutate(userId, {
+        onSuccess: (data) => {
+          console.log('Delete success:', data)
+          queryClient.invalidateQueries({ queryKey: ['users'] })
+          toast.success('User deleted successfully')
+        },
+        onError: (error: any) => {
+          console.error('Delete error:', error)
+          toast.error(error.response?.data?.message || 'Failed to delete user')
+        }
+      })
     }
   }
 
   const handleCreateUser = (e: React.FormEvent) => {
     e.preventDefault()
     
-    // Validate admin assignment for field agents and auditors (only for super admin)
-    if ((createForm.role === 'fieldAgent' || createForm.role === 'auditor') && currentUser?.role === 'superAdmin') {
+    // Validate admin assignment for field agents and auditors (only for super admin and super super admin)
+    if ((createForm.role === 'fieldAgent' || createForm.role === 'auditor') && (currentUser?.role === 'superAdmin' || currentUser?.role === 'superSuperAdmin')) {
       if (!createForm.assignedTo) {
         toast.error('Please select an admin to assign this user to')
         return
@@ -208,6 +212,7 @@ export default function Users() {
 
   const getRoleColor = (role: string) => {
     switch (role) {
+      case 'superSuperAdmin': return 'bg-orange-100 text-orange-800'
       case 'superAdmin': return 'bg-red-100 text-red-800'
       case 'admin': return 'bg-blue-100 text-blue-800'
       case 'fieldAgent': return 'bg-green-100 text-green-800'
@@ -218,6 +223,7 @@ export default function Users() {
 
   const getRoleIcon = (role: string) => {
     switch (role) {
+      case 'superSuperAdmin': return ShieldCheckIcon
       case 'superAdmin': return ShieldCheckIcon
       case 'admin': return UserIcon
       case 'fieldAgent': return UserGroupIcon
@@ -226,17 +232,37 @@ export default function Users() {
     }
   }
 
-  const canManageUsers = currentUser?.role === 'admin' || currentUser?.role === 'superAdmin'
-  const canDelete = currentUser?.role === 'superAdmin'
-  const canCreateAdmins = currentUser?.role === 'superAdmin'
+  const canManageUsers = currentUser?.role === 'admin' || currentUser?.role === 'superAdmin' || currentUser?.role === 'superSuperAdmin'
+  // Admin can delete their own field agents and auditors, super admins can delete anyone
+  const canDelete = (user: User) => {
+    if (currentUser?.role === 'superAdmin' || currentUser?.role === 'superSuperAdmin') {
+      return true // Can delete anyone
+    }
+    if (currentUser?.role === 'admin') {
+      // Can only delete field agents and auditors they created
+      return (user.role === 'fieldAgent' || user.role === 'auditor') && 
+             user.createdBy && user.createdBy._id === currentUser._id
+    }
+    return false
+  }
+  const canCreateAdmins = currentUser?.role === 'superAdmin' || currentUser?.role === 'superSuperAdmin'
 
   // Filter users based on current user role
   const getFilteredUsers = () => {
-    if (!currentUser) return { superAdmins: [], adminUsers: [], fieldAgents: [], auditors: [] }
+    if (!currentUser) return { superSuperAdmins: [], superAdmins: [], adminUsers: [], fieldAgents: [], auditors: [] }
     
     switch (currentUser.role) {
+      case 'superSuperAdmin':
+        return {
+          superSuperAdmins: users.filter((user: User) => user.role === 'superSuperAdmin'),
+          superAdmins: users.filter((user: User) => user.role === 'superAdmin'),
+          adminUsers: users.filter((user: User) => user.role === 'admin'),
+          fieldAgents: users.filter((user: User) => user.role === 'fieldAgent'),
+          auditors: users.filter((user: User) => user.role === 'auditor')
+        }
       case 'superAdmin':
         return {
+          superSuperAdmins: [],
           superAdmins: users.filter((user: User) => user.role === 'superAdmin'),
           adminUsers: users.filter((user: User) => user.role === 'admin'),
           fieldAgents: users.filter((user: User) => user.role === 'fieldAgent'),
@@ -244,6 +270,7 @@ export default function Users() {
         }
       case 'admin':
         return {
+          superSuperAdmins: [],
           superAdmins: [],
           adminUsers: [],
           fieldAgents: users.filter((user: User) => user.role === 'fieldAgent' && user.createdBy && user.createdBy._id === currentUser._id),
@@ -251,17 +278,18 @@ export default function Users() {
         }
       case 'auditor':
         return {
+          superSuperAdmins: [],
           superAdmins: [],
           adminUsers: [],
           fieldAgents: users.filter((user: User) => user.role === 'fieldAgent'),
           auditors: []
         }
       default:
-        return { superAdmins: [], adminUsers: [], fieldAgents: [], auditors: [] }
+        return { superSuperAdmins: [], superAdmins: [], adminUsers: [], fieldAgents: [], auditors: [] }
     }
   }
 
-  const { superAdmins, adminUsers, fieldAgents, auditors } = getFilteredUsers()
+  const { superSuperAdmins, superAdmins, adminUsers, fieldAgents, auditors } = getFilteredUsers()
 
   // Group field agents and auditors by their admin
   const getUsersByAdmin = (adminId: string) => {
@@ -303,6 +331,15 @@ export default function Users() {
             }`}>
               {user.isActive ? 'Active' : 'Inactive'}
             </span>
+            {canDelete(user) && (
+              <button
+                onClick={() => handleDelete(user._id)}
+                className="text-red-600 hover:text-red-800 p-1"
+                title="Delete user"
+              >
+                <TrashIcon className="h-4 w-4" />
+              </button>
+            )}
           </div>
         </div>
       )
@@ -331,6 +368,15 @@ export default function Users() {
           }`}>
             {user.isActive ? 'Active' : 'Inactive'}
           </span>
+          {canDelete(user) && (
+            <button
+              onClick={() => handleDelete(user._id)}
+              className="text-red-600 hover:text-red-800 p-1"
+              title="Delete user"
+            >
+              <TrashIcon className="h-5 w-5" />
+            </button>
+          )}
         </div>
       </div>
     )
@@ -415,6 +461,7 @@ export default function Users() {
                   className="input"
                 >
                   <option value="">All Roles</option>
+                  <option value="superSuperAdmin">Super Super Admin</option>
                   <option value="superAdmin">Super Admin</option>
                   <option value="admin">Admin</option>
                   <option value="fieldAgent">Field Agent</option>
@@ -454,16 +501,31 @@ export default function Users() {
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-4 border-b border-gray-200">
           <h3 className="text-lg font-medium text-gray-900">
-            {currentUser?.role === 'superAdmin' && 'All Users'}
+            {(currentUser?.role === 'superAdmin' || currentUser?.role === 'superSuperAdmin') && 'All Users'}
             {currentUser?.role === 'admin' && 'My Team'}
             {currentUser?.role === 'auditor' && 'Field Agents'}
           </h3>
         </div>
         
         <div className="divide-y divide-gray-200">
-          {/* Super Admin View - Show all users */}
-          {currentUser?.role === 'superAdmin' && (
+          {/* Super Admin and Super Super Admin View - Show all users */}
+          {(currentUser?.role === 'superAdmin' || currentUser?.role === 'superSuperAdmin') && (
             <>
+              {/* Super Super Admins */}
+              {superSuperAdmins.length > 0 && (
+                <div className="p-4">
+                  <h4 className="text-md font-medium text-gray-900 mb-3 flex items-center">
+                    <ShieldCheckIcon className="h-5 w-5 mr-2 text-orange-600" />
+                    Super Super Admins ({superSuperAdmins.length})
+                  </h4>
+                  <div className="space-y-2">
+                    {superSuperAdmins.map((user: User) => (
+                      <UserCard key={user._id} user={user} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Super Admins */}
               {superAdmins.length > 0 && (
                 <div className="p-4">
@@ -747,6 +809,8 @@ export default function Users() {
                     }}
                     className="input w-full"
                   >
+                    {currentUser?.role === 'superSuperAdmin' && <option value="superSuperAdmin">Super Super Admin</option>}
+                    {currentUser?.role === 'superSuperAdmin' && <option value="superAdmin">Super Admin</option>}
                     {canCreateAdmins && <option value="admin">Admin</option>}
                     <option value="fieldAgent">Field Agent</option>
                     <option value="auditor">Auditor</option>
@@ -754,7 +818,7 @@ export default function Users() {
                 </div>
 
                 {/* Admin Assignment for Field Agents and Auditors */}
-                {(createForm.role === 'fieldAgent' || createForm.role === 'auditor') && currentUser?.role === 'superAdmin' && (
+                {(createForm.role === 'fieldAgent' || createForm.role === 'auditor') && (currentUser?.role === 'superAdmin' || currentUser?.role === 'superSuperAdmin') && (
                   <div>
                     {admins.length > 0 ? (
                       <>

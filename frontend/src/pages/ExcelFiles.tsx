@@ -81,7 +81,7 @@ export default function ExcelFiles() {
   const { data: adminsData, error: adminsError, isLoading: adminsLoading } = useQuery({
     queryKey: ['admins'],
     queryFn: () => usersAPI.getAdmins(),
-    enabled: currentUser?.role === 'superAdmin',
+    enabled: currentUser?.role === 'superSuperAdmin' || currentUser?.role === 'superAdmin',
     retry: 1,
     onError: (error) => {
       console.error('Failed to fetch admins:', error)
@@ -165,7 +165,7 @@ export default function ExcelFiles() {
     }
 
     // Validate admin assignment for super admin
-    if (currentUser?.role === 'superAdmin' && !uploadForm.assignedTo) {
+    if ((currentUser?.role === 'superSuperAdmin' || currentUser?.role === 'superAdmin') && !uploadForm.assignedTo) {
       toast.error('Please select an admin to assign this file to')
       return
     }
@@ -196,7 +196,7 @@ export default function ExcelFiles() {
       const formData = new FormData()
       formData.append('excelFile', uploadForm.file)
       
-      if (currentUser?.role === 'superAdmin' && uploadForm.assignedTo) {
+      if ((currentUser?.role === 'superSuperAdmin' || currentUser?.role === 'superAdmin') && uploadForm.assignedTo) {
         formData.append('assignedTo', uploadForm.assignedTo)
       }
 
@@ -329,7 +329,7 @@ export default function ExcelFiles() {
             <DocumentArrowDownIcon className="h-5 w-5" />
             Download Template
           </button>
-          {(currentUser?.role === 'superAdmin' || currentUser?.role === 'admin') && (
+          {(currentUser?.role === 'superSuperAdmin' || currentUser?.role === 'superAdmin' || currentUser?.role === 'admin') && (
             <button 
               className="btn-primary"
               onClick={() => setShowUploadModal(true)}
@@ -402,7 +402,7 @@ export default function ExcelFiles() {
               <p className="mt-1 text-sm text-gray-500">
                 Get started by uploading an Excel file.
               </p>
-              {(currentUser?.role === 'superAdmin' || currentUser?.role === 'admin') && (
+              {(currentUser?.role === 'superSuperAdmin' || currentUser?.role === 'superAdmin' || currentUser?.role === 'admin') && (
                 <div className="mt-6">
                   <button
                     type="button"
@@ -542,7 +542,7 @@ export default function ExcelFiles() {
                   </p>
                 </div>
 
-                                 {currentUser?.role === 'superAdmin' && (
+                                 {(currentUser?.role === 'superSuperAdmin' || currentUser?.role === 'superAdmin') && (
                    <div>
                      <label className="block text-sm font-medium text-gray-700 mb-2">
                        Assign to Admin

@@ -86,7 +86,7 @@ export default function Upload() {
     multiple: false
   })
 
-  const canUpload = user?.role === 'admin' || user?.role === 'superAdmin'
+  const canUpload = user?.role === 'admin' || user?.role === 'superAdmin' || user?.role === 'superSuperAdmin'
 
   if (!canUpload) {
     return (

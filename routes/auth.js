@@ -14,7 +14,7 @@ router.post('/register', [
   body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
   body('phone').matches(/^[0-9]{10}$/).withMessage('Please provide a valid 10-digit phone number'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('role').isIn(['superAdmin', 'admin', 'fieldAgent', 'auditor']).withMessage('Invalid role'),
+  body('role').isIn(['superSuperAdmin', 'superAdmin', 'admin', 'fieldAgent', 'auditor']).withMessage('Invalid role'),
   body('location.city').trim().notEmpty().withMessage('City is required'),
   body('location.state').trim().notEmpty().withMessage('State is required')
 ], async (req, res) => {
@@ -138,7 +138,7 @@ router.post('/login', [
       });
     }
 
-    // For superAdmin and admin - direct login
+    // For superSuperAdmin, superAdmin and admin - direct login
     // Update last login
     user.lastLogin = new Date();
     user.loginHistory.push({
@@ -322,7 +322,7 @@ router.post('/logout', authenticateToken, async (req, res) => {
 // @desc    Forgot password (Admin only - No email functionality)
 // @route   POST /api/auth/forgot-password
 // @access  Private (Admin only)
-router.post('/forgot-password', authenticateToken, authorizeRole('superAdmin', 'admin'), [
+router.post('/forgot-password', authenticateToken, authorizeRole('superSuperAdmin', 'superAdmin', 'admin'), [
   body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
   body('newPassword').isLength({ min: 6 }).withMessage('New password must be at least 6 characters')
 ], async (req, res) => {

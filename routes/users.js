@@ -2,6 +2,9 @@ const express = require('express');
 const { body, validationResult, query } = require('express-validator');
 const User = require('../models/User');
 const Vehicle = require('../models/Vehicle');
+const ExcelFile = require('../models/ExcelFile');
+const ExcelVehicle = require('../models/ExcelVehicle');
+const fs = require('fs').promises;
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -9,10 +12,10 @@ const router = express.Router();
 // @desc    Get all users with role-based filtering
 // @route   GET /api/users
 // @access  Private (Admin, SuperAdmin, Auditor)
-router.get('/', authenticateToken, authorizeRole('admin', 'superAdmin', 'auditor'), [
+router.get('/', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin', 'auditor'), [
   query('role').optional().custom((value) => {
     if (value === '') return true; // Allow empty string
-    return ['superAdmin', 'admin', 'fieldAgent', 'auditor'].includes(value);
+    return ['superSuperAdmin', 'superAdmin', 'admin', 'fieldAgent', 'auditor'].includes(value);
   }),
   query('city').optional().isString(),
   query('status').optional().custom((value) => {
@@ -133,7 +136,7 @@ router.get('/', authenticateToken, authorizeRole('admin', 'superAdmin', 'auditor
 // @desc    Get user by ID
 // @route   GET /api/users/:id
 // @access  Private (Admin, SuperAdmin)
-router.get('/:id', authenticateToken, authorizeRole('admin', 'superAdmin'), async (req, res) => {
+router.get('/:id', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin'), async (req, res) => {
   try {
     const user = await User.findById(req.params.id)
       .populate('createdBy', 'name email')
@@ -170,12 +173,12 @@ router.get('/:id', authenticateToken, authorizeRole('admin', 'superAdmin'), asyn
 // @desc    Create new user
 // @route   POST /api/users
 // @access  Private (Admin, SuperAdmin)
-router.post('/', authenticateToken, authorizeRole('admin', 'superAdmin'), [
+router.post('/', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin'), [
   body('name').notEmpty().withMessage('Name is required'),
   body('email').isEmail().normalizeEmail().withMessage('Valid email required'),
   body('phone').matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number required'),
   body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
-  body('role').isIn(['admin', 'fieldAgent', 'auditor']).withMessage('Valid role required'),
+  body('role').isIn(['superSuperAdmin', 'admin', 'fieldAgent', 'auditor']).withMessage('Valid role required'),
   body('assignedTo').optional().custom((value, { req }) => {
     // Only validate assignedTo if user is superAdmin and creating field agent or auditor
     if (req.user.role === 'superAdmin' && (req.body.role === 'fieldAgent' || req.body.role === 'auditor')) {
@@ -205,7 +208,7 @@ router.post('/', authenticateToken, authorizeRole('admin', 'superAdmin'), [
 
     // Check role permissions
     if (req.user.role === 'admin') {
-      if (req.body.role === 'superAdmin' || req.body.role === 'admin') {
+      if (req.body.role === 'superSuperAdmin' || req.body.role === 'superAdmin' || req.body.role === 'admin') {
         return res.status(403).json({
           success: false,
           message: 'You can only create field agents and auditors'
@@ -217,6 +220,14 @@ router.post('/', authenticateToken, authorizeRole('admin', 'superAdmin'), [
         return res.status(403).json({
           success: false,
           message: 'Invalid role for super admin to create'
+        });
+      }
+    } else if (req.user.role === 'superSuperAdmin') {
+      // Super super admin can create super admins, admins, field agents, and auditors
+      if (!['superAdmin', 'admin', 'fieldAgent', 'auditor'].includes(req.body.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Invalid role for super super admin to create'
         });
       }
     }
@@ -243,8 +254,8 @@ router.post('/', authenticateToken, authorizeRole('admin', 'superAdmin'), [
     if (req.user.role === 'admin' && (req.body.role === 'fieldAgent' || req.body.role === 'auditor')) {
       createdBy = req.user._id; // Admin creates users under themselves
     }
-    // If assignedTo is provided and user is super admin, assign to that admin
-    else if (req.body.assignedTo && req.user.role === 'superAdmin') {
+    // If assignedTo is provided and user is super admin or super super admin, assign to that admin
+    else if (req.body.assignedTo && (req.user.role === 'superAdmin' || req.user.role === 'superSuperAdmin')) {
       // Verify the assigned admin exists and is active
       const assignedAdmin = await User.findById(req.body.assignedTo);
       if (!assignedAdmin || assignedAdmin.role !== 'admin' || !assignedAdmin.isActive) {
@@ -285,11 +296,11 @@ router.post('/', authenticateToken, authorizeRole('admin', 'superAdmin'), [
 // @desc    Update user
 // @route   PUT /api/users/:id
 // @access  Private (Admin, SuperAdmin)
-router.put('/:id', authenticateToken, authorizeRole('admin', 'superAdmin'), [
+router.put('/:id', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin'), [
   body('name').optional().notEmpty().withMessage('Name cannot be empty'),
   body('email').optional().isEmail().normalizeEmail().withMessage('Valid email required'),
   body('phone').optional().matches(/^[0-9]{10}$/).withMessage('Valid 10-digit phone number required'),
-  body('role').optional().isIn(['admin', 'fieldAgent', 'auditor']).withMessage('Valid role required'),
+  body('role').optional().isIn(['superSuperAdmin', 'admin', 'fieldAgent', 'auditor']).withMessage('Valid role required'),
   body('location.city').optional().notEmpty().withMessage('City cannot be empty'),
   body('location.state').optional().notEmpty().withMessage('State cannot be empty')
 ], async (req, res) => {
@@ -321,7 +332,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'superAdmin'), [
 
     // Check role permissions
     if (req.user.role === 'admin') {
-      if (req.body.role === 'superAdmin' || req.body.role === 'admin') {
+      if (req.body.role === 'superSuperAdmin' || req.body.role === 'superAdmin' || req.body.role === 'admin') {
         return res.status(403).json({
           success: false,
           message: 'You can only update field agents and auditors'
@@ -333,6 +344,14 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'superAdmin'), [
         return res.status(403).json({
           success: false,
           message: 'Invalid role for super admin to update'
+        });
+      }
+    } else if (req.user.role === 'superSuperAdmin') {
+      // Super super admin can update super admins, admins, field agents, and auditors
+      if (req.body.role && !['superAdmin', 'admin', 'fieldAgent', 'auditor'].includes(req.body.role)) {
+        return res.status(403).json({
+          success: false,
+          message: 'Invalid role for super super admin to update'
         });
       }
     }
@@ -385,7 +404,7 @@ router.put('/:id', authenticateToken, authorizeRole('admin', 'superAdmin'), [
 // @desc    Delete user (soft delete)
 // @route   DELETE /api/users/:id
 // @access  Private (Admin, SuperAdmin)
-router.delete('/:id', authenticateToken, authorizeRole('admin', 'superAdmin'), async (req, res) => {
+router.delete('/:id', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin'), async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) {
@@ -419,6 +438,37 @@ router.delete('/:id', authenticateToken, authorizeRole('admin', 'superAdmin'), a
         associatedUser.isActive = false;
         await associatedUser.save();
       }
+
+      // Delete all Excel files associated with this admin (both uploaded and assigned)
+      const excelFiles = await ExcelFile.find({
+        $or: [
+          { uploadedBy: user._id },
+          { assignedTo: user._id }
+        ]
+      });
+
+      for (const excelFile of excelFiles) {
+        try {
+          // Delete all related vehicle data
+          await ExcelVehicle.deleteMany({ excel_file: excelFile._id });
+
+          // Delete physical file
+          try {
+            await fs.unlink(excelFile.filePath);
+          } catch (unlinkError) {
+            console.error('Error deleting physical file:', unlinkError);
+            // Continue with deletion even if physical file deletion fails
+          }
+
+          // Delete ExcelFile record
+          await ExcelFile.findByIdAndDelete(excelFile._id);
+        } catch (excelError) {
+          console.error('Error deleting Excel file:', excelError);
+          // Continue with other deletions even if one fails
+        }
+      }
+
+      console.log(`Deleted ${excelFiles.length} Excel files associated with admin ${user._id}`);
     }
 
     user.isActive = false;
@@ -426,7 +476,9 @@ router.delete('/:id', authenticateToken, authorizeRole('admin', 'superAdmin'), a
 
     res.json({
       success: true,
-      message: 'User deleted successfully'
+      message: user.role === 'admin' 
+        ? 'Admin and all associated users and Excel files deleted successfully'
+        : 'User deleted successfully'
     });
   } catch (error) {
     console.error('Delete user error:', error);
@@ -440,7 +492,7 @@ router.delete('/:id', authenticateToken, authorizeRole('admin', 'superAdmin'), a
 // @desc    Get field agents list (for assignment)
 // @route   GET /api/users/field-agents/list
 // @access  Private (Admin, SuperAdmin)
-router.get('/field-agents/list', authenticateToken, authorizeRole('admin', 'superAdmin'), async (req, res) => {
+router.get('/field-agents/list', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin'), async (req, res) => {
   try {
     let filter = { role: 'fieldAgent', isActive: true };
 
@@ -469,7 +521,7 @@ router.get('/field-agents/list', authenticateToken, authorizeRole('admin', 'supe
 // @desc    Get users by admin (hierarchy view)
 // @route   GET /api/users/by-admin/:adminId
 // @access  Private (Admin, SuperAdmin)
-router.get('/by-admin/:adminId', authenticateToken, authorizeRole('admin', 'superAdmin'), async (req, res) => {
+router.get('/by-admin/:adminId', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin'), async (req, res) => {
   try {
     const adminId = req.params.adminId;
     
@@ -526,7 +578,7 @@ router.get('/by-admin/:adminId', authenticateToken, authorizeRole('admin', 'supe
 // @desc    Update user password
 // @route   PUT /api/users/:id/password
 // @access  Private (Admin, SuperAdmin)
-router.put('/:id/password', authenticateToken, authorizeRole('admin', 'superAdmin'), [
+router.put('/:id/password', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin'), [
   body('newPassword').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
 ], async (req, res) => {
   try {
@@ -575,7 +627,7 @@ router.put('/:id/password', authenticateToken, authorizeRole('admin', 'superAdmi
 // @desc    Get user statistics
 // @route   GET /api/users/stats/overview
 // @access  Private (Admin, SuperAdmin, Auditor)
-router.get('/stats/overview', authenticateToken, authorizeRole('admin', 'superAdmin', 'auditor'), async (req, res) => {
+router.get('/stats/overview', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin', 'auditor'), async (req, res) => {
   try {
     let filter = { isActive: true };
 
@@ -626,6 +678,31 @@ router.get('/stats/overview', authenticateToken, authorizeRole('admin', 'superAd
     });
   } catch (error) {
     console.error('Get user stats error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
+    });
+  }
+});
+
+// @desc    Get list of admin users
+// @route   GET /api/users/admins/list
+// @access  Private (SuperSuperAdmin, SuperAdmin)
+router.get('/admins/list', authenticateToken, authorizeRole('superSuperAdmin', 'superAdmin'), async (req, res) => {
+  try {
+    const admins = await User.find({ 
+      role: 'admin', 
+      isActive: true 
+    })
+    .select('_id name email phone location')
+    .sort({ name: 1 });
+
+    res.json({
+      success: true,
+      data: admins
+    });
+  } catch (error) {
+    console.error('Get admins list error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error'

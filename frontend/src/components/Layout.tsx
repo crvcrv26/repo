@@ -26,7 +26,7 @@ const getNavigation = (userRole?: string) => {
   ]
 
   // Add role-specific navigation items
-  if (userRole === 'superAdmin' || userRole === 'admin') {
+  if (userRole === 'superSuperAdmin' || userRole === 'superAdmin' || userRole === 'admin') {
     baseNavigation.push({ name: 'Users', href: '/users', icon: UsersIcon })
     baseNavigation.push({ name: 'Excel Files', href: '/excel-files', icon: DocumentArrowUpIcon })
   }
@@ -48,8 +48,8 @@ const getNavigation = (userRole?: string) => {
     { name: 'Proofs', href: '/proofs', icon: PhotoIcon }
   )
 
-  // Only show upload for super admin and admin
-  if (userRole === 'superAdmin' || userRole === 'admin') {
+  // Only show upload for super super admin, super admin and admin
+  if (userRole === 'superSuperAdmin' || userRole === 'superAdmin' || userRole === 'admin') {
     baseNavigation.push({ name: 'Upload', href: '/upload', icon: ArrowUpTrayIcon })
   }
 

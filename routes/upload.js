@@ -120,7 +120,7 @@ router.post('/files', authenticateToken, upload.array('files', 10), async (req, 
 // @desc    Bulk upload vehicles via Excel
 // @route   POST /api/upload/bulk-vehicles
 // @access  Private (Admin, SuperAdmin)
-router.post('/bulk-vehicles', authenticateToken, authorizeRole('admin', 'superAdmin'), upload.single('file'), [
+router.post('/bulk-vehicles', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin'), upload.single('file'), [
   body('skipFirstRow').optional().isBoolean().withMessage('skipFirstRow must be a boolean')
 ], async (req, res) => {
   try {
@@ -328,7 +328,7 @@ router.post('/bulk-vehicles', authenticateToken, authorizeRole('admin', 'superAd
 // @desc    Download Excel template
 // @route   GET /api/upload/template
 // @access  Private (Admin, SuperAdmin)
-router.get('/template', authenticateToken, authorizeRole('admin', 'superAdmin'), async (req, res) => {
+router.get('/template', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin'), async (req, res) => {
   try {
     // Create template data
     const templateData = [

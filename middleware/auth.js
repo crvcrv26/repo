@@ -85,8 +85,8 @@ const authorizeResource = (resourceType) => {
       const userId = req.user._id;
       const resourceId = req.params.id;
 
-      // Super admin and admin can access all resources
-      if (['superAdmin', 'admin'].includes(req.user.role)) {
+      // Super super admin, super admin and admin can access all resources
+      if (['superSuperAdmin', 'superAdmin', 'admin'].includes(req.user.role)) {
         return next();
       }
 

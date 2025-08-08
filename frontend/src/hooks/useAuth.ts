@@ -6,7 +6,7 @@ interface User {
   name: string
   email: string
   phone: string
-  role: 'superAdmin' | 'admin' | 'fieldAgent' | 'auditor'
+  role: 'superSuperAdmin' | 'superAdmin' | 'admin' | 'fieldAgent' | 'auditor'
   location: {
     city: string
     state: string
