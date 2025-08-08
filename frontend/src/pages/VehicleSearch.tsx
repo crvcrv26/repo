@@ -15,6 +15,7 @@ export default function VehicleSearch() {
   
   // State for vehicle search
   const [vehicleSearch, setVehicleSearch] = useState('')
+  const [searchType, setSearchType] = useState('all') // 'all', 'registration_number', 'loan_number', 'chasis_number', 'engine_number'
   const [vehicleFilters, setVehicleFilters] = useState({
     registration_number: '',
     loan_number: '',
@@ -31,9 +32,10 @@ export default function VehicleSearch() {
 
   // Fetch Excel vehicles for search - only when hasSearched is true
   const { data: vehiclesData, isLoading: vehiclesLoading } = useQuery({
-    queryKey: ['excel-vehicles', { vehicleSearch, vehicleFilters, vehiclePage }],
+    queryKey: ['excel-vehicles', { vehicleSearch, searchType, vehicleFilters, vehiclePage }],
     queryFn: () => excelAPI.searchVehicles({ 
-      search: vehicleSearch, 
+      search: vehicleSearch,
+      searchType: searchType,
       ...vehicleFilters, 
       page: vehiclePage, 
       limit: 20 
@@ -52,6 +54,7 @@ export default function VehicleSearch() {
 
   const handleClearSearch = () => {
     setVehicleSearch('')
+    setSearchType('all')
     setVehicleFilters({
       registration_number: '',
       loan_number: '',
@@ -183,15 +186,44 @@ export default function VehicleSearch() {
             {/* Main Search */}
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">Quick Search</label>
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search across all fields (registration, customer, loan number, etc.)..."
-                  value={vehicleSearch}
-                  onChange={(e) => setVehicleSearch(e.target.value)}
-                  className="input pl-10 w-full"
-                />
+              <div className="flex space-x-3">
+                {/* Search Type Dropdown - Only for super admin and admin */}
+                {(currentUser?.role === 'superAdmin' || currentUser?.role === 'superSuperAdmin' || currentUser?.role === 'admin') && (
+                  <div className="w-48">
+                    <select
+                      value={searchType}
+                      onChange={(e) => setSearchType(e.target.value)}
+                      className="input"
+                    >
+                      <option value="all">Search All Fields</option>
+                      <option value="registration_number">Registration Number</option>
+                      <option value="loan_number">Loan Number</option>
+                      <option value="chasis_number">Chassis Number</option>
+                      <option value="engine_number">Engine Number</option>
+                    </select>
+                  </div>
+                )}
+                
+                {/* Search Input */}
+                <div className="flex-1 relative">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder={
+                      searchType === 'all' 
+                        ? "Search across all fields (registration, customer, loan number, etc.)..."
+                        : `Search by ${searchType.replace('_', ' ')} (minimum 4 characters)...`
+                    }
+                    value={vehicleSearch}
+                    onChange={(e) => setVehicleSearch(e.target.value)}
+                    className="input pl-10 w-full"
+                  />
+                  {vehicleSearch && vehicleSearch.trim().length < 4 && (
+                    <p className="text-sm text-orange-600 mt-1">
+                      Please enter at least 4 characters to search
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -291,7 +323,10 @@ export default function VehicleSearch() {
               <button
                 type="submit"
                 className="btn-primary"
-                disabled={!vehicleSearch && Object.values(vehicleFilters).every(v => !v)}
+                disabled={
+                  (!vehicleSearch && Object.values(vehicleFilters).every(v => !v)) ||
+                  (vehicleSearch && vehicleSearch.trim().length < 4)
+                }
               >
                 <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
                 Search Vehicles
@@ -387,47 +422,87 @@ export default function VehicleSearch() {
         </div>
       </div>
 
-      {/* Vehicle Pagination */}
-      {hasSearched && vehiclePagination && vehiclePagination.pages > 1 && (
-        <div className="flex justify-center">
-          <nav className="flex space-x-2">
-            {/* Previous Page */}
-            {vehiclePage > 1 && (
-              <button
-                onClick={() => setVehiclePage(vehiclePage - 1)}
-                className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border border-gray-300"
-              >
-                Previous
-              </button>
-            )}
-            
-            {/* Page Numbers */}
-            {Array.from({ length: vehiclePagination.pages }, (_, i) => i + 1).map((pageNum) => (
-              <button
-                key={pageNum}
-                onClick={() => setVehiclePage(pageNum)}
-                className={`px-3 py-2 text-sm font-medium rounded-md ${
-                  pageNum === vehiclePage
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
-                }`}
-              >
-                {pageNum}
-              </button>
-            ))}
-            
-            {/* Next Page */}
-            {vehiclePage < vehiclePagination.pages && (
-              <button
-                onClick={() => setVehiclePage(vehiclePage + 1)}
-                className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border border-gray-300"
-              >
-                Next
-              </button>
-            )}
-          </nav>
-        </div>
-      )}
+             {/* Vehicle Pagination */}
+       {hasSearched && vehiclePagination && vehiclePagination.pages > 1 && (
+         <div className="flex justify-center">
+           <nav className="flex items-center space-x-1 max-w-full overflow-x-auto">
+             {/* Previous Page */}
+             {vehiclePage > 1 && (
+               <button
+                 onClick={() => setVehiclePage(vehiclePage - 1)}
+                 className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 whitespace-nowrap"
+               >
+                 Previous
+               </button>
+             )}
+             
+             {/* First Page */}
+             {vehiclePage > 3 && (
+               <>
+                 <button
+                   onClick={() => setVehiclePage(1)}
+                   className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border border-gray-300"
+                 >
+                   1
+                 </button>
+                 {vehiclePage > 4 && (
+                   <span className="px-2 text-gray-500">...</span>
+                 )}
+               </>
+             )}
+             
+             {/* Page Numbers around current page */}
+             {Array.from({ length: vehiclePagination.pages }, (_, i) => i + 1)
+               .filter(pageNum => 
+                 pageNum === 1 || 
+                 pageNum === vehiclePagination.pages || 
+                 (pageNum >= vehiclePage - 1 && pageNum <= vehiclePage + 1)
+               )
+               .map((pageNum, index, array) => (
+                 <React.Fragment key={pageNum}>
+                   {index > 0 && array[index - 1] !== pageNum - 1 && (
+                     <span className="px-2 text-gray-500">...</span>
+                   )}
+                   <button
+                     onClick={() => setVehiclePage(pageNum)}
+                     className={`px-3 py-2 text-sm font-medium rounded-md ${
+                       pageNum === vehiclePage
+                         ? 'bg-blue-600 text-white'
+                         : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+                     }`}
+                   >
+                     {pageNum}
+                   </button>
+                 </React.Fragment>
+               ))}
+             
+             {/* Last Page */}
+             {vehiclePage < vehiclePagination.pages - 2 && (
+               <>
+                 {vehiclePage < vehiclePagination.pages - 3 && (
+                   <span className="px-2 text-gray-500">...</span>
+                 )}
+                 <button
+                   onClick={() => setVehiclePage(vehiclePagination.pages)}
+                   className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border border-gray-300"
+                 >
+                   {vehiclePagination.pages}
+                 </button>
+               </>
+             )}
+             
+             {/* Next Page */}
+             {vehiclePage < vehiclePagination.pages && (
+               <button
+                 onClick={() => setVehiclePage(vehiclePage + 1)}
+                 className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 whitespace-nowrap"
+               >
+                 Next
+               </button>
+             )}
+           </nav>
+         </div>
+       )}
 
       {/* Vehicle Details Modal */}
       {showDetailsModal && selectedVehicle && (

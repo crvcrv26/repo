@@ -620,7 +620,7 @@ router.get('/vehicles',
     try {
       const page = parseInt(req.query.page) || 1;
       const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-      const { search, registration_number, loan_number, customer_name, branch, make, model } = req.query;
+      const { search, searchType, registration_number, loan_number, customer_name, branch, make, model, excelFile } = req.query;
 
       // Get accessible file IDs first
       let accessibleFileIds = [];
@@ -635,13 +635,35 @@ router.get('/vehicles',
       // Build aggregation pipeline for optimized search
       const pipeline = [];
 
-      // Text search stage must be first if search term provided
-      if (search) {
-        pipeline.push({
-          $match: {
-            $text: { $search: search }
-          }
-        });
+      // Improved search logic with partial matching and minimum character requirement
+      if (search && search.trim().length >= 4) {
+        const searchTerm = search.trim()
+        
+        // If searchType is specified, search only in that field
+        if (searchType && searchType !== 'all') {
+          pipeline.push({
+            $match: {
+              [searchType]: { $regex: searchTerm, $options: 'i' }
+            }
+          })
+        } else {
+          // Search across multiple fields with partial matching
+          pipeline.push({
+            $match: {
+              $or: [
+                { registration_number: { $regex: searchTerm, $options: 'i' } },
+                { customer_name: { $regex: searchTerm, $options: 'i' } },
+                { loan_number: { $regex: searchTerm, $options: 'i' } },
+                { chasis_number: { $regex: searchTerm, $options: 'i' } },
+                { engine_number: { $regex: searchTerm, $options: 'i' } },
+                { make: { $regex: searchTerm, $options: 'i' } },
+                { model: { $regex: searchTerm, $options: 'i' } },
+                { branch: { $regex: searchTerm, $options: 'i' } },
+                { address: { $regex: searchTerm, $options: 'i' } }
+              ]
+            }
+          })
+        }
       }
 
       // Match stage for role-based access and active records
@@ -721,54 +743,13 @@ router.get('/vehicles',
         }
       ];
 
-      // Execute aggregation with fallback
+      // Execute aggregation
       let result;
       try {
         [result] = await ExcelVehicle.aggregate(facetedPipeline);
       } catch (error) {
-        // If text search fails, try without text search
-        if (search && error.message.includes('$text')) {
-          console.log('Text search failed, falling back to regex search');
-          
-          // Remove text search from pipeline and try again
-          const fallbackPipeline = pipeline.filter(stage => !stage.$match || !stage.$match.$text);
-          
-          // Add regex search as fallback
-          if (search) {
-            fallbackPipeline.push({
-              $match: {
-                $or: [
-                  { registration_number: new RegExp(search, 'i') },
-                  { customer_name: new RegExp(search, 'i') },
-                  { loan_number: new RegExp(search, 'i') },
-                  { chasis_number: new RegExp(search, 'i') },
-                  { engine_number: new RegExp(search, 'i') },
-                  { make: new RegExp(search, 'i') },
-                  { model: new RegExp(search, 'i') },
-                  { branch: new RegExp(search, 'i') },
-                  { address: new RegExp(search, 'i') }
-                ]
-              }
-            });
-          }
-          
-          const fallbackFacetedPipeline = [
-            ...fallbackPipeline,
-            {
-              $facet: {
-                metadata: [{ $count: 'total' }],
-                data: [
-                  { $skip: (page - 1) * limit },
-                  { $limit: limit }
-                ]
-              }
-            }
-          ];
-          
-          [result] = await ExcelVehicle.aggregate(fallbackFacetedPipeline);
-        } else {
-          throw error;
-        }
+        console.error('Aggregation error:', error);
+        throw error;
       }
       
       const vehicles = result.data;
