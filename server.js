@@ -11,12 +11,9 @@ require('dotenv').config();
 // Import routes
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
-const vehicleRoutes = require('./routes/vehicles');
-const taskRoutes = require('./routes/tasks');
-const proofRoutes = require('./routes/proofs');
-const uploadRoutes = require('./routes/upload');
 const excelRoutes = require('./routes/excel');
 const otpRoutes = require('./routes/otp');
+const notificationRoutes = require('./routes/notifications');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -83,11 +80,8 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/otp', otpRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
-app.use('/api/vehicles', authenticateToken, vehicleRoutes);
-app.use('/api/tasks', authenticateToken, taskRoutes);
-app.use('/api/proofs', authenticateToken, proofRoutes);
-app.use('/api/upload', authenticateToken, uploadRoutes);
 app.use('/api/excel', authenticateToken, excelRoutes);
+app.use('/api/notifications', authenticateToken, notificationRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

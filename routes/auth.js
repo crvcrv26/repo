@@ -173,8 +173,7 @@ router.post('/login', [
 // @access  Private
 router.get('/me', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user._id)
-      .populate('assignedVehicles', 'vehicleNumber ownerName status');
+    const user = await User.findById(req.user._id);
 
     res.json({
       success: true,
@@ -302,8 +301,12 @@ router.put('/change-password', authenticateToken, [
 // @access  Private
 router.post('/logout', authenticateToken, async (req, res) => {
   try {
-    // In a stateless JWT system, logout is handled client-side
-    // But we can log the logout event
+    // Set user offline and update last seen
+    await User.findByIdAndUpdate(req.user._id, {
+      isOnline: false,
+      lastSeen: new Date()
+    });
+
     console.log(`User ${req.user._id} logged out at ${new Date()}`);
 
     res.json({

@@ -4,16 +4,13 @@ import { useAuth } from '../hooks/useAuth'
 import {
   HomeIcon,
   UsersIcon,
-  TruckIcon,
-  ClipboardDocumentListIcon,
-  PhotoIcon,
-  ArrowUpTrayIcon,
   UserCircleIcon,
   Bars3Icon,
   XMarkIcon,
   DocumentArrowUpIcon,
   MagnifyingGlassIcon,
   KeyIcon,
+  BellIcon,
 } from '@heroicons/react/24/outline'
 
 interface LayoutProps {
@@ -31,9 +28,15 @@ const getNavigation = (userRole?: string) => {
     baseNavigation.push({ name: 'Excel Files', href: '/excel-files', icon: DocumentArrowUpIcon })
   }
 
-  // Add OTP Management for admin only
+  // Add admin-specific features
   if (userRole === 'admin') {
     baseNavigation.push({ name: 'OTP Management', href: '/otp-management', icon: KeyIcon })
+    baseNavigation.push({ name: 'Notifications', href: '/notifications', icon: BellIcon })
+  }
+
+  // Add notifications for super admins too
+  if (userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
+    baseNavigation.push({ name: 'Notifications', href: '/notifications', icon: BellIcon })
   }
 
   if (userRole === 'auditor') {
@@ -42,16 +45,10 @@ const getNavigation = (userRole?: string) => {
 
   // Add common navigation items
   baseNavigation.push(
-    { name: 'Vehicles', href: '/vehicles', icon: TruckIcon },
-    { name: 'Vehicle Search', href: '/vehicle-search', icon: MagnifyingGlassIcon },
-    { name: 'Tasks', href: '/tasks', icon: ClipboardDocumentListIcon },
-    { name: 'Proofs', href: '/proofs', icon: PhotoIcon }
+    { name: 'Vehicle Search', href: '/vehicle-search', icon: MagnifyingGlassIcon }
   )
 
-  // Only show upload for super super admin, super admin and admin
-  if (userRole === 'superSuperAdmin' || userRole === 'superAdmin' || userRole === 'admin') {
-    baseNavigation.push({ name: 'Upload', href: '/upload', icon: ArrowUpTrayIcon })
-  }
+
 
   return baseNavigation
 }

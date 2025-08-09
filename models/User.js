@@ -62,10 +62,7 @@ const userSchema = new mongoose.Schema({
       index: '2dsphere'
     }
   },
-  assignedVehicles: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Vehicle'
-  }],
+
   lastLogin: {
     type: Date,
     default: null
@@ -87,6 +84,14 @@ const userSchema = new mongoose.Schema({
   phoneVerified: {
     type: Boolean,
     default: false
+  },
+  isOnline: {
+    type: Boolean,
+    default: false
+  },
+  lastSeen: {
+    type: Date,
+    default: Date.now
   }
 }, {
   timestamps: true

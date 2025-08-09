@@ -7,12 +7,9 @@ import Dashboard from './pages/Dashboard'
 import Users from './pages/Users'
 import ExcelFiles from './pages/ExcelFiles'
 import VehicleSearch from './pages/VehicleSearch'
-import Vehicles from './pages/Vehicles'
-import Tasks from './pages/Tasks'
-import Proofs from './pages/Proofs'
-import Upload from './pages/Upload'
 import Profile from './pages/Profile'
 import OTPManagement from './pages/OTPManagement'
+import Notifications from './pages/Notifications'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -42,11 +39,8 @@ function AppContent() {
         <Route path="/users" element={<Users />} />
         <Route path="/excel-files" element={<ExcelFiles />} />
         <Route path="/vehicle-search" element={<VehicleSearch />} />
-        <Route path="/vehicles" element={<Vehicles />} />
-        <Route path="/tasks" element={<Tasks />} />
-        <Route path="/proofs" element={<Proofs />} />
-        <Route path="/upload" element={<Upload />} />
         <Route path="/otp-management" element={<OTPManagement />} />
+        <Route path="/notifications" element={<Notifications />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>

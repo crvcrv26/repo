@@ -665,7 +665,7 @@ router.get('/vehicles',
       pipeline.push({
         $match: {
           isActive: true,
-          ...(req.user.role !== 'superAdmin' && {
+          ...(req.user.role !== 'superAdmin' && req.user.role !== 'superSuperAdmin' && {
             excel_file: { $in: accessibleFileIds }
           })
         }

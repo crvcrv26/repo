@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { excelAPI } from '../services/api'
+import { excelAPI, notificationsAPI } from '../services/api'
 import {
   MagnifyingGlassIcon,
   FunnelIcon,
@@ -26,7 +26,6 @@ export default function VehicleSearch() {
   })
   const [vehiclePage, setVehiclePage] = useState(1)
   const [showFilters, setShowFilters] = useState(false)
-  const [hasSearched, setHasSearched] = useState(false)
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
 
@@ -66,14 +65,28 @@ export default function VehicleSearch() {
     setVehiclePage(1)
   }
 
-  const handleViewDetails = (vehicle: any) => {
+  const handleViewDetails = async (vehicle: any) => {
     setSelectedVehicle(vehicle)
     setShowDetailsModal(true)
+    
+    // Log notification if user is field agent or auditor
+    if (currentUser?.role === 'fieldAgent' || currentUser?.role === 'auditor') {
+      try {
+        await notificationsAPI.logAction({
+          vehicleNumber: vehicle.registration_number || vehicle.loan_number || 'Unknown',
+          action: 'viewed',
+          vehicleId: vehicle._id
+        })
+      } catch (error) {
+        console.log('Failed to log notification:', error)
+        // Don't show error to user as this is a background operation
+      }
+    }
   }
 
   const handleExportToExcel = async () => {
     try {
-      const response = await excelAPI.searchVehicles({ 
+      await excelAPI.searchVehicles({ 
         search: vehicleSearch, 
         ...vehicleFilters, 
         page: 1, 
@@ -159,17 +172,17 @@ export default function VehicleSearch() {
           <p className="text-gray-600">Search through Excel-uploaded vehicle data</p>
         </div>
         <div className="flex space-x-3">
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="btn-secondary"
-          >
+                     <button
+             onClick={() => setShowFilters(!showFilters)}
+             className="btn btn-secondary"
+           >
             <FunnelIcon className="h-5 w-5" />
             {showFilters ? 'Hide' : 'Show'} Filters
           </button>
           {vehicles.length > 0 && (
             <button
               onClick={handleExportToExcel}
-              className="btn-secondary"
+              className="btn btn-secondary"
             >
               <DocumentArrowDownIcon className="h-5 w-5" />
               Export to CSV
@@ -217,7 +230,7 @@ export default function VehicleSearch() {
                     onChange={(e) => setVehicleSearch(e.target.value)}
                     className="input pl-10 w-full"
                   />
-                                     {vehicleSearch && vehicleSearch.trim().length < 4 && (
+                   {vehicleSearch && vehicleSearch.trim().length < 4 && (
                      <p className="text-sm text-orange-600 mt-1">
                        Enter at least 4 characters to search automatically
                      </p>
@@ -315,27 +328,27 @@ export default function VehicleSearch() {
               <button
                 type="button"
                 onClick={handleClearSearch}
-                className="btn-secondary"
+                className="btn btn-secondary"
               >
                 Clear
               </button>
-                             <button
-                 type="submit"
-                 className="btn-primary"
-                 disabled={
-                   (!vehicleSearch && Object.values(vehicleFilters).every(v => !v)) ||
-                   (vehicleSearch && vehicleSearch.trim().length < 4)
-                 }
-               >
-                 <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
-                 Reset Page
-               </button>
+              <button
+                type="submit"
+                className="btn btn-primary"
+                disabled={
+                  Boolean((!vehicleSearch && Object.values(vehicleFilters).every(v => !v?.trim())) ||
+                  (vehicleSearch && vehicleSearch.trim().length < 4))
+                }
+              >
+                <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
+                Search
+              </button>
             </div>
           </form>
         </div>
       </div>
 
-             {/* Results Summary */}
+       {/* Results Summary */}
        {(vehicleSearch.trim().length >= 4 || Object.values(vehicleFilters).some(v => v && v.trim().length > 0)) && vehicles.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
@@ -357,7 +370,7 @@ export default function VehicleSearch() {
       {/* Vehicles List */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-6">
-                     {!(vehicleSearch.trim().length >= 4 || Object.values(vehicleFilters).some(v => v && v.trim().length > 0)) ? (
+           {!(vehicleSearch.trim().length >= 4 || Object.values(vehicleFilters).some(v => v && v.trim().length > 0)) ? (
              <div className="text-center py-12">
                <MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-400" />
                <h3 className="mt-2 text-sm font-medium text-gray-900">Ready to search</h3>
@@ -406,7 +419,7 @@ export default function VehicleSearch() {
                     <div className="ml-4">
                       <button
                         onClick={() => handleViewDetails(vehicle)}
-                        className="btn-secondary"
+                        className="btn btn-secondary"
                         title="View Details"
                       >
                         <EyeIcon className="h-4 w-4" />
@@ -421,7 +434,7 @@ export default function VehicleSearch() {
         </div>
       </div>
 
-             {/* Vehicle Pagination */}
+       {/* Vehicle Pagination */}
        {(vehicleSearch.trim().length >= 4 || Object.values(vehicleFilters).some(v => v && v.trim().length > 0)) && vehiclePagination && vehiclePagination.pages > 1 && (
          <div className="flex justify-center">
            <nav className="flex items-center space-x-1 max-w-full overflow-x-auto">
@@ -519,13 +532,13 @@ export default function VehicleSearch() {
             
             <div className="max-h-96 overflow-y-auto">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                 {/* Primary Info */}
+                 {/* Primary Info */}
                  <div className="space-y-3">
                    <h4 className="font-medium text-gray-900 border-b pb-2">Primary Information</h4>
-                                       <div>
-                      <p className="text-sm font-medium text-gray-700">Excel File</p>
-                      <p className="text-sm text-gray-900 font-mono">{selectedVehicle.excelFile?.filename || selectedVehicle.excelFile?.originalName || 'N/A'}</p>
-                    </div>
+                   <div>
+                     <p className="text-sm font-medium text-gray-700">Excel File</p>
+                     <p className="text-sm text-gray-900 font-mono">{selectedVehicle.excelFile?.originalName || selectedVehicle.excelFile?.filename || 'N/A'}</p>
+                   </div>
                    <div>
                      <p className="text-sm font-medium text-gray-700">Registration Number</p>
                      <p className="text-sm text-gray-900 font-mono">{selectedVehicle.registration_number || 'N/A'}</p>

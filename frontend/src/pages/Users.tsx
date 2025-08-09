@@ -19,6 +19,7 @@ import {
   UsersIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../hooks/useAuth'
+import { useNavigate } from 'react-router-dom'
 
 interface User {
   _id: string
@@ -27,6 +28,8 @@ interface User {
   phone: string
   role: 'superSuperAdmin' | 'superAdmin' | 'admin' | 'fieldAgent' | 'auditor'
   isActive: boolean
+  isOnline: boolean
+  lastSeen: string
   location: {
     city: string
     state: string
@@ -55,14 +58,15 @@ interface CreateUserForm {
 
 
 export default function Users() {
-  const { user: currentUser } = useAuth()
+  const { user: currentUser, logout } = useAuth()
   const queryClient = useQueryClient()
+  const navigate = useNavigate()
   
   // State for filters and pagination
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [role, setRole] = useState('')
-  const [status, setStatus] = useState('active') // Default to show only active users
+  const [status, setStatus] = useState('') // Show all users by default (including inactive)
   const [city, setCity] = useState('')
   const [page, setPage] = useState(1)
   const [showFilters, setShowFilters] = useState(false)
@@ -141,6 +145,27 @@ export default function Users() {
     }
   })
 
+  const statusUpdateMutation = useMutation({
+    mutationFn: ({ userId, isActive }: { userId: string; isActive: boolean }) => 
+      usersAPI.updateStatus(userId, { isActive }),
+    onSuccess: (data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['users'] })
+      toast.success(data.data.message)
+      
+      // Check if current user was deactivated
+      if (!variables.isActive && currentUser && variables.userId === currentUser._id) {
+        toast.error('Your account has been deactivated. You will be logged out.')
+        setTimeout(() => {
+          logout()
+          navigate('/login')
+        }, 2000)
+      }
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to update user status')
+    }
+  })
+
   const users = data?.data?.data || []
   const admins = adminsData?.data?.data || []
   const pagination = data?.data?.pagination
@@ -208,6 +233,25 @@ export default function Users() {
       newExpanded.add(adminId)
     }
     setExpandedAdmins(newExpanded)
+  }
+
+  const handleStatusToggle = (user: User) => {
+    if (user.role === 'superSuperAdmin') {
+      toast.error('SuperSuperAdmin cannot be deactivated')
+      return
+    }
+    
+    const action = user.isActive ? 'deactivate' : 'activate'
+    const confirmMessage = user.isActive 
+      ? `Are you sure you want to deactivate ${user.name}? ${user.role === 'admin' ? 'This will also deactivate all their associated users.' : ''}`
+      : `Are you sure you want to activate ${user.name}?`
+    
+    if (window.confirm(confirmMessage)) {
+      statusUpdateMutation.mutate({ 
+        userId: user._id, 
+        isActive: !user.isActive 
+      })
+    }
   }
 
   const getRoleColor = (role: string) => {
@@ -312,10 +356,14 @@ export default function Users() {
       return (
         <div className="flex items-center justify-between p-2 bg-white rounded border">
           <div className="flex items-center">
-            <div className="flex-shrink-0 h-8 w-8">
+            <div className="flex-shrink-0 h-8 w-8 relative">
               <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center">
                 <RoleIcon className="h-4 w-4 text-gray-600" />
               </div>
+              {/* Online status indicator */}
+              <div className={`absolute -top-1 -right-1 h-3 w-3 rounded-full border-2 border-white ${
+                user.isOnline ? 'bg-green-500' : 'bg-red-500'
+              }`} title={user.isOnline ? 'Online' : 'Offline'} />
             </div>
             <div className="ml-3">
               <div className="text-sm font-medium text-gray-900">{user.name}</div>
@@ -331,6 +379,21 @@ export default function Users() {
             }`}>
               {user.isActive ? 'Active' : 'Inactive'}
             </span>
+            {/* Status toggle for superSuperAdmin only */}
+            {currentUser?.role === 'superSuperAdmin' && user.role !== 'superSuperAdmin' && (
+              <button
+                onClick={() => handleStatusToggle(user)}
+                disabled={statusUpdateMutation.isPending}
+                className={`px-2 py-1 text-xs font-medium rounded ${
+                  user.isActive 
+                    ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                    : 'bg-green-100 text-green-700 hover:bg-green-200'
+                } disabled:opacity-50`}
+                title={user.isActive ? 'Deactivate user' : 'Activate user'}
+              >
+                {user.isActive ? 'Deactivate' : 'Activate'}
+              </button>
+            )}
             {canDelete(user) && (
               <button
                 onClick={() => handleDelete(user._id)}
@@ -348,10 +411,14 @@ export default function Users() {
     return (
       <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
         <div className="flex items-center">
-          <div className="flex-shrink-0 h-10 w-10">
+          <div className="flex-shrink-0 h-10 w-10 relative">
             <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
               <RoleIcon className="h-5 w-5 text-gray-600" />
             </div>
+            {/* Online status indicator */}
+            <div className={`absolute -top-1 -right-1 h-4 w-4 rounded-full border-2 border-white ${
+              user.isOnline ? 'bg-green-500' : 'bg-red-500'
+            }`} title={user.isOnline ? 'Online' : 'Offline'} />
           </div>
           <div className="ml-4">
             <div className="text-sm font-medium text-gray-900">{user.name}</div>
@@ -368,6 +435,21 @@ export default function Users() {
           }`}>
             {user.isActive ? 'Active' : 'Inactive'}
           </span>
+          {/* Status toggle for superSuperAdmin only */}
+          {currentUser?.role === 'superSuperAdmin' && user.role !== 'superSuperAdmin' && (
+            <button
+              onClick={() => handleStatusToggle(user)}
+              disabled={statusUpdateMutation.isPending}
+              className={`px-3 py-1 text-sm font-medium rounded ${
+                user.isActive 
+                  ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                  : 'bg-green-100 text-green-700 hover:bg-green-200'
+              } disabled:opacity-50`}
+              title={user.isActive ? 'Deactivate user' : 'Activate user'}
+            >
+              {user.isActive ? 'Deactivate' : 'Activate'}
+            </button>
+          )}
           {canDelete(user) && (
             <button
               onClick={() => handleDelete(user._id)}

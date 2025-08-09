@@ -1,7 +1,6 @@
 const express = require('express');
 const { body, validationResult, query } = require('express-validator');
 const User = require('../models/User');
-const Vehicle = require('../models/Vehicle');
 const ExcelFile = require('../models/ExcelFile');
 const ExcelVehicle = require('../models/ExcelVehicle');
 const fs = require('fs').promises;
@@ -574,6 +573,189 @@ router.get('/by-admin/:adminId', authenticateToken, authorizeRole('superSuperAdm
     });
   }
 });
+
+// @desc    Update user status (activate/deactivate)
+// @route   PUT /api/users/:id/status
+// @access  Private (SuperSuperAdmin only)
+router.put('/:id/status', 
+  authenticateToken, 
+  authorizeRole('superSuperAdmin'), 
+  [
+    body('isActive').isBoolean().withMessage('Status must be true or false')
+  ], 
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: errors.array()
+        });
+      }
+
+      const { isActive } = req.body;
+      const userId = req.params.id;
+
+      // Prevent deactivating superSuperAdmin
+      const targetUser = await User.findById(userId);
+      if (!targetUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      if (targetUser.role === 'superSuperAdmin') {
+        return res.status(403).json({
+          success: false,
+          message: 'SuperSuperAdmin cannot be deactivated'
+        });
+      }
+
+      // Update user status
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { 
+          isActive,
+          // If deactivating, set offline
+          ...(isActive === false && { isOnline: false })
+        },
+        { new: true }
+      ).select('-password');
+
+      // If deactivating an admin, also deactivate their associated users
+      if (!isActive && targetUser.role === 'admin') {
+        await User.updateMany(
+          { createdBy: userId },
+          { isActive: false, isOnline: false }
+        );
+      }
+
+      // Force logout for deactivated user and their team
+      if (!isActive) {
+        // Set target user and their team offline (simulates forced logout)
+        if (targetUser.role === 'admin') {
+          // Deactivate admin and all their users
+          await User.updateMany(
+            { $or: [{ _id: userId }, { createdBy: userId }] },
+            { isOnline: false, lastSeen: new Date() }
+          );
+        } else {
+          // Just the individual user
+          await User.findByIdAndUpdate(userId, {
+            isOnline: false,
+            lastSeen: new Date()
+          });
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `User ${isActive ? 'activated' : 'deactivated'} successfully`,
+        data: updatedUser,
+        forceLogout: !isActive // Signal frontend to handle forced logout
+      });
+
+    } catch (error) {
+      console.error('Update user status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  }
+);
+
+// @desc    Delete user
+// @route   DELETE /api/users/:id
+// @access  Private (SuperSuperAdmin, Admin for their users)
+router.delete('/:id',
+  authenticateToken,
+  authorizeRole('superSuperAdmin', 'admin'),
+  async (req, res) => {
+    try {
+      const userId = req.params.id;
+      
+      // Get the target user
+      const targetUser = await User.findById(userId);
+      if (!targetUser) {
+        return res.status(404).json({
+          success: false,
+          message: 'User not found'
+        });
+      }
+
+      // Protection rules
+      if (targetUser.role === 'superSuperAdmin') {
+        return res.status(403).json({
+          success: false,
+          message: 'SuperSuperAdmin cannot be deleted'
+        });
+      }
+
+      if (targetUser.role === 'superAdmin') {
+        return res.status(403).json({
+          success: false,
+          message: 'SuperAdmin cannot be deleted'
+        });
+      }
+
+      // Role-based deletion permissions
+      if (req.user.role === 'admin') {
+        // Admin can only delete users they created (field agents and auditors)
+        if (!targetUser.createdBy || !targetUser.createdBy.equals(req.user._id)) {
+          return res.status(403).json({
+            success: false,
+            message: 'You can only delete users you created'
+          });
+        }
+        
+        if (!['fieldAgent', 'auditor'].includes(targetUser.role)) {
+          return res.status(403).json({
+            success: false,
+            message: 'You can only delete field agents and auditors'
+          });
+        }
+      }
+
+      // If deleting an admin, also delete their associated users and data
+      if (targetUser.role === 'admin') {
+        // Delete all users created by this admin
+        await User.deleteMany({ createdBy: userId });
+        
+        // Delete all Excel files uploaded by this admin and their users
+        const adminUsers = await User.find({ createdBy: userId }).select('_id');
+        const allUserIds = [userId, ...adminUsers.map(u => u._id)];
+        
+        const excelFiles = await ExcelFile.find({ uploadedBy: { $in: allUserIds } });
+        
+        // Delete associated vehicles
+        for (const file of excelFiles) {
+          await ExcelVehicle.deleteMany({ excel_file: file._id });
+        }
+        
+        // Delete Excel files
+        await ExcelFile.deleteMany({ uploadedBy: { $in: allUserIds } });
+      }
+
+      // Delete the target user
+      await User.findByIdAndDelete(userId);
+
+      res.json({
+        success: true,
+        message: 'User deleted successfully'
+      });
+
+    } catch (error) {
+      console.error('Delete user error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  }
+);
 
 // @desc    Update user password
 // @route   PUT /api/users/:id/password

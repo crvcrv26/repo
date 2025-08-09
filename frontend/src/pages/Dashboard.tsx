@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { usersAPI, vehiclesAPI, tasksAPI } from '../services/api'
+import { usersAPI } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
 import { 
   UsersIcon, 
@@ -9,9 +9,6 @@ import {
   ShieldCheckIcon,
   UserIcon,
   UserGroupIcon,
-  DocumentTextIcon,
-  EyeIcon,
-  PencilIcon,
   TrashIcon,
   KeyIcon,
   PlusIcon
@@ -35,29 +32,7 @@ interface User {
   }
 }
 
-interface Vehicle {
-  _id: string
-  vehicleNumber: string
-  model: string
-  assignedTo?: {
-    _id: string
-    name: string
-  }
-  status: string
-  isActive: boolean
-}
 
-interface Task {
-  _id: string
-  title: string
-  description: string
-  assignedTo?: {
-    _id: string
-    name: string
-  }
-  status: string
-  priority: string
-}
 
 export default function Dashboard() {
   const { user: currentUser } = useAuth()
@@ -71,23 +46,13 @@ export default function Dashboard() {
   })
 
   // Fetch data based on user role
-  const { data: usersData, isLoading: usersLoading } = useQuery({
+  const { data: usersData } = useQuery({
     queryKey: ['users', currentUser?.role],
     queryFn: () => usersAPI.getAll({ limit: 100 }),
     enabled: !!currentUser
   })
 
-  const { data: vehiclesData, isLoading: vehiclesLoading } = useQuery({
-    queryKey: ['vehicles'],
-    queryFn: () => vehiclesAPI.getAll({ limit: 100 }),
-    enabled: !!currentUser
-  })
 
-  const { data: tasksData, isLoading: tasksLoading } = useQuery({
-    queryKey: ['tasks'],
-    queryFn: () => tasksAPI.getAll({ limit: 100 }),
-    enabled: !!currentUser
-  })
 
   const { data: statsData, isLoading: statsLoading } = useQuery({
     queryKey: ['stats'],
@@ -96,8 +61,6 @@ export default function Dashboard() {
   })
 
   const users = usersData?.data?.data || []
-  const vehicles = vehiclesData?.data?.data || []
-  const tasks = tasksData?.data?.data || []
   const stats = statsData?.data?.data || {}
 
   // Filter users based on role
@@ -183,7 +146,7 @@ export default function Dashboard() {
       case 'superAdmin': return ShieldCheckIcon
       case 'admin': return UserIcon
       case 'fieldAgent': return UserGroupIcon
-      case 'auditor': return DocumentTextIcon
+      case 'auditor': return UserIcon
       default: return UserIcon
     }
   }
@@ -244,7 +207,7 @@ export default function Dashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Active Vehicles</p>
                 <p className="text-2xl font-semibold text-gray-900">
-                  {vehicles.filter((v: Vehicle) => v.isActive).length}
+                  0
                 </p>
               </div>
             </div>
@@ -258,7 +221,7 @@ export default function Dashboard() {
               <div className="ml-4">
                 <p className="text-sm font-medium text-gray-500">Active Tasks</p>
                 <p className="text-2xl font-semibold text-gray-900">
-                  {tasks.filter((t: Task) => t.status !== 'completed').length}
+                  0
                 </p>
               </div>
             </div>
@@ -413,7 +376,7 @@ export default function Dashboard() {
             <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">Field Agent Dashboard</h3>
             <p className="mt-1 text-sm text-gray-500">
-              You can view and manage vehicles and tasks assigned to you.
+              You can view and manage users and Excel files assigned to you.
             </p>
           </div>
         </div>

@@ -35,6 +35,23 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
+    // Check if user's admin is active (for field agents and auditors)
+    if ((user.role === 'fieldAgent' || user.role === 'auditor') && user.createdBy) {
+      const admin = await User.findById(user.createdBy).select('isActive');
+      if (!admin || !admin.isActive) {
+        return res.status(401).json({
+          success: false,
+          message: 'Your admin account is deactivated. Please contact support.'
+        });
+      }
+    }
+
+    // Update online status and last seen
+    await User.findByIdAndUpdate(user._id, {
+      isOnline: true,
+      lastSeen: new Date()
+    });
+
     req.user = user;
     next();
   } catch (error) {
