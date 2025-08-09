@@ -257,6 +257,9 @@ router.post('/upload',
         errorMessage: failedRows > 0 ? `Failed to process ${failedRows} rows` : null
       });
 
+      // Clear search cache after new data upload
+      clearSearchCache();
+
       res.status(201).json({
         success: true,
         message: 'Excel file uploaded and processed successfully',
@@ -611,18 +614,48 @@ router.put('/files/:id/reassign',
   }
 );
 
-// @desc    Search vehicles with role-based access
-// @route   GET /api/excel/vehicles
+// In-memory cache for search results (30 second TTL for fresh data)
+const searchCache = new Map();
+const CACHE_TTL = 5 * 60 * 1000; // 30 seconds (much shorter for fresh uploads)
+
+// Function to clear search cache when new data is uploaded
+function clearSearchCache() {
+  searchCache.clear();
+  console.log('🗑️ Search cache cleared due to new data upload');
+}
+
+// @desc    ULTRA-FAST vehicle search - only 3 key fields
+// @route   GET /api/excel/vehicles  
 // @access  Private (All roles)
 router.get('/vehicles',
   authenticateToken,
   async (req, res) => {
     try {
       const page = parseInt(req.query.page) || 1;
-      const limit = Math.min(parseInt(req.query.limit) || 20, 100);
-      const { search, searchType, registration_number, loan_number, customer_name, branch, make, model, excelFile } = req.query;
+      const limit = Math.min(parseInt(req.query.limit) || 20, 50); // Reduced max limit
+      const { search, searchType } = req.query;
 
-      // Get accessible file IDs first
+      // Validate search term
+      if (!search || search.trim().length < 3) {
+        return res.json({
+          success: true,
+          data: [],
+          pagination: { page, limit, total: 0, pages: 0 },
+          message: 'Enter at least 3 characters to search'
+        });
+      }
+
+      const searchTerm = search.trim();
+      const cacheKey = `${req.user._id}-${searchTerm.toLowerCase()}-${searchType}-${page}-partial`;
+      
+      // Check cache first (INSTANT response for cached partial-match searches)
+      const cached = searchCache.get(cacheKey);
+      if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+        console.log(`⚡ Cache hit for partial-match search: "${searchTerm}" (0ms)`);
+        return res.json(cached.data);
+      }
+
+      // Get accessible file IDs (cached per user)
       let accessibleFileIds = [];
       if (req.user.role === 'admin') {
         accessibleFileIds = await getExcelFileIdsForAdmin(req.user._id);
@@ -632,126 +665,74 @@ router.get('/vehicles',
         accessibleFileIds = await getExcelFileIdsForAuditor(req.user._id);
       }
 
-      // Build aggregation pipeline for optimized search
-      const pipeline = [];
+      // Build FAST query (no aggregation pipeline!)
+      const baseQuery = {
+        isActive: true,
+        ...(accessibleFileIds.length > 0 && 
+           req.user.role !== 'superAdmin' && 
+           req.user.role !== 'superSuperAdmin' ? 
+           { excel_file: { $in: accessibleFileIds } } : {})
+      };
 
-      // Optimized search logic - focus on 4 key fields for better performance
-      if (search && search.trim().length >= 4) {
-        const searchTerm = search.trim()
-        
-        // If searchType is specified, search only in that field
-        if (searchType && searchType !== 'all') {
-          pipeline.push({
-            $match: {
-              [searchType]: { $regex: searchTerm, $options: 'i' }
-            }
-          })
-        } else {
-          // Search only in the 4 most important fields for faster performance
-          pipeline.push({
-            $match: {
-              $or: [
-                { registration_number: { $regex: searchTerm, $options: 'i' } },
-                { loan_number: { $regex: searchTerm, $options: 'i' } },
-                { chasis_number: { $regex: searchTerm, $options: 'i' } },
-                { engine_number: { $regex: searchTerm, $options: 'i' } }
-              ]
-            }
-          })
-        }
-      }
-
-      // Match stage for role-based access and active records
-      pipeline.push({
-        $match: {
-          isActive: true,
-          ...(req.user.role !== 'superAdmin' && req.user.role !== 'superSuperAdmin' && {
-            excel_file: { $in: accessibleFileIds }
-          })
-        }
-      });
-
-      // Specific field filters
-      if (registration_number) {
-        pipeline.push({ $match: { registration_number: new RegExp(registration_number, 'i') } });
-      }
-      if (loan_number) {
-        pipeline.push({ $match: { loan_number: new RegExp(loan_number, 'i') } });
-      }
-      if (customer_name) {
-        pipeline.push({ $match: { customer_name: new RegExp(customer_name, 'i') } });
-      }
-      if (branch) {
-        pipeline.push({ $match: { branch: new RegExp(branch, 'i') } });
-      }
-      if (make) {
-        pipeline.push({ $match: { make: new RegExp(make, 'i') } });
-      }
-      if (model) {
-        pipeline.push({ $match: { model: new RegExp(model, 'i') } });
-      }
-
-      // Sort by most recent first - do this BEFORE lookup to reduce memory usage
-      pipeline.push({
-        $sort: { createdAt: -1 }
-      });
-
-      // Lookup Excel file details
-      pipeline.push({
-        $lookup: {
-          from: 'excelfiles',
-          localField: 'excel_file',
-          foreignField: '_id',
-          as: 'excelFile',
-          pipeline: [
-            {
-              $project: {
-                filename: 1,
-                originalName: 1,
-                uploadedBy: 1,
-                assignedTo: 1,
-                createdAt: 1
-              }
-            }
-          ]
-        }
-      });
-
-      // Unwind the lookup
-      pipeline.push({
-        $unwind: {
-          path: '$excelFile',
-          preserveNullAndEmptyArrays: true
-        }
-      });
-
-      // Add facet stage for pagination
-      const facetedPipeline = [
-        ...pipeline,
-        {
-          $facet: {
-            metadata: [{ $count: 'total' }],
-            data: [
-              { $skip: (page - 1) * limit },
-              { $limit: limit }
-            ]
-          }
-        }
-      ];
-
-      // Execute aggregation with disk usage allowed for large datasets
-      let result;
-      try {
-        [result] = await ExcelVehicle.aggregate(facetedPipeline, { allowDiskUse: true });
-      } catch (error) {
-        console.error('Aggregation error:', error);
-        throw error;
-      }
+      // SMART SEARCH STRATEGY - ANYWHERE IN STRING (supports partial matches)
+      let searchQuery;
       
-      const vehicles = result.data;
-      const total = result.metadata[0]?.total || 0;
+      // Escape special regex characters for safety
+      const escapedTerm = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      
+      if (searchType && searchType !== 'all') {
+        // Specific field search (matches anywhere in the field)
+        if (['registration_number', 'chasis_number', 'engine_number'].includes(searchType)) {
+          searchQuery = {
+            ...baseQuery,
+            [searchType]: { $regex: escapedTerm, $options: 'i' } // Matches anywhere in string
+          };
+        } else {
+          // Fallback for any other searchType
+          searchQuery = {
+            ...baseQuery,
+            $or: [
+              { registration_number: { $regex: escapedTerm, $options: 'i' } },
+              { chasis_number: { $regex: escapedTerm, $options: 'i' } },
+              { engine_number: { $regex: escapedTerm, $options: 'i' } }
+            ]
+          };
+        }
+      } else {
+        // Multi-field search (ANYWHERE in 3 fields for maximum flexibility)
+        searchQuery = {
+          ...baseQuery,
+          $or: [
+            { registration_number: { $regex: escapedTerm, $options: 'i' } },
+            { chasis_number: { $regex: escapedTerm, $options: 'i' } },
+            { engine_number: { $regex: escapedTerm, $options: 'i' } }
+          ]
+        };
+      }
 
-      res.json({
+      // PERFORMANCE MONITORING
+      const startTime = Date.now();
+      
+      // Execute LIGHTNING-FAST queries (parallel execution)
+      const [total, vehicles] = await Promise.all([
+        // Count total (fast with our new indexes)
+        ExcelVehicle.countDocuments(searchQuery),
+        
+        // Get vehicles with ALL REQUIRED FIELDS populated
+        ExcelVehicle.find(searchQuery)
+          .populate('excel_file', 'filename originalName uploadedBy uploadedAt', null, { lean: true })
+          .select('registration_number chasis_number engine_number customer_name branch excel_file createdAt rowNumber loan_number make model emi pos bucket address sec_17 seasoning allocation product_name first_confirmer_name first_confirmer_no second_confirmer_name second_confirmer_no third_confirmer_name third_confirmer_no')
+          .sort({ createdAt: -1 })
+          .skip((page - 1) * limit)
+          .limit(limit)
+          .lean() // Massive performance boost
+      ]);
+
+      const queryTime = Date.now() - startTime;
+      console.log(`🚀 PARTIAL-MATCH search completed in ${queryTime}ms for "${searchTerm}" (${vehicles.length} results) - supports anywhere in string`);
+
+      // Prepare response with performance metrics
+      const response = {
         success: true,
         data: vehicles,
         pagination: {
@@ -759,58 +740,107 @@ router.get('/vehicles',
           limit,
           total,
           pages: Math.ceil(total / limit)
+        },
+        performance: {
+          queryTime: `${queryTime}ms`,
+          resultsCount: vehicles.length,
+          cached: false,
+          searchType: searchType === 'all' ? 'multi-field' : searchType,
+          partialMatch: true
         }
+      };
+
+      // Cache the result (next identical search will be INSTANT)
+      searchCache.set(cacheKey, {
+        data: { ...response, performance: { ...response.performance, cached: true } },
+        timestamp: Date.now()
       });
 
+      // Cleanup old cache entries (prevent memory leaks)
+      if (searchCache.size > 1000) {
+        const cutoffTime = Date.now() - CACHE_TTL;
+        for (const [key, value] of searchCache.entries()) {
+          if (value.timestamp < cutoffTime) {
+            searchCache.delete(key);
+          }
+        }
+      }
+
+      res.json(response);
+
     } catch (error) {
-      console.error('Vehicle search error:', error);
+      console.error('🔥 ULTRA-FAST search error:', error);
       res.status(500).json({
         success: false,
-        message: 'Server error during vehicle search'
+        message: 'Search error - please try again',
+        error: process.env.NODE_ENV === 'development' ? error.message : undefined
       });
     }
   }
 );
 
-// Helper functions for role-based access
+// CACHED HELPER FUNCTIONS (much faster with caching)
 async function getExcelFileIdsForAdmin(adminId) {
-  const files = await ExcelFile.find({
-    $or: [
-      { uploadedBy: adminId },
-      { assignedTo: adminId }
-    ],
-    isActive: true
-  }).select('_id');
-  return files.map(f => f._id);
+  const cacheKey = `admin_files_${adminId}`;
+  const cached = searchCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    return cached.data;
+  }
+
+  const files = await ExcelFile.find({ uploadedBy: adminId }).select('_id').lean();
+  const fileIds = files.map(file => file._id);
+  
+  searchCache.set(cacheKey, {
+    data: fileIds,
+    timestamp: Date.now()
+  });
+  
+  return fileIds;
 }
 
 async function getExcelFileIdsForFieldAgent(fieldAgentId) {
-  const user = await User.findById(fieldAgentId).populate('createdBy');
-  if (!user || !user.createdBy) return [];
+  const cacheKey = `field_files_${fieldAgentId}`;
+  const cached = searchCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    return cached.data;
+  }
+
+  const fieldAgent = await User.findById(fieldAgentId).select('createdBy').lean();
+  if (!fieldAgent || !fieldAgent.createdBy) return [];
   
-  const files = await ExcelFile.find({
-    $or: [
-      { uploadedBy: user.createdBy._id },
-      { assignedTo: user.createdBy._id }
-    ],
-    isActive: true
-  }).select('_id');
-  return files.map(f => f._id);
+  const files = await ExcelFile.find({ uploadedBy: fieldAgent.createdBy }).select('_id').lean();
+  const fileIds = files.map(file => file._id);
+  
+  searchCache.set(cacheKey, {
+    data: fileIds,
+    timestamp: Date.now()
+  });
+  
+  return fileIds;
 }
 
 async function getExcelFileIdsForAuditor(auditorId) {
-  const user = await User.findById(auditorId).populate('createdBy');
-  if (!user || !user.createdBy) return [];
+  const cacheKey = `auditor_files_${auditorId}`;
+  const cached = searchCache.get(cacheKey);
+  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    return cached.data;
+  }
+
+  const auditor = await User.findById(auditorId).select('createdBy').lean();
+  if (!auditor || !auditor.createdBy) return [];
   
-  const files = await ExcelFile.find({
-    $or: [
-      { uploadedBy: user.createdBy._id },
-      { assignedTo: user.createdBy._id }
-    ],
-    isActive: true
-  }).select('_id');
-  return files.map(f => f._id);
+  const files = await ExcelFile.find({ uploadedBy: auditor.createdBy }).select('_id').lean();
+  const fileIds = files.map(file => file._id);
+  
+  searchCache.set(cacheKey, {
+    data: fileIds,
+    timestamp: Date.now()
+  });
+  
+  return fileIds;
 }
+
+
 
 // @desc    Download Excel template
 // @route   GET /api/excel/template

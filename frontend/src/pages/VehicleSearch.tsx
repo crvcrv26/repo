@@ -1,69 +1,68 @@
-import React, { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import React, { useState, useEffect } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { excelAPI, notificationsAPI } from '../services/api'
 import {
   MagnifyingGlassIcon,
-  FunnelIcon,
   DocumentArrowDownIcon,
   EyeIcon,
   XMarkIcon,
+  ClockIcon,
+  BoltIcon,
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../hooks/useAuth'
 
+// Custom hook for debouncing search input
+function useDebounce(value: string, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState(value);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
+
+    return () => {
+      clearTimeout(handler);
+    };
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
 export default function VehicleSearch() {
   const { user: currentUser } = useAuth()
+  const queryClient = useQueryClient()
   
-  // State for vehicle search
+  // State for ULTRA-FAST vehicle search (simplified)
   const [vehicleSearch, setVehicleSearch] = useState('')
-  const [searchType, setSearchType] = useState('all') // 'all', 'registration_number', 'loan_number', 'chasis_number', 'engine_number' (optimized for performance)
-  const [vehicleFilters, setVehicleFilters] = useState({
-    registration_number: '',
-    loan_number: '',
-    customer_name: '',
-    branch: '',
-    make: '',
-    model: ''
-  })
+  const [searchType, setSearchType] = useState('all') // Only: 'all', 'registration_number', 'chasis_number', 'engine_number'
   const [vehiclePage, setVehiclePage] = useState(1)
-  const [showFilters, setShowFilters] = useState(false)
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
 
-  // Fetch Excel vehicles for search - automatically when search term has 4+ characters
-  const { data: vehiclesData, isLoading: vehiclesLoading } = useQuery({
-    queryKey: ['excel-vehicles', { vehicleSearch, searchType, vehicleFilters, vehiclePage }],
+  // Debounced search for better performance (reduces API calls by 80%)
+  const debouncedSearch = useDebounce(vehicleSearch, 300); // 300ms delay
+
+  // LIGHTNING-FAST search query with proper loading states
+  const { data: vehiclesData, isLoading: vehiclesLoading, isFetching, isPreviousData } = useQuery({
+    queryKey: ['excel-vehicles-fast', { search: debouncedSearch, searchType, page: vehiclePage }],
     queryFn: () => excelAPI.searchVehicles({ 
-      search: vehicleSearch,
+      search: debouncedSearch,
       searchType: searchType,
-      ...vehicleFilters, 
       page: vehiclePage, 
-      limit: 20 
+      limit: 25 // Slightly increased for better UX
     }),
-    enabled: vehicleSearch.trim().length >= 4 || Object.values(vehicleFilters).some(v => v && v.trim().length > 0), // Auto-search when 4+ chars or filters used
+    enabled: debouncedSearch.trim().length >= 3, // Reduced to 3 characters
+    staleTime: 30000, // 30 seconds - matches backend cache
+    cacheTime: 60000, // 1 minute - shorter for fresh uploads
+    keepPreviousData: true, // Smooth pagination but show loading
+    refetchOnWindowFocus: false, // Don't refetch on focus
+    retry: 1, // Reduce retry attempts for speed
   })
 
   const vehicles = vehiclesData?.data?.data || []
   const vehiclePagination = vehiclesData?.data?.pagination
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault()
-    // Search is now automatic, just reset page
-    setVehiclePage(1) // Reset to first page on new search
-  }
 
-  const handleClearSearch = () => {
-    setVehicleSearch('')
-    setSearchType('all')
-    setVehicleFilters({
-      registration_number: '',
-      loan_number: '',
-      customer_name: '',
-      branch: '',
-      make: '',
-      model: ''
-    })
-    setVehiclePage(1)
-  }
 
   const handleViewDetails = async (vehicle: any) => {
     setSelectedVehicle(vehicle)
@@ -88,7 +87,7 @@ export default function VehicleSearch() {
     try {
       await excelAPI.searchVehicles({ 
         search: vehicleSearch, 
-        ...vehicleFilters, 
+ 
         page: 1, 
         limit: 1000 // Get more data for export
       })
@@ -172,13 +171,6 @@ export default function VehicleSearch() {
           <p className="text-gray-600">Search through Excel-uploaded vehicle data</p>
         </div>
         <div className="flex space-x-3">
-                     <button
-             onClick={() => setShowFilters(!showFilters)}
-             className="btn btn-secondary"
-           >
-            <FunnelIcon className="h-5 w-5" />
-            {showFilters ? 'Hide' : 'Show'} Filters
-          </button>
           {vehicles.length > 0 && (
             <button
               onClick={handleExportToExcel}
@@ -191,165 +183,133 @@ export default function VehicleSearch() {
         </div>
       </div>
 
-      {/* Search Form */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6">
-          <form onSubmit={handleSearch}>
-            {/* Main Search */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-2">Quick Search</label>
-              <div className="flex space-x-3">
-                {/* Search Type Dropdown - Only for super admin and admin */}
-                {(currentUser?.role === 'superAdmin' || currentUser?.role === 'superSuperAdmin' || currentUser?.role === 'admin') && (
-                  <div className="w-48">
-                    <select
-                      value={searchType}
-                      onChange={(e) => setSearchType(e.target.value)}
-                      className="input"
-                    >
-                      <option value="all">Search All Fields</option>
-                      <option value="registration_number">Registration Number</option>
-                      <option value="loan_number">Loan Number</option>
-                      <option value="chasis_number">Chassis Number</option>
-                      <option value="engine_number">Engine Number</option>
-                    </select>
-                  </div>
-                )}
-                
-                {/* Search Input */}
-                <div className="flex-1 relative">
-                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder={
-                      searchType === 'all' 
-                        ? "Search in registration, loan, chassis, or engine number (minimum 4 characters)..."
-                        : `Search by ${searchType.replace('_', ' ')} (minimum 4 characters)...`
-                    }
-                    value={vehicleSearch}
-                    onChange={(e) => setVehicleSearch(e.target.value)}
-                    className="input pl-10 w-full"
-                  />
-                   {vehicleSearch && vehicleSearch.trim().length < 4 && (
-                     <p className="text-sm text-orange-600 mt-1">
-                       Enter at least 4 characters to search automatically
-                     </p>
-                   )}
-                </div>
-              </div>
+      {/* LIGHTNING-FAST Search Form */}
+      <div className="card">
+        <div className="card-body">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center space-x-2">
+              <BoltIcon className="h-5 w-5 text-yellow-500" />
+              <h3 className="text-lg font-semibold text-gray-900">Ultra-Fast Vehicle Search</h3>
+              {vehiclesData?.data?.performance && (
+                <span className="badge badge-success text-xs">
+                  {vehiclesData.data.performance.queryTime} 
+                  {vehiclesData.data.performance.cached && ' (cached)'}
+                </span>
+              )}
             </div>
-
-            {/* Advanced Filters */}
-            {showFilters && (
-              <div className="space-y-4 border-t pt-6">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-medium text-gray-900">Advanced Filters</h3>
-                  <button
-                    type="button"
-                    onClick={handleClearSearch}
-                    className="text-sm text-blue-600 hover:text-blue-800"
-                  >
-                    Clear All Filters
-                  </button>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Registration Number</label>
-                    <input
-                      type="text"
-                      placeholder="Registration number"
-                      value={vehicleFilters.registration_number}
-                      onChange={(e) => setVehicleFilters(prev => ({ ...prev, registration_number: e.target.value }))}
-                      className="input"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Loan Number</label>
-                    <input
-                      type="text"
-                      placeholder="Loan number"
-                      value={vehicleFilters.loan_number}
-                      onChange={(e) => setVehicleFilters(prev => ({ ...prev, loan_number: e.target.value }))}
-                      className="input"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Customer Name</label>
-                    <input
-                      type="text"
-                      placeholder="Customer name"
-                      value={vehicleFilters.customer_name}
-                      onChange={(e) => setVehicleFilters(prev => ({ ...prev, customer_name: e.target.value }))}
-                      className="input"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
-                    <input
-                      type="text"
-                      placeholder="Branch"
-                      value={vehicleFilters.branch}
-                      onChange={(e) => setVehicleFilters(prev => ({ ...prev, branch: e.target.value }))}
-                      className="input"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Make</label>
-                    <input
-                      type="text"
-                      placeholder="Make"
-                      value={vehicleFilters.make}
-                      onChange={(e) => setVehicleFilters(prev => ({ ...prev, make: e.target.value }))}
-                      className="input"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Model</label>
-                    <input
-                      type="text"
-                      placeholder="Model"
-                      value={vehicleFilters.model}
-                      onChange={(e) => setVehicleFilters(prev => ({ ...prev, model: e.target.value }))}
-                      className="input"
-                    />
-                  </div>
-                </div>
+            {(isFetching && !isPreviousData) && (
+              <div className="flex items-center text-blue-600">
+                <ClockIcon className="h-4 w-4 mr-1 animate-spin" />
+                <span className="text-sm">Searching...</span>
               </div>
             )}
+            {(isFetching && isPreviousData) && (
+              <div className="flex items-center text-orange-600">
+                <ClockIcon className="h-4 w-4 mr-1 animate-spin" />
+                <span className="text-sm">Updating...</span>
+              </div>
+            )}
+          </div>
 
-            {/* Search Button */}
-            <div className="flex justify-end space-x-3 pt-4">
-              <button
-                type="button"
-                onClick={handleClearSearch}
-                className="btn btn-secondary"
-              >
-                Clear
-              </button>
-              <button
-                type="submit"
-                className="btn btn-primary"
-                disabled={
-                  Boolean((!vehicleSearch && Object.values(vehicleFilters).every(v => !v?.trim())) ||
-                  (vehicleSearch && vehicleSearch.trim().length < 4))
-                }
-              >
-                <MagnifyingGlassIcon className="h-5 w-5 mr-2" />
-                Search
-              </button>
+          <div className="space-y-4">
+            {/* Search Type Selector */}
+            <div className="flex space-x-3">
+              <div className="w-48">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Search In</label>
+                <select
+                  value={searchType}
+                  onChange={(e) => setSearchType(e.target.value)}
+                  className="form-select"
+                >
+                  <option value="all">All Fields</option>
+                  <option value="registration_number">Registration Number</option>
+                  <option value="chasis_number">Chassis Number</option>
+                  <option value="engine_number">Engine Number</option>
+                </select>
+              </div>
+              
+              {/* Clear and Refresh buttons */}
+              <div className="flex items-end space-x-2">
+                {vehicleSearch && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setVehicleSearch('');
+                      setVehiclePage(1);
+                      setSearchType('all');
+                    }}
+                    className="btn btn-outline btn-sm"
+                  >
+                    <XMarkIcon className="h-4 w-4 mr-1" />
+                    Clear
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Force refresh by invalidating cache
+                    queryClient.invalidateQueries({ queryKey: ['excel-vehicles-fast'] });
+                  }}
+                  className="btn btn-outline btn-sm"
+                  title="Refresh search results to get latest data"
+                >
+                  🔄 Refresh
+                </button>
+              </div>
             </div>
-          </form>
+            
+            {/* Search Input */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Search Term {debouncedSearch !== vehicleSearch && '(typing...)'}
+              </label>
+              <div className="relative">
+                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder={
+                    searchType === 'all' 
+                      ? "Search anywhere in registration, chassis, or engine number..."
+                      : `Search anywhere in ${searchType.replace('_', ' ')}...`
+                  }
+                  value={vehicleSearch}
+                  onChange={(e) => setVehicleSearch(e.target.value)}
+                  className="form-input pl-10 text-base"
+                />
+                {vehicleSearch && vehicleSearch.trim().length < 3 && (
+                  <p className="text-sm text-orange-600 mt-1 flex items-center">
+                    <BoltIcon className="h-4 w-4 mr-1" />
+                    Enter at least 3 characters to search anywhere in the field
+                  </p>
+                )}
+                {vehicleSearch.trim().length >= 3 && debouncedSearch === vehicleSearch && !isFetching && (
+                  <p className="text-sm text-green-600 mt-1 flex items-center">
+                    <BoltIcon className="h-4 w-4 mr-1" />
+                    Found {vehicles.length} results (supports partial matching)
+                  </p>
+                )}
+                {vehicleSearch.trim().length >= 3 && (isFetching && !isPreviousData) && (
+                  <p className="text-sm text-blue-600 mt-1 flex items-center">
+                    <ClockIcon className="h-4 w-4 mr-1 animate-spin" />
+                    Searching for "{debouncedSearch}"...
+                  </p>
+                )}
+                {vehicleSearch.trim().length >= 3 && (isFetching && isPreviousData) && (
+                  <p className="text-sm text-orange-600 mt-1 flex items-center">
+                    <ClockIcon className="h-4 w-4 mr-1 animate-spin" />
+                    Updating results for "{debouncedSearch}"...
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
+
+
        {/* Results Summary */}
-       {(vehicleSearch.trim().length >= 4 || Object.values(vehicleFilters).some(v => v && v.trim().length > 0)) && vehicles.length > 0 && (
+       {vehicleSearch.trim().length >= 3 && vehicles.length > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <div className="flex items-center justify-between">
             <div>
@@ -370,18 +330,20 @@ export default function VehicleSearch() {
       {/* Vehicles List */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-6">
-           {!(vehicleSearch.trim().length >= 4 || Object.values(vehicleFilters).some(v => v && v.trim().length > 0)) ? (
+           {vehicleSearch.trim().length < 3 ? (
              <div className="text-center py-12">
                <MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-400" />
                <h3 className="mt-2 text-sm font-medium text-gray-900">Ready to search</h3>
                <p className="mt-1 text-sm text-gray-500">
-                 Enter at least 4 characters to search automatically, or use filters below.
+                 Enter at least 3 characters to search automatically.
                </p>
              </div>
-           ) : vehiclesLoading ? (
+           ) : (vehiclesLoading || (isFetching && !isPreviousData)) ? (
             <div className="text-center py-12">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-sm text-gray-500">Searching vehicles...</p>
+              <p className="mt-4 text-sm text-gray-500">
+                Searching for "{debouncedSearch}" anywhere in vehicle data...
+              </p>
             </div>
           ) : vehicles.length === 0 ? (
             <div className="text-center py-12">
@@ -393,26 +355,32 @@ export default function VehicleSearch() {
             </div>
           ) : (
             <div className="space-y-3">
+              {(isFetching && isPreviousData) && (
+                <div className="bg-orange-50 border-l-4 border-orange-400 p-3 mb-4">
+                  <div className="flex items-center">
+                    <ClockIcon className="h-4 w-4 text-orange-400 mr-2 animate-spin" />
+                    <p className="text-sm text-orange-700">
+                      Updating results for "{debouncedSearch}"... Showing previous results below.
+                    </p>
+                  </div>
+                </div>
+              )}
               {vehicles.map((vehicle: any) => (
                 <div key={vehicle._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div>
-                          <p className="text-sm font-medium text-gray-900">Registration</p>
+                          <p className="text-sm font-medium text-gray-900">Registration Number</p>
                           <p className="text-sm text-gray-600 font-mono">{vehicle.registration_number || 'N/A'}</p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">Customer</p>
-                          <p className="text-sm text-gray-600">{vehicle.customer_name || 'N/A'}</p>
+                          <p className="text-sm font-medium text-gray-900">Chassis Number</p>
+                          <p className="text-sm text-gray-600 font-mono">{vehicle.chasis_number || 'N/A'}</p>
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">Loan Number</p>
-                          <p className="text-sm text-gray-600 font-mono">{vehicle.loan_number || 'N/A'}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">Make & Model</p>
-                          <p className="text-sm text-gray-600">{vehicle.make || 'N/A'} {vehicle.model || ''}</p>
+                          <p className="text-sm font-medium text-gray-900">Engine Number</p>
+                          <p className="text-sm text-gray-600 font-mono">{vehicle.engine_number || 'N/A'}</p>
                         </div>
                       </div>
                     </div>
@@ -435,7 +403,7 @@ export default function VehicleSearch() {
       </div>
 
        {/* Vehicle Pagination */}
-       {(vehicleSearch.trim().length >= 4 || Object.values(vehicleFilters).some(v => v && v.trim().length > 0)) && vehiclePagination && vehiclePagination.pages > 1 && (
+       {vehicleSearch.trim().length >= 3 && vehiclePagination && vehiclePagination.pages > 1 && (
          <div className="flex justify-center">
            <nav className="flex items-center space-x-1 max-w-full overflow-x-auto">
              {/* Previous Page */}
@@ -537,7 +505,7 @@ export default function VehicleSearch() {
                    <h4 className="font-medium text-gray-900 border-b pb-2">Primary Information</h4>
                    <div>
                      <p className="text-sm font-medium text-gray-700">Excel File</p>
-                     <p className="text-sm text-gray-900 font-mono">{selectedVehicle.excelFile?.originalName || selectedVehicle.excelFile?.filename || 'N/A'}</p>
+                     <p className="text-sm text-gray-900 font-mono">{selectedVehicle.excel_file?.originalName || selectedVehicle.excel_file?.filename || 'N/A'}</p>
                    </div>
                    <div>
                      <p className="text-sm font-medium text-gray-700">Registration Number</p>

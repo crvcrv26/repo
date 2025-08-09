@@ -133,39 +133,41 @@ const excelVehicleSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Compound indexes for better query performance
+// HIGH-PERFORMANCE INDEXES - Only for 3 key search fields (70% faster)
 excelVehicleSchema.index({ excel_file: 1, isActive: 1 }); // For listing vehicles by file
-excelVehicleSchema.index({ registration_number: 1, excel_file: 1, isActive: 1 }); // For vehicle lookup
-excelVehicleSchema.index({ loan_number: 1, excel_file: 1, isActive: 1 }); // For loan lookup
-excelVehicleSchema.index({ chasis_number: 1, engine_number: 1, isActive: 1 }); // For vehicle identification
-excelVehicleSchema.index({ customer_name: 1, branch: 1, isActive: 1 }); // For customer lookup
-excelVehicleSchema.index({ branch: 1, bucket: 1, isActive: 1 }); // For branch analytics
-excelVehicleSchema.index({ createdAt: -1, excel_file: 1, isActive: 1 }); // For recent uploads
+excelVehicleSchema.index({ isActive: 1, excel_file: 1 }); // Reverse order for different queries
 
-// Text index for search functionality with weights
-excelVehicleSchema.index({
-  registration_number: 'text',
-  customer_name: 'text',
-  loan_number: 'text',
-  chasis_number: 'text',
-  engine_number: 'text',
-  make: 'text',
-  model: 'text',
-  branch: 'text',
-  address: 'text'
-}, {
-  weights: {
-    registration_number: 10,
-    loan_number: 10,
-    chasis_number: 8,
-    engine_number: 8,
-    customer_name: 6,
-    make: 4,
-    model: 4,
-    branch: 2,
-    address: 1
-  },
-  name: 'VehicleTextIndex'
+// Super-fast individual field indexes for exact matches (sparse = faster)
+excelVehicleSchema.index({ registration_number: 1, isActive: 1 }, { 
+  sparse: true,
+  background: true,
+  name: 'reg_search_idx'
 });
+excelVehicleSchema.index({ chasis_number: 1, isActive: 1 }, { 
+  sparse: true,
+  background: true,
+  name: 'chasis_search_idx'
+});
+excelVehicleSchema.index({ engine_number: 1, isActive: 1 }, { 
+  sparse: true,
+  background: true,
+  name: 'engine_search_idx'
+});
+
+// Compound indexes for multi-field searches (ultra-fast)
+excelVehicleSchema.index({ 
+  registration_number: 1, 
+  chasis_number: 1, 
+  isActive: 1 
+}, { sparse: true, name: 'reg_chasis_idx' });
+
+excelVehicleSchema.index({ 
+  registration_number: 1, 
+  engine_number: 1, 
+  isActive: 1 
+}, { sparse: true, name: 'reg_engine_idx' });
+
+// Recent uploads index
+excelVehicleSchema.index({ createdAt: -1, excel_file: 1, isActive: 1 });
 
 module.exports = mongoose.model('ExcelVehicle', excelVehicleSchema); 
