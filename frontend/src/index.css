@@ -321,6 +321,11 @@
     color: var(--color-warning);
   }
 
+  .badge-gray {
+    background-color: var(--brand-gray-100);
+    color: var(--brand-gray-600);
+  }
+
   .badge-error {
     background-color: var(--color-error-light);
     color: var(--color-error);

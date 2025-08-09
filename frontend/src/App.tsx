@@ -10,6 +10,7 @@ import VehicleSearch from './pages/VehicleSearch'
 import Profile from './pages/Profile'
 import OTPManagement from './pages/OTPManagement'
 import Notifications from './pages/Notifications'
+import MoneyManagement from './pages/MoneyManagement'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -39,6 +40,7 @@ function AppContent() {
         <Route path="/users" element={<Users />} />
         <Route path="/excel-files" element={<ExcelFiles />} />
         <Route path="/vehicle-search" element={<VehicleSearch />} />
+        <Route path="/money" element={<MoneyManagement />} />
         <Route path="/otp-management" element={<OTPManagement />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/profile" element={<Profile />} />

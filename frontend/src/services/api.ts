@@ -99,4 +99,28 @@ export const notificationsAPI = {
   getStats: () => api.get('/notifications/stats'),
 }
 
+// Money Management API
+export const moneyAPI = {
+  // CRUD operations
+  getAll: (params?: any) => api.get('/money', { params }),
+  getById: (id: string) => api.get(`/money/${id}`),
+  create: (data: any) => api.post('/money', data),
+  update: (id: string, data: any) => api.put(`/money/${id}`, data),
+  delete: (id: string) => api.delete(`/money/${id}`),
+  deleteAll: () => api.delete('/money/delete-all'),
+  
+  // Import/Export
+  import: (formData: FormData) => api.post('/money/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  export: (params?: any) => api.get('/money/export', { 
+    params,
+    responseType: 'blob'
+  }),
+  
+  // Vehicle lookup helper
+  getVehicleByReg: (registrationNumber: string) => 
+    api.get(`/excel/vehicles/by-reg/${registrationNumber}`)
+}
+
 export default api 

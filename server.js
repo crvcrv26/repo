@@ -14,6 +14,7 @@ const userRoutes = require('./routes/users');
 const excelRoutes = require('./routes/excel');
 const otpRoutes = require('./routes/otp');
 const notificationRoutes = require('./routes/notifications');
+const moneyRoutes = require('./routes/money');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -82,6 +83,7 @@ app.use('/api/otp', otpRoutes);
 app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/excel', authenticateToken, excelRoutes);
 app.use('/api/notifications', authenticateToken, notificationRoutes);
+app.use('/api/money', authenticateToken, moneyRoutes);
 
 // 404 handler
 app.use('*', (req, res) => {

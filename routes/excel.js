@@ -881,4 +881,66 @@ router.get('/template',
   }
 );
 
+// @desc    Get vehicle master data by registration number (for money management prefill)
+// @route   GET /api/excel/vehicles/by-reg/:registrationNumber
+// @access  Private (Admin, Auditor)
+router.get('/vehicles/by-reg/:registrationNumber',
+  authenticateToken,
+  authorizeRole('admin', 'auditor'),
+  async (req, res) => {
+    try {
+      const { registrationNumber } = req.params;
+      
+      if (!registrationNumber) {
+        return res.status(400).json({
+          success: false,
+          message: 'Registration number is required'
+        });
+      }
+
+      const startTime = Date.now();
+      
+      // Search for vehicle with exact registration number match
+      const vehicle = await ExcelVehicle.findOne({
+        registration_number: new RegExp(`^${registrationNumber.trim()}$`, 'i'),
+        isActive: true
+      })
+      .select('registration_number make model bank customer_name loan_number status')
+      .lean();
+
+      const queryTime = Date.now() - startTime;
+      console.log(`🔍 Vehicle lookup for ${registrationNumber}: ${queryTime}ms`);
+
+      if (!vehicle) {
+        return res.json({
+          success: true,
+          found: false,
+          message: 'Vehicle not found in master data'
+        });
+      }
+
+      res.json({
+        success: true,
+        found: true,
+        data: {
+          registration_number: vehicle.registration_number,
+          make: vehicle.make || '',
+          model: vehicle.model || '',
+          bank: vehicle.bank || '',
+          customer_name: vehicle.customer_name || '',
+          loan_number: vehicle.loan_number || '',
+          status: vehicle.status || ''
+        }
+      });
+
+    } catch (error) {
+      console.error('Error fetching vehicle master data:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error while fetching vehicle data'
+      });
+    }
+  }
+);
+
 module.exports = router; 

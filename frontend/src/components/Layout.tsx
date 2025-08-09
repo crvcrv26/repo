@@ -12,7 +12,8 @@ import {
   KeyIcon,
   BellIcon,
   ArrowRightOnRectangleIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  CurrencyDollarIcon
 } from '@heroicons/react/24/outline';
 import { 
   ChartBarIcon as ChartBarSolid 
@@ -46,6 +47,12 @@ const getNavigation = (userRole?: string) => {
   // Add admin-specific features
   if (userRole === 'admin') {
     baseNavigation.push({ 
+      name: 'Money Management', 
+      href: '/money', 
+      icon: CurrencyDollarIcon, 
+      description: 'Payment & billing records' 
+    });
+    baseNavigation.push({ 
       name: 'OTP Management', 
       href: '/otp-management', 
       icon: KeyIcon, 
@@ -59,8 +66,14 @@ const getNavigation = (userRole?: string) => {
     });
   }
 
-  // Add notifications for super admins too
+  // Add notifications and money management for super admins too
   if (userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
+    baseNavigation.push({ 
+      name: 'Money Management', 
+      href: '/money', 
+      icon: CurrencyDollarIcon, 
+      description: 'View admin statistics' 
+    });
     baseNavigation.push({ 
       name: 'Notifications', 
       href: '/notifications', 
@@ -70,6 +83,12 @@ const getNavigation = (userRole?: string) => {
   }
 
   if (userRole === 'auditor') {
+    baseNavigation.push({ 
+      name: 'Money Management', 
+      href: '/money', 
+      icon: CurrencyDollarIcon, 
+      description: 'Payment & billing records' 
+    });
     baseNavigation.push({ 
       name: 'Field Agents', 
       href: '/users', 
