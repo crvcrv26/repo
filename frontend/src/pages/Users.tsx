@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { usersAPI } from '../services/api'
 import toast from 'react-hot-toast'
@@ -6,8 +6,6 @@ import {
   PlusIcon, 
   MagnifyingGlassIcon,
   FunnelIcon,
-  EyeIcon,
-  PencilIcon,
   TrashIcon,
   UserIcon,
   ShieldCheckIcon,
@@ -168,7 +166,6 @@ export default function Users() {
 
   const users = data?.data?.data || []
   const admins = adminsData?.data?.data || []
-  const pagination = data?.data?.pagination
   
   // Check if search is in progress (debounced search differs from current search)
   const isSearching = search !== debouncedSearch
@@ -241,7 +238,6 @@ export default function Users() {
       return
     }
     
-    const action = user.isActive ? 'deactivate' : 'activate'
     const confirmMessage = user.isActive 
       ? `Are you sure you want to deactivate ${user.name}? ${user.role === 'admin' ? 'This will also deactivate all their associated users.' : ''}`
       : `Are you sure you want to activate ${user.name}?`
@@ -277,10 +273,15 @@ export default function Users() {
   }
 
   const canManageUsers = currentUser?.role === 'admin' || currentUser?.role === 'superAdmin' || currentUser?.role === 'superSuperAdmin'
-  // Admin can delete their own field agents and auditors, super admins can delete anyone
+  // Admin can delete their own field agents and auditors, super admins can delete anyone except protected roles
   const canDelete = (user: User) => {
+    // Never allow deletion of superSuperAdmin or superAdmin
+    if (user.role === 'superSuperAdmin' || user.role === 'superAdmin') {
+      return false
+    }
+    
     if (currentUser?.role === 'superAdmin' || currentUser?.role === 'superSuperAdmin') {
-      return true // Can delete anyone
+      return true // Can delete anyone except superSuperAdmin and superAdmin
     }
     if (currentUser?.role === 'admin') {
       // Can only delete field agents and auditors they created
@@ -377,23 +378,25 @@ export default function Users() {
             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
               user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
             }`}>
-              {user.isActive ? 'Active' : 'Inactive'}
+              {user.isActive ? 'Active' : 'Deactive'}
             </span>
-            {/* Status toggle for superSuperAdmin only */}
-            {currentUser?.role === 'superSuperAdmin' && user.role !== 'superSuperAdmin' && (
-              <button
-                onClick={() => handleStatusToggle(user)}
-                disabled={statusUpdateMutation.isPending}
-                className={`px-2 py-1 text-xs font-medium rounded ${
-                  user.isActive 
-                    ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                    : 'bg-green-100 text-green-700 hover:bg-green-200'
-                } disabled:opacity-50`}
-                title={user.isActive ? 'Deactivate user' : 'Activate user'}
-              >
-                {user.isActive ? 'Deactivate' : 'Activate'}
-              </button>
-            )}
+                      {/* Status toggle for superSuperAdmin only */}
+          {currentUser?.role === 'superSuperAdmin' && user.role !== 'superSuperAdmin' && (
+            <button
+              onClick={() => handleStatusToggle(user)}
+              disabled={statusUpdateMutation.isPending}
+              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                user.isActive 
+                  ? 'bg-green-600' 
+                  : 'bg-gray-200'
+              } disabled:opacity-50`}
+              title={user.isActive ? 'Deactivate user' : 'Activate user'}
+            >
+              <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                user.isActive ? 'translate-x-4' : 'translate-x-0'
+              }`} />
+            </button>
+          )}
             {canDelete(user) && (
               <button
                 onClick={() => handleDelete(user._id)}
@@ -433,21 +436,23 @@ export default function Users() {
           <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
             user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
           }`}>
-            {user.isActive ? 'Active' : 'Inactive'}
+            {user.isActive ? 'Active' : 'Deactive'}
           </span>
           {/* Status toggle for superSuperAdmin only */}
           {currentUser?.role === 'superSuperAdmin' && user.role !== 'superSuperAdmin' && (
             <button
               onClick={() => handleStatusToggle(user)}
               disabled={statusUpdateMutation.isPending}
-              className={`px-3 py-1 text-sm font-medium rounded ${
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                 user.isActive 
-                  ? 'bg-red-100 text-red-700 hover:bg-red-200' 
-                  : 'bg-green-100 text-green-700 hover:bg-green-200'
+                  ? 'bg-green-600' 
+                  : 'bg-gray-200'
               } disabled:opacity-50`}
               title={user.isActive ? 'Deactivate user' : 'Activate user'}
             >
-              {user.isActive ? 'Deactivate' : 'Activate'}
+              <span className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                user.isActive ? 'translate-x-5' : 'translate-x-0'
+              }`} />
             </button>
           )}
           {canDelete(user) && (
@@ -560,7 +565,7 @@ export default function Users() {
                 >
                   <option value="">All Status</option>
                   <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="inactive">Deactive</option>
                 </select>
               </div>
               

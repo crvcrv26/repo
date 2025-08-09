@@ -609,7 +609,7 @@ router.put('/:id/status',
       if (targetUser.role === 'superSuperAdmin') {
         return res.status(403).json({
           success: false,
-          message: 'SuperSuperAdmin cannot be deactivated'
+          message: 'SuperSuperAdmin cannot be deactivated or deleted'
         });
       }
 
