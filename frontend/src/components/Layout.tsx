@@ -46,31 +46,13 @@ const getNavigation = (userRole?: string) => {
     });
   }
 
-  // Add admin-specific features
+  // Add admin-specific features (non-payment related)
   if (userRole === 'admin' || userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
     baseNavigation.push({ 
       name: 'Money Management', 
       href: '/money', 
       icon: CurrencyDollarIcon, 
       description: 'Payment & billing records' 
-    });
-    baseNavigation.push({ 
-      name: 'Payment Management', 
-      href: '/admin-payments', 
-      icon: CurrencyDollarIcon, 
-      description: 'Manage team payments' 
-    });
-    baseNavigation.push({ 
-      name: 'QR Code Management', 
-      href: '/qr-management', 
-      icon: QrCodeIcon, 
-      description: 'Upload and manage QR codes' 
-    });
-    baseNavigation.push({ 
-      name: 'Payment Approval', 
-      href: '/payment-approval', 
-      icon: CheckCircleIcon, 
-      description: 'Review payment proofs' 
     });
     baseNavigation.push({ 
       name: 'OTP Management', 
@@ -110,18 +92,6 @@ const getNavigation = (userRole?: string) => {
       description: 'Payment & billing records' 
     });
     baseNavigation.push({ 
-      name: 'My Payments', 
-      href: '/user-payments', 
-      icon: CurrencyDollarIcon, 
-      description: 'View payment dues' 
-    });
-    baseNavigation.push({ 
-      name: 'Payment Submission', 
-      href: '/payment-submission', 
-      icon: QrCodeIcon, 
-      description: 'Submit payment proofs' 
-    });
-    baseNavigation.push({ 
       name: 'Field Agents', 
       href: '/users', 
       icon: UsersIcon, 
@@ -131,18 +101,7 @@ const getNavigation = (userRole?: string) => {
 
   // Add field agent specific navigation
   if (userRole === 'fieldAgent') {
-    baseNavigation.push({ 
-      name: 'My Payments', 
-      href: '/user-payments', 
-      icon: CurrencyDollarIcon, 
-      description: 'View payment dues' 
-    });
-    baseNavigation.push({ 
-      name: 'Payment Submission', 
-      href: '/payment-submission', 
-      icon: QrCodeIcon, 
-      description: 'Submit payment proofs' 
-    });
+    // Field agent payment items are now in the dropdown
   }
 
   // Add common navigation items
@@ -154,6 +113,66 @@ const getNavigation = (userRole?: string) => {
   });
 
   return baseNavigation;
+};
+
+const getPaymentNavigation = (userRole?: string) => {
+  const paymentItems = [];
+
+  // Add the three specific payment items for admin roles
+  if (userRole === 'admin' || userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
+    paymentItems.push({ 
+      name: 'Payment Management', 
+      href: '/admin-payments', 
+      icon: CurrencyDollarIcon, 
+      description: 'Manage team payments' 
+    });
+    paymentItems.push({ 
+      name: 'QR Code Management', 
+      href: '/qr-management', 
+      icon: QrCodeIcon, 
+      description: 'Upload and manage QR codes' 
+    });
+    paymentItems.push({ 
+      name: 'Payment Approval', 
+      href: '/payment-approval', 
+      icon: CheckCircleIcon, 
+      description: 'Review payment proofs' 
+    });
+  }
+
+  // Add payment items for auditor
+  if (userRole === 'auditor') {
+    paymentItems.push({ 
+      name: 'My Payments', 
+      href: '/user-payments', 
+      icon: CurrencyDollarIcon, 
+      description: 'View payment dues' 
+    });
+    paymentItems.push({ 
+      name: 'Payment Submission', 
+      href: '/payment-submission', 
+      icon: QrCodeIcon, 
+      description: 'Submit payment proofs' 
+    });
+  }
+
+  // Add payment items for field agent
+  if (userRole === 'fieldAgent') {
+    paymentItems.push({ 
+      name: 'My Payments', 
+      href: '/user-payments', 
+      icon: CurrencyDollarIcon, 
+      description: 'View payment dues' 
+    });
+    paymentItems.push({ 
+      name: 'Payment Submission', 
+      href: '/payment-submission', 
+      icon: QrCodeIcon, 
+      description: 'Submit payment proofs' 
+    });
+  }
+
+  return paymentItems;
 };
 
 const getRoleBadgeColor = (role?: string) => {
@@ -181,12 +200,17 @@ const getPageTitle = (pathname: string, navigation: any[]) => {
 export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [paymentsDropdownOpen, setPaymentsDropdownOpen] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
   const navigation = getNavigation(user?.role);
-  const pageTitle = getPageTitle(location.pathname, navigation);
+  const paymentNavigation = getPaymentNavigation(user?.role);
+  const pageTitle = getPageTitle(location.pathname, [...navigation, ...paymentNavigation]);
+
+  // Check if current page is a payment page
+  const isPaymentPage = paymentNavigation.some(item => item.href === location.pathname);
 
   const handleLogout = async () => {
     await logout();
@@ -239,6 +263,45 @@ export default function Layout({ children }: LayoutProps) {
                     </Link>
                   );
                 })}
+
+                {/* Mobile Payments Dropdown */}
+                {paymentNavigation.length > 0 && (
+                  <div className="space-y-2">
+                    <button
+                      onClick={() => setPaymentsDropdownOpen(!paymentsDropdownOpen)}
+                      className={`nav-item w-full text-left ${isPaymentPage ? 'active' : ''}`}
+                    >
+                      <CurrencyDollarIcon className="h-5 w-5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <div className="font-medium">Payments</div>
+                        <div className="text-xs text-gray-500 mt-0.5">Payment management</div>
+                      </div>
+                      <ChevronDownIcon className={`h-4 w-4 transition-transform ${paymentsDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                    {paymentsDropdownOpen && (
+                      <div className="ml-6 space-y-1">
+                        {paymentNavigation.map((item) => {
+                          const isActive = location.pathname === item.href;
+                          return (
+                            <Link
+                              key={item.name}
+                              to={item.href}
+                              onClick={() => setSidebarOpen(false)}
+                              className={`nav-item ${isActive ? 'active' : ''}`}
+                            >
+                              <item.icon className="h-5 w-5 flex-shrink-0" />
+                              <div className="flex-1">
+                                <div className="font-medium">{item.name}</div>
+                                <div className="text-xs text-gray-500 mt-0.5">{item.description}</div>
+                              </div>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </nav>
 
               {/* Mobile user section */}
@@ -298,6 +361,46 @@ export default function Layout({ children }: LayoutProps) {
             })}
           </nav>
 
+          {/* Desktop Payments Dropdown - at bottom */}
+          {paymentNavigation.length > 0 && (
+            <div className="px-4 pb-4">
+              <div className="space-y-2">
+                <button
+                  onClick={() => setPaymentsDropdownOpen(!paymentsDropdownOpen)}
+                  className={`nav-item w-full text-left ${isPaymentPage ? 'active' : ''}`}
+                >
+                  <CurrencyDollarIcon className="h-5 w-5 flex-shrink-0" />
+                  <div className="flex-1">
+                    <div className="font-medium">Payments</div>
+                    <div className="text-xs text-gray-500 mt-0.5">Payment management</div>
+                  </div>
+                  <ChevronDownIcon className={`h-4 w-4 transition-transform ${paymentsDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {paymentsDropdownOpen && (
+                  <div className="ml-6 space-y-1">
+                    {paymentNavigation.map((item) => {
+                      const isActive = location.pathname === item.href;
+                      return (
+                        <Link
+                          key={item.name}
+                          to={item.href}
+                          className={`nav-item ${isActive ? 'active' : ''}`}
+                        >
+                          <item.icon className="h-5 w-5 flex-shrink-0" />
+                          <div className="flex-1">
+                            <div className="font-medium">{item.name}</div>
+                            <div className="text-xs text-gray-500 mt-0.5">{item.description}</div>
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           {/* Desktop user section */}
           <div className="border-t border-gray-200 p-4">
             <div className="flex items-center space-x-3">
@@ -333,7 +436,7 @@ export default function Layout({ children }: LayoutProps) {
               <div>
                 <h1 className="text-xl font-semibold text-gray-900">{pageTitle}</h1>
                 <p className="text-sm text-gray-500">
-                  {navigation.find(item => item.href === location.pathname)?.description}
+                  {[...navigation, ...paymentNavigation].find(item => item.href === location.pathname)?.description}
                 </p>
               </div>
             </div>
