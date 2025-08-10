@@ -99,6 +99,23 @@ export const notificationsAPI = {
   getStats: () => api.get('/notifications/stats'),
 }
 
+// Payments API
+export const paymentsAPI = {
+  // Admin payment management
+  getRates: () => api.get('/payments/rates'),
+  updateRates: (data: { auditorRate: number; fieldAgentRate: number }) => 
+    api.put('/payments/rates', data),
+  getAdminSummary: (params?: any) => api.get('/payments/admin-summary', { params }),
+  getAdminDetails: (params?: any) => api.get('/payments/admin-details', { params }),
+  markPaymentAsPaid: (paymentId: string, data: { paidAmount: number; notes?: string }) =>
+    api.put(`/payments/${paymentId}/mark-paid`, data),
+  generateMonthlyPayments: (data: { month: number; year: number }) =>
+    api.post('/payments/generate-monthly', data),
+  
+  // User payment dues
+  getUserDues: (params?: any) => api.get('/payments/user-dues', { params }),
+}
+
 // Money Management API
 export const moneyAPI = {
   // CRUD operations

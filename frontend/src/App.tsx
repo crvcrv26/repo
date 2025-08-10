@@ -11,6 +11,11 @@ import Profile from './pages/Profile'
 import OTPManagement from './pages/OTPManagement'
 import Notifications from './pages/Notifications'
 import MoneyManagement from './pages/MoneyManagement'
+import AdminPayments from './pages/AdminPayments'
+import UserPayments from './pages/UserPayments'
+import QRCodeManagement from './components/QRCodeManagement'
+import PaymentSubmission from './components/PaymentSubmission'
+import PaymentApproval from './components/PaymentApproval'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -41,6 +46,11 @@ function AppContent() {
         <Route path="/excel-files" element={<ExcelFiles />} />
         <Route path="/vehicle-search" element={<VehicleSearch />} />
         <Route path="/money" element={<MoneyManagement />} />
+        <Route path="/admin-payments" element={<AdminPayments />} />
+        <Route path="/user-payments" element={<UserPayments />} />
+        <Route path="/qr-management" element={<QRCodeManagement />} />
+        <Route path="/payment-submission" element={<PaymentSubmission />} />
+        <Route path="/payment-approval" element={<PaymentApproval />} />
         <Route path="/otp-management" element={<OTPManagement />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/profile" element={<Profile />} />

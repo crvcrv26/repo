@@ -13,7 +13,9 @@ import {
   BellIcon,
   ArrowRightOnRectangleIcon,
   ChevronDownIcon,
-  CurrencyDollarIcon
+  CurrencyDollarIcon,
+  QrCodeIcon,
+  CheckCircleIcon
 } from '@heroicons/react/24/outline';
 import { 
   ChartBarIcon as ChartBarSolid 
@@ -45,12 +47,30 @@ const getNavigation = (userRole?: string) => {
   }
 
   // Add admin-specific features
-  if (userRole === 'admin') {
+  if (userRole === 'admin' || userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
     baseNavigation.push({ 
       name: 'Money Management', 
       href: '/money', 
       icon: CurrencyDollarIcon, 
       description: 'Payment & billing records' 
+    });
+    baseNavigation.push({ 
+      name: 'Payment Management', 
+      href: '/admin-payments', 
+      icon: CurrencyDollarIcon, 
+      description: 'Manage team payments' 
+    });
+    baseNavigation.push({ 
+      name: 'QR Code Management', 
+      href: '/qr-management', 
+      icon: QrCodeIcon, 
+      description: 'Upload and manage QR codes' 
+    });
+    baseNavigation.push({ 
+      name: 'Payment Approval', 
+      href: '/payment-approval', 
+      icon: CheckCircleIcon, 
+      description: 'Review payment proofs' 
     });
     baseNavigation.push({ 
       name: 'OTP Management', 
@@ -90,10 +110,38 @@ const getNavigation = (userRole?: string) => {
       description: 'Payment & billing records' 
     });
     baseNavigation.push({ 
+      name: 'My Payments', 
+      href: '/user-payments', 
+      icon: CurrencyDollarIcon, 
+      description: 'View payment dues' 
+    });
+    baseNavigation.push({ 
+      name: 'Payment Submission', 
+      href: '/payment-submission', 
+      icon: QrCodeIcon, 
+      description: 'Submit payment proofs' 
+    });
+    baseNavigation.push({ 
       name: 'Field Agents', 
       href: '/users', 
       icon: UsersIcon, 
       description: 'View team members' 
+    });
+  }
+
+  // Add field agent specific navigation
+  if (userRole === 'fieldAgent') {
+    baseNavigation.push({ 
+      name: 'My Payments', 
+      href: '/user-payments', 
+      icon: CurrencyDollarIcon, 
+      description: 'View payment dues' 
+    });
+    baseNavigation.push({ 
+      name: 'Payment Submission', 
+      href: '/payment-submission', 
+      icon: QrCodeIcon, 
+      description: 'Submit payment proofs' 
     });
   }
 
