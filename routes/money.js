@@ -161,8 +161,11 @@ router.get('/',
       let query = {};
       
       // Role-based filtering
-      if (req.user.role === 'admin' || req.user.role === 'auditor') {
+      if (req.user.role === 'admin') {
         query.created_by = req.user._id;
+      } else if (req.user.role === 'auditor') {
+        // Auditors can see money records created by their admin
+        query.created_by = req.user.adminId;
       }
 
       // Search across multiple fields
@@ -260,7 +263,12 @@ router.get('/export',
       } = req.query;
 
       // Build query (same as GET route)
-      let query = { created_by: req.user._id };
+      let query;
+      if (req.user.role === 'admin') {
+        query = { created_by: req.user._id };
+      } else if (req.user.role === 'auditor') {
+        query = { created_by: req.user.adminId };
+      }
 
       if (search) {
         const searchRegex = new RegExp(search, 'i');
@@ -403,8 +411,14 @@ router.get('/:id',
       }
 
       // Check access permissions
-      if ((req.user.role === 'admin' || req.user.role === 'auditor') && 
+      if (req.user.role === 'admin' && 
           record.created_by._id.toString() !== req.user._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied to this record'
+        });
+      } else if (req.user.role === 'auditor' && 
+                 record.created_by._id.toString() !== req.user.adminId.toString()) {
         return res.status(403).json({
           success: false,
           message: 'Access denied to this record'
@@ -447,7 +461,7 @@ router.post('/',
       const recordData = {
         ...req.body,
         registration_number: req.body.registration_number.toUpperCase().trim(),
-        created_by: req.user._id,
+        created_by: req.user.role === 'auditor' ? req.user.adminId : req.user._id,
         updated_by: req.user._id
       };
 
@@ -502,7 +516,12 @@ router.put('/:id',
       }
 
       // Check permissions
-      if (record.created_by.toString() !== req.user._id.toString()) {
+      if (req.user.role === 'admin' && record.created_by.toString() !== req.user._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied to update this record'
+        });
+      } else if (req.user.role === 'auditor' && record.created_by.toString() !== req.user.adminId.toString()) {
         return res.status(403).json({
           success: false,
           message: 'Access denied to update this record'
@@ -548,7 +567,12 @@ router.delete('/delete-all',
   async (req, res) => {
     try {
       // For admin/auditor - only delete their own records
-      const deleteQuery = { created_by: req.user._id };
+      let deleteQuery;
+      if (req.user.role === 'admin') {
+        deleteQuery = { created_by: req.user._id };
+      } else if (req.user.role === 'auditor') {
+        deleteQuery = { created_by: req.user.adminId };
+      }
       
       // Get count before deletion for confirmation
       const totalCount = await MoneyRecord.countDocuments(deleteQuery);
@@ -598,7 +622,12 @@ router.delete('/:id',
       }
 
       // Check permissions
-      if (record.created_by.toString() !== req.user._id.toString()) {
+      if (req.user.role === 'admin' && record.created_by.toString() !== req.user._id.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied to delete this record'
+        });
+      } else if (req.user.role === 'auditor' && record.created_by.toString() !== req.user.adminId.toString()) {
         return res.status(403).json({
           success: false,
           message: 'Access denied to delete this record'
@@ -645,7 +674,7 @@ router.post('/import',
       const excelFile = new MoneyExcelFile({
         filename: req.file.filename,
         originalName: req.file.originalname,
-        uploadedBy: req.user._id,
+        uploadedBy: req.user.role === 'auditor' ? req.user.adminId : req.user._id,
         dedupeEnabled,
         status: 'processing'
       });
@@ -715,7 +744,7 @@ router.post('/import',
             repo_date: parseDate(rowData['Repo Date']),
             service_tax: parseFloat(rowData['ServiceTax']) || 0,
             payment_to_repo_team: parseFloat(rowData['Payment To Repo Team']) || 0,
-            created_by: req.user._id,
+            created_by: req.user.role === 'auditor' ? req.user.adminId : req.user._id,
             updated_by: req.user._id,
             source_excel_file_id: excelFile._id
           };

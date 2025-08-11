@@ -15,6 +15,7 @@ const excelRoutes = require('./routes/excel');
 const otpRoutes = require('./routes/otp');
 const notificationRoutes = require('./routes/notifications');
 const moneyRoutes = require('./routes/money');
+const paymentRoutes = require('./routes/payments');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -65,8 +66,11 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Static files
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Static files with logging
+app.use('/uploads', (req, res, next) => {
+  console.log('📁 Static file request:', req.method, req.url);
+  next();
+}, express.static(path.join(__dirname, 'uploads')));
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -84,6 +88,9 @@ app.use('/api/users', authenticateToken, userRoutes);
 app.use('/api/excel', authenticateToken, excelRoutes);
 app.use('/api/notifications', authenticateToken, notificationRoutes);
 app.use('/api/money', authenticateToken, moneyRoutes);
+app.use('/api/payments', authenticateToken, paymentRoutes);
+app.use('/api/payment-qr', authenticateToken, require('./routes/paymentQR'));
+app.use('/api/admin-payments', authenticateToken, require('./routes/adminPayments'));
 
 // 404 handler
 app.use('*', (req, res) => {

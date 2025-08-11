@@ -68,21 +68,7 @@ const getNavigation = (userRole?: string) => {
     });
   }
 
-  // Add notifications and money management for super admins too
-  if (userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
-    baseNavigation.push({ 
-      name: 'Money Management', 
-      href: '/money', 
-      icon: CurrencyDollarIcon, 
-      description: 'View admin statistics' 
-    });
-    baseNavigation.push({ 
-      name: 'Notifications', 
-      href: '/notifications', 
-      icon: BellIcon, 
-      description: 'System alerts' 
-    });
-  }
+
 
   if (userRole === 'auditor') {
     baseNavigation.push({ 
@@ -118,8 +104,8 @@ const getNavigation = (userRole?: string) => {
 const getPaymentNavigation = (userRole?: string) => {
   const paymentItems = [];
 
-  // Add the three specific payment items for admin roles
-  if (userRole === 'admin' || userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
+  // Add payment items for super admin roles
+  if (userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
     paymentItems.push({ 
       name: 'Payment Management', 
       href: '/admin-payments', 
@@ -137,6 +123,40 @@ const getPaymentNavigation = (userRole?: string) => {
       href: '/payment-approval', 
       icon: CheckCircleIcon, 
       description: 'Review payment proofs' 
+    });
+    paymentItems.push({ 
+      name: 'Admin Payment Management', 
+      href: '/admin-payment-management', 
+      icon: CurrencyDollarIcon, 
+      description: 'Manage admin payments' 
+    });
+  }
+
+  // Add payment items for admin
+  if (userRole === 'admin') {
+    paymentItems.push({ 
+      name: 'Payment Management', 
+      href: '/admin-payments', 
+      icon: CurrencyDollarIcon, 
+      description: 'Manage team payments' 
+    });
+    paymentItems.push({ 
+      name: 'QR Code Management', 
+      href: '/qr-management', 
+      icon: QrCodeIcon, 
+      description: 'Upload and manage QR codes' 
+    });
+    paymentItems.push({ 
+      name: 'Payment Approval', 
+      href: '/payment-approval', 
+      icon: CheckCircleIcon, 
+      description: 'Review payment proofs' 
+    });
+    paymentItems.push({ 
+      name: 'My Admin Payments', 
+      href: '/admin-my-payments', 
+      icon: CurrencyDollarIcon, 
+      description: 'View payments to super admin' 
     });
   }
 

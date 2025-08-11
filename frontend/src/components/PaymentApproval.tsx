@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import { getImageUrl } from '../utils/config';
+import { useAuth } from '../hooks/useAuth';
 import {
   CheckCircleIcon,
   XCircleIcon,
@@ -13,17 +14,18 @@ import {
 
 interface PaymentProof {
   _id: string;
-  paymentId: {
+  paymentId?: {
     _id: string;
-    monthlyAmount: number;
-    paymentPeriod: string;
-    dueDate: string;
+    monthlyAmount?: number;
+    totalAmount?: number;
+    paymentPeriod?: string;
+    dueDate?: string;
   };
   userId: {
     _id: string;
     name: string;
     email: string;
-    phone: string;
+    phone?: string;
     role: string;
   };
   proofType: 'screenshot' | 'transaction_number';
@@ -39,29 +41,59 @@ interface PaymentProof {
 }
 
 export default function PaymentApproval() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedProof, setSelectedProof] = useState<PaymentProof | null>(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
   const [reviewStatus, setReviewStatus] = useState<'approved' | 'rejected'>('approved');
   const [adminNotes, setAdminNotes] = useState('');
 
+  // Determine if user is Super Admin
+  const isSuperAdmin = user?.role === 'superAdmin' || user?.role === 'superSuperAdmin';
+  
+  console.log('🔍 PaymentApproval component debug:');
+  console.log('   User:', user);
+  console.log('   User role:', user?.role);
+  console.log('   Is Super Admin:', isSuperAdmin);
+
   // Get pending payment proofs
   const { data: proofsData, isLoading } = useQuery({
-    queryKey: ['pending-payment-proofs'],
+    queryKey: ['pending-payment-proofs', user?.role],
     queryFn: async () => {
-      const response = await fetch('/api/payment-qr/admin/pending-proofs', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+      const endpoint = isSuperAdmin 
+        ? '/api/admin-payments/pending-proofs'
+        : '/api/payment-qr/admin/pending-proofs';
+      
+      console.log('🔍 Frontend PaymentApproval query:');
+      console.log('   User role:', user?.role);
+      console.log('   Is Super Admin:', isSuperAdmin);
+      console.log('   Endpoint:', endpoint);
+      
+      const token = localStorage.getItem('token');
+      console.log('   Token:', token ? `${token.substring(0, 20)}...` : 'No token');
+      
+      const response = await fetch(endpoint, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
       if (!response.ok) throw new Error('Failed to fetch pending proofs');
       const data = await response.json();
+      console.log('   Response data:', data);
+      console.log('   Payment proofs count:', data.data?.length || 0);
       return data.data as PaymentProof[];
-    }
+    },
+    enabled: !!user,
+    staleTime: 0, // Disable caching for debugging
+    cacheTime: 0  // Disable caching for debugging
   });
 
   // Review payment proof mutation
   const reviewProofMutation = useMutation({
     mutationFn: async ({ proofId, status, notes }: { proofId: string; status: string; notes: string }) => {
-      const response = await fetch(`/api/payment-qr/proof/${proofId}/review`, {
+      const endpoint = isSuperAdmin 
+        ? `/api/admin-payments/proof/${proofId}/review`
+        : `/api/payment-qr/proof/${proofId}/review`;
+      
+      const response = await fetch(endpoint, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -74,7 +106,7 @@ export default function PaymentApproval() {
     },
     onSuccess: () => {
       toast.success('Payment proof reviewed successfully');
-      queryClient.invalidateQueries({ queryKey: ['pending-payment-proofs'] });
+      queryClient.invalidateQueries({ queryKey: ['pending-payment-proofs', user?.role] });
       setShowReviewModal(false);
       setSelectedProof(null);
       setAdminNotes('');
@@ -156,9 +188,12 @@ export default function PaymentApproval() {
                       <p className="text-lg font-semibold text-gray-900">
                         {formatCurrency(proof.amount)}
                       </p>
-                      <p className="text-sm text-gray-600">
-                        {proof.paymentId.paymentPeriod}
-                      </p>
+                                             <p className="text-sm text-gray-600">
+                         {proof.paymentId?.paymentPeriod || 'Admin Payment'}
+                       </p>
+                       <p className="text-sm text-gray-600">
+                         {proof.userId.phone || 'N/A'}
+                       </p>
                     </div>
                   </div>
 
@@ -166,7 +201,7 @@ export default function PaymentApproval() {
                     <div>
                       <h5 className="font-medium text-gray-900 mb-2">Payment Details</h5>
                       <div className="space-y-1 text-sm text-gray-600">
-                        <p>Due Date: {formatDate(proof.paymentId.dueDate)}</p>
+                                                 <p>Due Date: {proof.paymentId?.dueDate ? formatDate(proof.paymentId.dueDate) : 'Not specified'}</p>
                         <p>Payment Date: {formatDate(proof.paymentDate)}</p>
                         <p>Proof Type: {proof.proofType === 'screenshot' ? 'Screenshot' : 'Transaction Number'}</p>
                         {proof.transactionNumber && (

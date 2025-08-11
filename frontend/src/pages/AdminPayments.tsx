@@ -353,6 +353,14 @@ export default function AdminPayments() {
       </div>
 
       {/* Summary Cards */}
+      <div className="mb-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-3">
+          <p className="text-sm text-blue-800">
+            <strong>Note:</strong> Payment amounts are calculated based on ALL users created during each month, including those who were added and deleted within the same month. 
+            If users are added or removed, the amounts will automatically update to reflect the correct billing.
+          </p>
+        </div>
+      </div>
       {summaryData && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Expected Amount */}

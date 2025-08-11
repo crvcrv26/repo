@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'react-hot-toast';
 import { getImageUrl } from '../utils/config';
+import { useAuth } from '../hooks/useAuth';
 import {
   QrCodeIcon,
   PhotoIcon,
@@ -21,6 +22,7 @@ interface QRCode {
 }
 
 export default function QRCodeManagement() {
+  const { user } = useAuth();
   const queryClient = useQueryClient();
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [selectedQR, setSelectedQR] = useState<QRCode | null>(null);
@@ -28,29 +30,49 @@ export default function QRCodeManagement() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [qrToDelete, setQrToDelete] = useState<QRCode | null>(null);
 
-  // Get QR codes
+  // Determine if user is Super Admin
+  const isSuperAdmin = user?.role === 'superAdmin' || user?.role === 'superSuperAdmin';
+
+  // Get QR codes based on user role
   const { data: qrCodes, isLoading } = useQuery({
-    queryKey: ['admin-qr-codes'],
+    queryKey: ['qr-codes', user?.role],
     queryFn: async () => {
-      const response = await fetch('/api/payment-qr/admin/qr', {
+      let endpoint = '/api/payment-qr/admin/qr';
+      if (isSuperAdmin) {
+        endpoint = '/api/admin-payments/super-admin/qr';
+      }
+      
+      const response = await fetch(endpoint, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
-      if (!response.ok) throw new Error('Failed to fetch QR codes');
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch QR codes');
+      }
+      
       const data = await response.json();
+      
       return data.data as QRCode[];
-    }
+    },
+    enabled: !!user
   });
 
   // Upload QR code mutation
   const uploadQRMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-      console.log('Uploading QR code...', formData);
-      const response = await fetch('/api/payment-qr/qr', {
+  
+      
+      let endpoint = '/api/payment-qr/qr';
+      if (isSuperAdmin) {
+        endpoint = '/api/admin-payments/super-admin/qr';
+      }
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` },
         body: formData
       });
-      console.log('Response status:', response.status);
+
       if (!response.ok) {
         const errorData = await response.json();
         console.error('Upload error:', errorData);
@@ -60,7 +82,7 @@ export default function QRCodeManagement() {
     },
     onSuccess: () => {
       toast.success('QR code uploaded successfully');
-      queryClient.invalidateQueries({ queryKey: ['admin-qr-codes'] });
+      queryClient.invalidateQueries({ queryKey: ['qr-codes', user?.role] });
       setShowUploadModal(false);
     },
     onError: (error: any) => {
@@ -72,7 +94,12 @@ export default function QRCodeManagement() {
   // Toggle QR code active status mutation
   const toggleActiveMutation = useMutation({
     mutationFn: async (qrId: string) => {
-      const response = await fetch(`/api/payment-qr/admin/qr/${qrId}/toggle-active`, {
+      let endpoint = `/api/payment-qr/admin/qr/${qrId}/toggle-active`;
+      if (isSuperAdmin) {
+        endpoint = `/api/admin-payments/super-admin/qr/${qrId}/toggle-active`;
+      }
+      
+      const response = await fetch(endpoint, {
         method: 'PUT',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
@@ -84,7 +111,7 @@ export default function QRCodeManagement() {
     },
     onSuccess: (data) => {
       toast.success(data.message || 'QR code status updated successfully');
-      queryClient.invalidateQueries({ queryKey: ['admin-qr-codes'] });
+      queryClient.invalidateQueries({ queryKey: ['qr-codes', user?.role] });
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to update QR code status');
@@ -94,7 +121,12 @@ export default function QRCodeManagement() {
   // Delete QR code mutation
   const deleteQRMutation = useMutation({
     mutationFn: async (qrId: string) => {
-      const response = await fetch(`/api/payment-qr/admin/qr/${qrId}`, {
+      let endpoint = `/api/payment-qr/admin/qr/${qrId}`;
+      if (isSuperAdmin) {
+        endpoint = `/api/admin-payments/super-admin/qr/${qrId}`;
+      }
+      
+      const response = await fetch(endpoint, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
@@ -106,7 +138,7 @@ export default function QRCodeManagement() {
     },
     onSuccess: (data) => {
       toast.success(data.message || 'QR code deleted successfully');
-      queryClient.invalidateQueries({ queryKey: ['admin-qr-codes'] });
+      queryClient.invalidateQueries({ queryKey: ['qr-codes', user?.role] });
     },
     onError: (error: any) => {
       toast.error(error.message || 'Failed to delete QR code');
@@ -116,10 +148,7 @@ export default function QRCodeManagement() {
   const handleUploadQR = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    console.log('Form data entries:');
-    for (let [key, value] of formData.entries()) {
-      console.log(key, value);
-    }
+
     uploadQRMutation.mutate(formData);
   };
 
@@ -132,6 +161,8 @@ export default function QRCodeManagement() {
       minute: '2-digit'
     });
   };
+
+
 
   if (isLoading) {
     return (
@@ -147,21 +178,28 @@ export default function QRCodeManagement() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">QR Code Management</h1>
-          <p className="text-gray-600">Upload and manage payment QR codes for users</p>
+          <p className="text-gray-600">
+            {isSuperAdmin 
+              ? 'Upload and manage your QR code for admin payments'
+              : 'Upload and manage payment QR codes for users'
+            }
+          </p>
         </div>
         <button
           onClick={() => setShowUploadModal(true)}
           className="btn btn-primary"
         >
           <QrCodeIcon className="h-4 w-4 mr-2" />
-          Upload QR Code
+          {isSuperAdmin ? 'Upload QR Code' : 'Upload QR Code'}
         </button>
       </div>
 
       {/* QR Codes List */}
       <div className="bg-white rounded-lg shadow">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">QR Codes</h3>
+          <h3 className="text-lg font-semibold text-gray-900">
+            QR Codes
+          </h3>
         </div>
         <div className="p-6">
           {qrCodes && qrCodes.length > 0 ? (
@@ -193,6 +231,7 @@ export default function QRCodeManagement() {
                       >
                         <EyeIcon className="h-4 w-4" />
                       </button>
+                      {/* Show toggle and delete for all QR codes */}
                       <button
                         onClick={() => toggleActiveMutation.mutate(qrCode._id)}
                         disabled={toggleActiveMutation.isPending}
@@ -223,21 +262,15 @@ export default function QRCodeManagement() {
                     </div>
                   </div>
                   
-                                     <div className="mb-3">
-                     <img
-                       src={getImageUrl(qrCode.qrImageUrl)}
-                       alt="QR Code"
-                       className="w-full h-32 object-cover rounded border shadow-md"
-                       onLoad={(e) => {
-                         console.log('✅ QR image loaded successfully:', getImageUrl(qrCode.qrImageUrl));
-                       }}
-                       onError={(e) => {
-                         console.error('❌ QR image failed to load:', getImageUrl(qrCode.qrImageUrl), e);
-                         console.error('Error details:', e);
-                       }}
-                       crossOrigin="anonymous"
-                     />
-                   </div>
+                  <div className="mb-3">
+                    <img
+                      src={getImageUrl(qrCode.qrImageUrl)}
+                      alt="QR Code"
+                      className="w-full h-32 object-cover rounded border shadow-md"
+                      
+                      crossOrigin="anonymous"
+                    />
+                  </div>
                   
                   {qrCode.description && (
                     <p className="text-sm text-gray-600 mb-2">{qrCode.description}</p>
@@ -253,9 +286,14 @@ export default function QRCodeManagement() {
           ) : (
             <div className="text-center py-12">
               <QrCodeIcon className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No QR codes found</h3>
+              <h3 className="mt-2 text-sm font-medium text-gray-900">
+                No QR codes found
+              </h3>
               <p className="mt-1 text-sm text-gray-500">
-                Upload your first QR code to get started.
+                {isSuperAdmin 
+                  ? 'Upload your QR code to receive payments from admins.'
+                  : 'Upload your first QR code to get started.'
+                }
               </p>
               <button
                 onClick={() => setShowUploadModal(true)}
@@ -274,7 +312,9 @@ export default function QRCodeManagement() {
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
-              <h3 className="text-lg font-medium text-gray-900 mb-4">Upload QR Code</h3>
+              <h3 className="text-lg font-medium text-gray-900 mb-4">
+                {isSuperAdmin ? 'Upload Your QR Code' : 'Upload QR Code'}
+              </h3>
               <form onSubmit={handleUploadQR}>
                 <div className="space-y-4">
                   <div>
@@ -312,7 +352,11 @@ export default function QRCodeManagement() {
                       id="description"
                       rows={3}
                       className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
-                      placeholder="Add any additional information about this QR code..."
+                      placeholder={
+                        isSuperAdmin 
+                          ? "Add any additional information about this QR code for admin payments..."
+                          : "Add any additional information about this QR code..."
+                      }
                     />
                   </div>
                 </div>
@@ -346,21 +390,15 @@ export default function QRCodeManagement() {
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">QR Code Preview</h3>
               <div className="space-y-4">
-                                 <div className="flex justify-center">
-                   <img
-                     src={getImageUrl(selectedQR.qrImageUrl)}
-                     alt="QR Code"
-                     className="w-64 h-64 object-contain border rounded"
-                     onLoad={(e) => {
-                       console.log('✅ QR preview image loaded successfully:', getImageUrl(selectedQR.qrImageUrl));
-                     }}
-                     onError={(e) => {
-                       console.error('❌ QR preview image failed to load:', getImageUrl(selectedQR.qrImageUrl), e);
-                       console.error('Error details:', e);
-                     }}
-                     crossOrigin="anonymous"
-                   />
-                 </div>
+                <div className="flex justify-center">
+                  <img
+                    src={getImageUrl(selectedQR.qrImageUrl)}
+                    alt="QR Code"
+                    className="w-64 h-64 object-contain border rounded"
+                    
+                    crossOrigin="anonymous"
+                  />
+                </div>
                 
                 {selectedQR.description && (
                   <div>

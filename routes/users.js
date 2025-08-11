@@ -45,7 +45,7 @@ router.get('/', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'su
     } = req.query;
 
     // Build filter object
-    const filter = {};
+    const filter = { isDeleted: { $ne: true } }; // Exclude deleted users from user management
 
     // Role-based filtering
     if (req.user.role === 'admin') {
@@ -269,7 +269,8 @@ router.post('/', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 's
     const userData = {
       ...req.body,
       email: req.body.email.toLowerCase(),
-      createdBy: createdBy
+      createdBy: createdBy,
+      adminId: createdBy // Set adminId to the same as createdBy for field agents and auditors
     };
 
     const user = await User.create(userData);
@@ -400,93 +401,7 @@ router.put('/:id', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 
   }
 });
 
-// @desc    Delete user (soft delete)
-// @route   DELETE /api/users/:id
-// @access  Private (Admin, SuperAdmin)
-router.delete('/:id', authenticateToken, authorizeRole('superSuperAdmin', 'admin', 'superAdmin'), async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id);
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'User not found'
-      });
-    }
 
-    // Check access permissions
-    if (req.user.role === 'admin' && user.createdBy?.toString() !== req.user._id.toString()) {
-      return res.status(403).json({
-        success: false,
-        message: 'Access denied'
-      });
-    }
-
-    // Check if user has assigned vehicles
-    const assignedVehicles = await Vehicle.countDocuments({ assignedTo: user._id, isActive: true });
-    if (assignedVehicles > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Cannot delete user with assigned vehicles'
-      });
-    }
-
-    // If deleting an admin, also delete all associated users (field agents and auditors)
-    if (user.role === 'admin') {
-      const associatedUsers = await User.find({ createdBy: user._id });
-      for (const associatedUser of associatedUsers) {
-        associatedUser.isActive = false;
-        await associatedUser.save();
-      }
-
-      // Delete all Excel files associated with this admin (both uploaded and assigned)
-      const excelFiles = await ExcelFile.find({
-        $or: [
-          { uploadedBy: user._id },
-          { assignedTo: user._id }
-        ]
-      });
-
-      for (const excelFile of excelFiles) {
-        try {
-          // Delete all related vehicle data
-          await ExcelVehicle.deleteMany({ excel_file: excelFile._id });
-
-          // Delete physical file
-          try {
-            await fs.unlink(excelFile.filePath);
-          } catch (unlinkError) {
-            console.error('Error deleting physical file:', unlinkError);
-            // Continue with deletion even if physical file deletion fails
-          }
-
-          // Delete ExcelFile record
-          await ExcelFile.findByIdAndDelete(excelFile._id);
-        } catch (excelError) {
-          console.error('Error deleting Excel file:', excelError);
-          // Continue with other deletions even if one fails
-        }
-      }
-
-      console.log(`Deleted ${excelFiles.length} Excel files associated with admin ${user._id}`);
-    }
-
-    user.isActive = false;
-    await user.save();
-
-    res.json({
-      success: true,
-      message: user.role === 'admin' 
-        ? 'Admin and all associated users and Excel files deleted successfully'
-        : 'User deleted successfully'
-    });
-  } catch (error) {
-    console.error('Delete user error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error'
-    });
-  }
-});
 
 // @desc    Get field agents list (for assignment)
 // @route   GET /api/users/field-agents/list
@@ -669,10 +584,10 @@ router.put('/:id/status',
 
 // @desc    Delete user
 // @route   DELETE /api/users/:id
-// @access  Private (SuperSuperAdmin, Admin for their users)
+// @access  Private (SuperSuperAdmin, SuperAdmin, Admin)
 router.delete('/:id',
   authenticateToken,
-  authorizeRole('superSuperAdmin', 'admin'),
+  authorizeRole('superSuperAdmin', 'superAdmin', 'admin'),
   async (req, res) => {
     try {
       const userId = req.params.id;
@@ -717,30 +632,39 @@ router.delete('/:id',
             message: 'You can only delete field agents and auditors'
           });
         }
+      } else if (req.user.role === 'superAdmin') {
+        // SuperAdmin can delete anyone except superSuperAdmin
+        if (targetUser.role === 'superSuperAdmin') {
+          return res.status(403).json({
+            success: false,
+            message: 'SuperAdmin cannot delete superSuperAdmin users'
+          });
+        }
       }
+      // SuperSuperAdmin can delete anyone (no restrictions)
 
-      // If deleting an admin, also delete their associated users and data
+      // Mark user as deleted instead of actually deleting them
+      // This preserves payment history and other related data
+      targetUser.isActive = false;
+      targetUser.isDeleted = true; // Add this field to track deleted users
+      targetUser.deletedAt = new Date();
+      targetUser.deletedBy = req.user._id;
+      await targetUser.save();
+
+      // If deleting an admin, also mark their associated users as deleted
       if (targetUser.role === 'admin') {
-        // Delete all users created by this admin
-        await User.deleteMany({ createdBy: userId });
-        
-        // Delete all Excel files uploaded by this admin and their users
-        const adminUsers = await User.find({ createdBy: userId }).select('_id');
-        const allUserIds = [userId, ...adminUsers.map(u => u._id)];
-        
-        const excelFiles = await ExcelFile.find({ uploadedBy: { $in: allUserIds } });
-        
-        // Delete associated vehicles
-        for (const file of excelFiles) {
-          await ExcelVehicle.deleteMany({ excel_file: file._id });
+        const associatedUsers = await User.find({ createdBy: userId });
+        for (const associatedUser of associatedUsers) {
+          associatedUser.isActive = false;
+          associatedUser.isDeleted = true;
+          associatedUser.deletedAt = new Date();
+          associatedUser.deletedBy = req.user._id;
+          await associatedUser.save();
         }
         
-        // Delete Excel files
-        await ExcelFile.deleteMany({ uploadedBy: { $in: allUserIds } });
+        // Note: Excel files are kept for historical records
+        // Only mark them as inactive if needed
       }
-
-      // Delete the target user
-      await User.findByIdAndDelete(userId);
 
       res.json({
         success: true,
