@@ -196,7 +196,7 @@ export default function QRCodeManagement() {
 
       {/* QR Codes List */}
       <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b-2 border-gray-400">
           <h3 className="text-lg font-semibold text-gray-900">
             QR Codes
           </h3>
@@ -321,7 +321,7 @@ export default function QRCodeManagement() {
                     <label htmlFor="qrImage" className="block text-sm font-medium text-gray-700 mb-2">
                       QR Code Image
                     </label>
-                    <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-md">
+                    <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-400 border-dashed rounded-md">
                       <div className="space-y-1 text-center">
                         <PhotoIcon className="mx-auto h-12 w-12 text-gray-400" />
                         <div className="flex text-sm text-gray-600">

@@ -250,7 +250,7 @@ const AdminMyPayments: React.FC = () => {
 
       {/* Payments Table */}
       <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b-2 border-gray-400">
           <h2 className="text-lg font-medium text-gray-900">Payment History</h2>
         </div>
         {paymentsLoading ? (

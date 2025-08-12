@@ -130,7 +130,7 @@ export default function Profile() {
         {/* Profile Information */}
         <div className="lg:col-span-2">
           <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
+            <div className="px-6 py-4 border-b-2 border-gray-400">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium text-gray-900">Profile Information</h3>
                 <button
@@ -268,7 +268,7 @@ export default function Profile() {
         <div className="space-y-6">
           {/* Role Information */}
           <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
+            <div className="px-6 py-4 border-b-2 border-gray-400">
               <h3 className="text-lg font-medium text-gray-900">Account Details</h3>
             </div>
             <div className="p-6 space-y-4">
@@ -313,7 +313,7 @@ export default function Profile() {
 
           {/* Change Password */}
           <div className="bg-white rounded-lg shadow">
-            <div className="px-6 py-4 border-b border-gray-200">
+            <div className="px-6 py-4 border-b-2 border-gray-400">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-medium text-gray-900">Change Password</h3>
                 <button

@@ -32,14 +32,14 @@
   /* Neutral Colors */
   --gray-50: #f9fafb;
   --gray-100: #f3f4f6;
-  --gray-200: #e5e7eb;
-  --gray-300: #d1d5db;
-  --gray-400: #9ca3af;
-  --gray-500: #6b7280;
-  --gray-600: #4b5563;
-  --gray-700: #374151;
-  --gray-800: #1f2937;
-  --gray-900: #111827;
+  --gray-200: #d1d5db;
+  --gray-300: #9ca3af;
+  --gray-400: #6b7280;
+  --gray-500: #4b5563;
+  --gray-600: #374151;
+  --gray-700: #1f2937;
+  --gray-800: #111827;
+  --gray-900: #0f172a;
   
   /* Spacing System */
   --space-xs: 0.25rem;
@@ -181,12 +181,12 @@
   .btn-outline {
     background-color: transparent;
     color: var(--brand-navy);
-    border-color: var(--gray-300);
+    border: 2px solid var(--gray-400);
   }
   
   .btn-outline:hover {
     background-color: var(--gray-50);
-    border-color: var(--gray-400);
+    border-color: var(--gray-500);
   }
 
   /* Form Controls */
@@ -203,7 +203,7 @@
     @apply w-full transition-all duration-200 ease-in-out
            focus:outline-none focus:ring-2 focus:ring-offset-1;
     padding: 0.875rem 1rem;
-    border: 1px solid var(--gray-300);
+    border: 2px solid var(--gray-400);
     border-radius: var(--radius-lg);
     background-color: white;
     font-size: var(--font-size-base);
@@ -238,7 +238,7 @@
   /* Card System */
   .card {
     @apply bg-white;
-    border: 1px solid var(--gray-200);
+    border: 2px solid var(--gray-300);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-sm);
     transition: all 0.2s ease-in-out;
@@ -250,7 +250,7 @@
   }
   
   .card-header {
-    @apply border-b border-gray-200;
+    @apply border-b-2 border-gray-300;
     padding: var(--space-lg) var(--space-xl);
   }
   
@@ -259,14 +259,14 @@
   }
   
   .card-footer {
-    @apply border-t border-gray-200;
+    @apply border-t-2 border-gray-300;
     padding: var(--space-lg) var(--space-xl);
   }
 
   /* Table System */
   .table-container {
     @apply overflow-hidden bg-white;
-    border: 1px solid var(--gray-200);
+    border: 2px solid var(--gray-300);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-sm);
   }
@@ -290,7 +290,7 @@
   .table td {
     @apply text-gray-600;
     padding: var(--space-lg) var(--space-xl);
-    border-top: 1px solid var(--gray-200);
+    border-top: 2px solid var(--gray-300);
     font-size: var(--font-size-sm);
   }
 
@@ -353,7 +353,7 @@
 
   /* Navigation */
   .nav-item {
-    @apply flex items-center gap-3 px-4 py-3 text-gray-600 transition-all duration-200 ease-in-out;
+    @apply flex items-center gap-2 px-2 py-1.5 text-gray-600 transition-all duration-200 ease-in-out;
     border-radius: var(--radius-lg);
     font-size: var(--font-size-sm);
     font-weight: 500;
@@ -385,7 +385,7 @@
   }
 
   .modal-header {
-    @apply flex items-center justify-between p-6 border-b border-gray-200;
+    @apply flex items-center justify-between p-6 border-b-2 border-gray-400;
   }
 
   .modal-body {
@@ -393,7 +393,7 @@
   }
 
   .modal-footer {
-    @apply flex justify-end gap-3 p-6 border-t border-gray-200;
+    @apply flex justify-end gap-3 p-6 border-t-2 border-gray-400;
   }
 
   /* Loading States */
@@ -446,7 +446,7 @@
 
   /* Utilities */
   .divider {
-    @apply border-t border-gray-200 my-6;
+    @apply border-t-2 border-gray-300 my-6;
   }
 
   .text-muted {
@@ -506,4 +506,57 @@
 .focus-ring:focus {
   @apply ring-2 ring-offset-2;
   ring-color: var(--brand-yellow);
+}
+
+/* Sidebar Responsive Improvements */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--gray-300) var(--gray-100);
+}
+
+.sidebar-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb {
+  background: var(--gray-300);
+  border-radius: 2px;
+}
+
+.sidebar-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--gray-400);
+}
+
+/* Ensure sidebar content doesn't overflow */
+.sidebar-content {
+  max-height: calc(100vh - 8rem);
+  overflow-y: auto;
+}
+
+/* Payment dropdown animations */
+.payment-dropdown {
+  transition: all 0.3s ease-in-out;
+  max-height: 0;
+  overflow: hidden;
+}
+
+.payment-dropdown.open {
+  max-height: 1000px;
+}
+
+/* Mobile sidebar improvements */
+@media (max-width: 1024px) {
+  .mobile-sidebar {
+    height: 100vh;
+    overflow: hidden;
+  }
+  
+  .mobile-sidebar-content {
+    height: calc(100vh - 8rem);
+    overflow-y: auto;
+  }
 }

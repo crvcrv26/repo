@@ -270,7 +270,7 @@ export default function MoneyRecordForm({ record, onClose, onSuccess }: MoneyRec
                           <div
                             key={vehicle._id}
                             onClick={() => handleRegistrationSelect(vehicle)}
-                            className="px-4 py-3 hover:bg-[var(--brand-gray-50)] cursor-pointer border-b border-gray-100 last:border-b-0"
+                            className="px-4 py-3 hover:bg-[var(--brand-gray-50)] cursor-pointer border-b-2 border-gray-300 last:border-b-0"
                           >
                             <div className="flex items-center justify-between">
                               <div>
@@ -311,7 +311,7 @@ export default function MoneyRecordForm({ record, onClose, onSuccess }: MoneyRec
                     {/* No suggestions message */}
                     {showSuggestions && regSearchTerm.length >= 3 && 
                      vehicleSuggestions?.data?.data && vehicleSuggestions.data.data.length === 0 && (
-                      <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg p-4 text-center text-gray-500">
+                      <div className="absolute z-50 w-full mt-1 bg-white border-2 border-gray-400 rounded-md shadow-lg p-4 text-center text-gray-500">
                         <ExclamationTriangleIcon className="h-5 w-5 mx-auto mb-2 text-yellow-500" />
                         <div className="text-sm">No vehicles found matching "{regSearchTerm}"</div>
                         <div className="text-xs mt-1">You can still enter the registration number manually</div>

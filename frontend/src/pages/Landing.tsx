@@ -73,7 +73,7 @@ export default function Landing() {
   return (
     <div className="min-h-screen bg-white">
       {/* Navigation */}
-      <nav className="bg-white border-b border-gray-100 sticky top-0 z-50 backdrop-blur-lg bg-white/95">
+      <nav className="bg-white border-b-2 border-gray-300 sticky top-0 z-50 backdrop-blur-lg bg-white/95">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
@@ -335,7 +335,7 @@ export default function Landing() {
       </section>
 
       {/* Footer */}
-      <footer id="contact" className="bg-gray-50 border-t border-gray-200">
+      <footer id="contact" className="bg-gray-50 border-t-2 border-gray-300">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
           <div className="grid md:grid-cols-4 gap-8">
             <div className="col-span-2">
@@ -380,7 +380,7 @@ export default function Landing() {
             </div>
           </div>
           
-          <div className="border-t border-gray-200 pt-8 mt-12">
+          <div className="border-t-2 border-gray-300 pt-8 mt-12">
             <div className="flex flex-col md:flex-row justify-between items-center">
               <p className="text-gray-600">
                 © {new Date().getFullYear()} RepoTrack. All rights reserved.

@@ -206,7 +206,7 @@ export default function ImportMoneyModal({ onClose, onSuccess }: ImportMoneyModa
                     className={`relative border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
                       dragActive 
                         ? 'border-[var(--brand-yellow)] bg-[var(--brand-yellow)] bg-opacity-10' 
-                        : 'border-gray-300 hover:border-gray-400'
+                        : 'border-2 border-gray-400 hover:border-gray-500'
                     }`}
                     onDragEnter={handleDrag}
                     onDragLeave={handleDrag}

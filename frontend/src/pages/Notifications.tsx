@@ -348,7 +348,7 @@ export default function Notifications() {
       {/* Pagination */}
       {pagination && pagination.pages > 1 && (
         <div className="flex justify-center">
-          <div className="bg-white rounded-lg border border-gray-200 shadow-sm p-2 flex items-center space-x-1">
+          <div className="bg-white rounded-lg border-2 border-gray-400 shadow-sm p-2 flex items-center space-x-1">
             <button
               onClick={() => setPage(Math.max(1, page - 1))}
               disabled={page <= 1}

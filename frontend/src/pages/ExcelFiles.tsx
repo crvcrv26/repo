@@ -343,7 +343,7 @@ export default function ExcelFiles() {
 
       {/* Filters */}
       <div className="bg-white rounded-lg shadow">
-        <div className="p-4 border-b border-gray-200">
+        <div className="p-4 border-b-2 border-gray-400">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium text-gray-900">Filters</h3>
             <button
@@ -418,7 +418,7 @@ export default function ExcelFiles() {
           ) : (
             <div className="space-y-4">
               {files.map((file: ExcelFile) => (
-                <div key={file._id} className="border border-gray-200 rounded-lg p-4">
+                <div key={file._id} className="border-2 border-gray-400 rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center space-x-4">
                       <div className="flex-shrink-0">
@@ -469,7 +469,7 @@ export default function ExcelFiles() {
                   
                   {/* Processing Results */}
                   {file.status !== 'processing' && (
-                    <div className="mt-4 pt-4 border-t border-gray-200">
+                    <div className="mt-4 pt-4 border-t-2 border-gray-400">
                       <div className="grid grid-cols-3 gap-4 text-sm">
                         <div className="text-center">
                           <p className="text-green-600 font-medium">{file.processedRows}</p>
@@ -509,7 +509,7 @@ export default function ExcelFiles() {
                 className={`px-3 py-2 text-sm font-medium rounded-md ${
                   pageNum === page
                     ? 'bg-blue-600 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+                    : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-400'
                 }`}
               >
                 {pageNum}
@@ -580,7 +580,7 @@ export default function ExcelFiles() {
 
                                  {/* Progress Indicator */}
                  {isUploading && (
-                   <div className="pt-4 border-t border-gray-200">
+                   <div className="pt-4 border-t-2 border-gray-400">
                      <div className="space-y-3">
                        <div className="flex justify-between text-sm text-gray-600">
                          <span>{uploadStatus}</span>

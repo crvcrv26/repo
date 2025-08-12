@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import {
@@ -15,7 +15,9 @@ import {
   ChevronDownIcon,
   CurrencyDollarIcon,
   QrCodeIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  Cog6ToothIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline';
 import { 
   ChartBarIcon as ChartBarSolid 
@@ -27,7 +29,7 @@ interface LayoutProps {
 
 const getNavigation = (userRole?: string) => {
   const baseNavigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon, description: 'Overview and analytics' },
+    { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   ];
 
   // Add role-specific navigation items
@@ -35,14 +37,12 @@ const getNavigation = (userRole?: string) => {
     baseNavigation.push({ 
       name: 'Users', 
       href: '/users', 
-      icon: UsersIcon, 
-      description: 'Manage team members' 
+      icon: UsersIcon
     });
     baseNavigation.push({ 
       name: 'Excel Files', 
       href: '/excel-files', 
-      icon: DocumentArrowUpIcon, 
-      description: 'Upload and manage data' 
+      icon: DocumentArrowUpIcon
     });
   }
 
@@ -51,51 +51,38 @@ const getNavigation = (userRole?: string) => {
     baseNavigation.push({ 
       name: 'Money Management', 
       href: '/money', 
-      icon: CurrencyDollarIcon, 
-      description: 'Payment & billing records' 
+      icon: CurrencyDollarIcon
     });
     baseNavigation.push({ 
       name: 'OTP Management', 
       href: '/otp-management', 
-      icon: KeyIcon, 
-      description: 'Generate access codes' 
+      icon: KeyIcon
     });
     baseNavigation.push({ 
       name: 'Notifications', 
       href: '/notifications', 
-      icon: BellIcon, 
-      description: 'Activity alerts' 
+      icon: BellIcon
     });
   }
-
-
 
   if (userRole === 'auditor') {
     baseNavigation.push({ 
       name: 'Money Management', 
       href: '/money', 
-      icon: CurrencyDollarIcon, 
-      description: 'Payment & billing records' 
+      icon: CurrencyDollarIcon
     });
     baseNavigation.push({ 
       name: 'Field Agents', 
       href: '/users', 
-      icon: UsersIcon, 
-      description: 'View team members' 
+      icon: UsersIcon
     });
-  }
-
-  // Add field agent specific navigation
-  if (userRole === 'fieldAgent') {
-    // Field agent payment items are now in the dropdown
   }
 
   // Add common navigation items
   baseNavigation.push({
     name: 'Vehicle Search', 
     href: '/vehicle-search', 
-    icon: MagnifyingGlassIcon, 
-    description: 'Find and track vehicles'
+    icon: MagnifyingGlassIcon
   });
 
   return baseNavigation;
@@ -109,32 +96,32 @@ const getPaymentNavigation = (userRole?: string) => {
     paymentItems.push({ 
       name: 'Payment Management', 
       href: '/admin-payments', 
-      icon: CurrencyDollarIcon, 
-      description: 'Manage team payments' 
+      icon: CurrencyDollarIcon,
+      category: 'Team Payments'
     });
     paymentItems.push({ 
       name: 'QR Code Management', 
       href: '/qr-management', 
-      icon: QrCodeIcon, 
-      description: 'Upload and manage QR codes' 
+      icon: QrCodeIcon,
+      category: 'QR Management'
     });
     paymentItems.push({ 
       name: 'Payment Approval', 
       href: '/payment-approval', 
-      icon: CheckCircleIcon, 
-      description: 'Review payment proofs' 
+      icon: CheckCircleIcon,
+      category: 'Approvals'
     });
     paymentItems.push({ 
       name: 'Admin Payment Management', 
       href: '/admin-payment-management', 
-      icon: CurrencyDollarIcon, 
-      description: 'Manage admin payments' 
+      icon: CurrencyDollarIcon,
+      category: 'Admin Payments'
     });
     paymentItems.push({ 
       name: 'SuperSuperAdmin Payment Management', 
       href: '/super-super-admin-payments', 
-      icon: CurrencyDollarIcon, 
-      description: 'Manage super admin payments' 
+      icon: CurrencyDollarIcon,
+      category: 'Super Admin Payments'
     });
   }
 
@@ -143,32 +130,32 @@ const getPaymentNavigation = (userRole?: string) => {
     paymentItems.push({ 
       name: 'Payment Management', 
       href: '/admin-payments', 
-      icon: CurrencyDollarIcon, 
-      description: 'Manage team payments' 
+      icon: CurrencyDollarIcon,
+      category: 'Team Payments'
     });
     paymentItems.push({ 
       name: 'QR Code Management', 
       href: '/qr-management', 
-      icon: QrCodeIcon, 
-      description: 'Upload and manage QR codes' 
+      icon: QrCodeIcon,
+      category: 'QR Management'
     });
     paymentItems.push({ 
       name: 'Payment Approval', 
       href: '/payment-approval', 
-      icon: CheckCircleIcon, 
-      description: 'Review payment proofs' 
+      icon: CheckCircleIcon,
+      category: 'Approvals'
     });
     paymentItems.push({ 
       name: 'Admin Payment Management', 
       href: '/admin-payment-management', 
-      icon: CurrencyDollarIcon, 
-      description: 'Manage admin payments' 
+      icon: CurrencyDollarIcon,
+      category: 'Admin Payments'
     });
     paymentItems.push({ 
       name: 'My SuperSuperAdmin Payments', 
       href: '/super-admin-my-payments', 
-      icon: CurrencyDollarIcon, 
-      description: 'View payments to super super admin' 
+      icon: CurrencyDollarIcon,
+      category: 'My Payments'
     });
   }
 
@@ -177,26 +164,26 @@ const getPaymentNavigation = (userRole?: string) => {
     paymentItems.push({ 
       name: 'Payment Management', 
       href: '/admin-payments', 
-      icon: CurrencyDollarIcon, 
-      description: 'Manage team payments' 
+      icon: CurrencyDollarIcon,
+      category: 'Team Payments'
     });
     paymentItems.push({ 
       name: 'QR Code Management', 
       href: '/qr-management', 
-      icon: QrCodeIcon, 
-      description: 'Upload and manage QR codes' 
+      icon: QrCodeIcon,
+      category: 'QR Management'
     });
     paymentItems.push({ 
       name: 'Payment Approval', 
       href: '/payment-approval', 
-      icon: CheckCircleIcon, 
-      description: 'Review payment proofs' 
+      icon: CheckCircleIcon,
+      category: 'Approvals'
     });
     paymentItems.push({ 
       name: 'My Admin Payments', 
       href: '/admin-my-payments', 
-      icon: CurrencyDollarIcon, 
-      description: 'View payments to super admin' 
+      icon: CurrencyDollarIcon,
+      category: 'My Payments'
     });
   }
 
@@ -205,14 +192,14 @@ const getPaymentNavigation = (userRole?: string) => {
     paymentItems.push({ 
       name: 'My Payments', 
       href: '/user-payments', 
-      icon: CurrencyDollarIcon, 
-      description: 'View payment dues' 
+      icon: CurrencyDollarIcon,
+      category: 'My Payments'
     });
     paymentItems.push({ 
       name: 'Payment Submission', 
       href: '/payment-submission', 
-      icon: QrCodeIcon, 
-      description: 'Submit payment proofs' 
+      icon: QrCodeIcon,
+      category: 'Submissions'
     });
   }
 
@@ -221,14 +208,14 @@ const getPaymentNavigation = (userRole?: string) => {
     paymentItems.push({ 
       name: 'My Payments', 
       href: '/user-payments', 
-      icon: CurrencyDollarIcon, 
-      description: 'View payment dues' 
+      icon: CurrencyDollarIcon,
+      category: 'My Payments'
     });
     paymentItems.push({ 
       name: 'Payment Submission', 
       href: '/payment-submission', 
-      icon: QrCodeIcon, 
-      description: 'Submit payment proofs' 
+      icon: QrCodeIcon,
+      category: 'Submissions'
     });
   }
 
@@ -265,6 +252,22 @@ export default function Layout({ children }: LayoutProps) {
   const location = useLocation();
   const navigate = useNavigate();
 
+  // Close user menu when clicking outside
+  const handleClickOutside = (event: MouseEvent) => {
+    const target = event.target as Element;
+    if (!target.closest('.user-menu')) {
+      setUserMenuOpen(false);
+    }
+  };
+
+  // Add click outside listener
+  useEffect(() => {
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   const navigation = getNavigation(user?.role);
   const paymentNavigation = getPaymentNavigation(user?.role);
   const pageTitle = getPageTitle(location.pathname, [...navigation, ...paymentNavigation]);
@@ -277,6 +280,16 @@ export default function Layout({ children }: LayoutProps) {
     navigate('/');
   };
 
+  // Group payment items by category
+  const groupedPayments = paymentNavigation.reduce((acc, item) => {
+    const category = item.category || 'Other';
+    if (!acc[category]) {
+      acc[category] = [];
+    }
+    acc[category].push(item);
+    return acc;
+  }, {} as Record<string, typeof paymentNavigation>);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Mobile sidebar overlay */}
@@ -286,103 +299,105 @@ export default function Layout({ children }: LayoutProps) {
             className="fixed inset-0 bg-black/50 backdrop-blur-sm" 
             onClick={() => setSidebarOpen(false)} 
           />
-          <div className="fixed inset-y-0 left-0 w-80 bg-white shadow-2xl">
-            <div className="flex h-full flex-col">
-              {/* Mobile sidebar header */}
-              <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200">
-                <div className="flex items-center">
-                  <div className="h-8 w-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center">
-                    <ChartBarSolid className="h-5 w-5 text-white" />
-                  </div>
-                  <span className="ml-3 text-xl font-bold text-gray-900">RepoTrack</span>
+          <div className="fixed inset-y-0 left-0 w-80 bg-white shadow-2xl flex flex-col">
+            {/* Mobile sidebar header */}
+                         <div className="flex h-16 items-center justify-between px-6 border-b-2 border-gray-300 flex-shrink-0">
+              <div className="flex items-center">
+                <div className="h-8 w-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center">
+                  <ChartBarSolid className="h-5 w-5 text-white" />
                 </div>
-                <button
-                  onClick={() => setSidebarOpen(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <XMarkIcon className="h-6 w-6" />
-                </button>
+                <span className="ml-3 text-xl font-bold text-gray-900">RepoTrack</span>
               </div>
+              <button
+                onClick={() => setSidebarOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
 
-              {/* Mobile navigation */}
-              <nav className="flex-1 px-4 py-6 space-y-2">
-                {navigation.map((item) => {
-                  const isActive = location.pathname === item.href;
-                  return (
-                    <Link
-                      key={item.name}
-                      to={item.href}
-                      onClick={() => setSidebarOpen(false)}
-                      className={`nav-item ${isActive ? 'active' : ''}`}
-                    >
-                      <item.icon className="h-5 w-5 flex-shrink-0" />
-                      <div className="flex-1">
-                        <div className="font-medium">{item.name}</div>
-                        <div className="text-xs text-gray-500 mt-0.5">{item.description}</div>
-                      </div>
-                    </Link>
-                  );
-                })}
+            {/* Mobile navigation - scrollable */}
+            <div className="flex-1 overflow-y-auto sidebar-scroll">
+                             <nav className="px-3 py-3 space-y-2">
+                {/* Main Navigation */}
+                <div className="space-y-2">
+                  <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">Main</h3>
+                  {navigation.map((item) => {
+                    const isActive = location.pathname === item.href;
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.href}
+                        onClick={() => setSidebarOpen(false)}
+                        className={`nav-item ${isActive ? 'active' : ''}`}
+                      >
+                        <item.icon className="h-5 w-5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <div className="font-medium">{item.name}</div>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                </div>
 
-                {/* Mobile Payments Dropdown */}
+                {/* Payments Section */}
                 {paymentNavigation.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="space-y-1">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">Payments</h3>
                     <button
                       onClick={() => setPaymentsDropdownOpen(!paymentsDropdownOpen)}
                       className={`nav-item w-full text-left ${isPaymentPage ? 'active' : ''}`}
                     >
                       <CurrencyDollarIcon className="h-5 w-5 flex-shrink-0" />
                       <div className="flex-1">
-                        <div className="font-medium">Payments</div>
-                        <div className="text-xs text-gray-500 mt-0.5">Payment management</div>
+                        <div className="font-medium">Payment Center</div>
                       </div>
                       <ChevronDownIcon className={`h-4 w-4 transition-transform ${paymentsDropdownOpen ? 'rotate-180' : ''}`} />
                     </button>
                     
-                    {paymentsDropdownOpen && (
-                      <div className="ml-6 space-y-1">
-                        {paymentNavigation.map((item) => {
-                          const isActive = location.pathname === item.href;
-                          return (
-                            <Link
-                              key={item.name}
-                              to={item.href}
-                              onClick={() => setSidebarOpen(false)}
-                              className={`nav-item ${isActive ? 'active' : ''}`}
-                            >
-                              <item.icon className="h-5 w-5 flex-shrink-0" />
-                              <div className="flex-1">
-                                <div className="font-medium">{item.name}</div>
-                                <div className="text-xs text-gray-500 mt-0.5">{item.description}</div>
-                              </div>
-                            </Link>
-                          );
-                        })}
-                      </div>
-                    )}
+                                         <div className={`payment-dropdown ${paymentsDropdownOpen ? 'open' : ''}`}>
+                       <div className="space-y-1">
+                         {paymentNavigation.map((item) => {
+                           const isActive = location.pathname === item.href;
+                           return (
+                             <Link
+                               key={item.name}
+                               to={item.href}
+                               onClick={() => setSidebarOpen(false)}
+                               className={`nav-item ${isActive ? 'active' : ''}`}
+                             >
+                               <item.icon className="h-4 w-4 flex-shrink-0" />
+                               <div className="flex-1">
+                                 <div className="font-medium text-sm">{item.name}</div>
+                               </div>
+                             </Link>
+                           );
+                         })}
+                       </div>
+                     </div>
                   </div>
                 )}
               </nav>
+            </div>
 
-              {/* Mobile user section */}
-              <div className="border-t border-gray-200 p-4">
-                <div className="flex items-center space-x-3 mb-4">
-                  <div className="h-10 w-10 bg-gradient-to-r from-gray-600 to-gray-800 rounded-full flex items-center justify-center text-white font-medium">
-                    {user?.name?.split(' ').map(n => n[0]).join('')}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-gray-900 truncate">{user?.name}</p>
-                    <p className="text-sm text-gray-500 truncate">{user?.email}</p>
-                  </div>
+                         {/* Mobile user section - fixed at bottom */}
+             <div className="border-t-2 border-gray-300 p-4 flex-shrink-0">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="h-10 w-10 bg-gradient-to-r from-gray-600 to-gray-800 rounded-full flex items-center justify-center text-white font-medium">
+                  {user?.name?.split(' ').map(n => n[0]).join('')}
                 </div>
-                <button
-                  onClick={handleLogout}
-                  className="btn btn-outline btn-sm w-full"
-                >
-                  <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2" />
-                  Sign Out
-                </button>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-gray-900 truncate">{user?.name}</p>
+                  <p className="text-sm text-gray-500 truncate">{user?.email}</p>
+                </div>
               </div>
+              <button
+                onClick={handleLogout}
+                className="btn btn-outline btn-sm w-full"
+              >
+                <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2" />
+                Sign Out
+              </button>
             </div>
           </div>
         </div>
@@ -390,9 +405,9 @@ export default function Layout({ children }: LayoutProps) {
 
       {/* Desktop sidebar */}
       <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-80 lg:flex-col">
-        <div className="flex flex-col flex-grow bg-white border-r border-gray-200 shadow-sm">
+                   <div className="flex flex-col flex-grow bg-white border-r-2 border-gray-300 shadow-sm">
           {/* Desktop sidebar header */}
-          <div className="flex h-16 items-center px-6 border-b border-gray-200">
+                       <div className="flex h-16 items-center px-6 border-b-2 border-gray-300 flex-shrink-0">
             <div className="flex items-center">
               <div className="h-10 w-10 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center">
                 <ChartBarSolid className="h-6 w-6 text-white" />
@@ -401,68 +416,72 @@ export default function Layout({ children }: LayoutProps) {
             </div>
           </div>
 
-          {/* Desktop navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-2">
-            {navigation.map((item) => {
-              const isActive = location.pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  to={item.href}
-                  className={`nav-item ${isActive ? 'active' : ''}`}
-                >
-                  <item.icon className="h-5 w-5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <div className="font-medium">{item.name}</div>
-                    <div className="text-xs text-gray-500 mt-0.5">{item.description}</div>
-                  </div>
-                </Link>
-              );
-            })}
-          </nav>
-
-          {/* Desktop Payments Dropdown - at bottom */}
-          {paymentNavigation.length > 0 && (
-            <div className="px-4 pb-4">
-              <div className="space-y-2">
-                <button
-                  onClick={() => setPaymentsDropdownOpen(!paymentsDropdownOpen)}
-                  className={`nav-item w-full text-left ${isPaymentPage ? 'active' : ''}`}
-                >
-                  <CurrencyDollarIcon className="h-5 w-5 flex-shrink-0" />
-                  <div className="flex-1">
-                    <div className="font-medium">Payments</div>
-                    <div className="text-xs text-gray-500 mt-0.5">Payment management</div>
-                  </div>
-                  <ChevronDownIcon className={`h-4 w-4 transition-transform ${paymentsDropdownOpen ? 'rotate-180' : ''}`} />
-                </button>
-                
-                {paymentsDropdownOpen && (
-                  <div className="ml-6 space-y-1">
-                    {paymentNavigation.map((item) => {
-                      const isActive = location.pathname === item.href;
-                      return (
-                        <Link
-                          key={item.name}
-                          to={item.href}
-                          className={`nav-item ${isActive ? 'active' : ''}`}
-                        >
-                          <item.icon className="h-5 w-5 flex-shrink-0" />
-                          <div className="flex-1">
-                            <div className="font-medium">{item.name}</div>
-                            <div className="text-xs text-gray-500 mt-0.5">{item.description}</div>
-                          </div>
-                        </Link>
-                      );
-                    })}
-                  </div>
-                )}
+          {/* Desktop navigation - scrollable */}
+          <div className="flex-1 overflow-y-auto sidebar-scroll">
+                         <nav className="px-3 py-3 space-y-3">
+              {/* Main Navigation */}
+                             <div className="space-y-1">
+                 <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">Main</h3>
+                {navigation.map((item) => {
+                  const isActive = location.pathname === item.href;
+                  return (
+                    <Link
+                      key={item.name}
+                      to={item.href}
+                      className={`nav-item ${isActive ? 'active' : ''}`}
+                    >
+                                           <item.icon className="h-5 w-5 flex-shrink-0" />
+                     <div className="flex-1">
+                       <div className="font-medium">{item.name}</div>
+                     </div>
+                    </Link>
+                  );
+                })}
               </div>
-            </div>
-          )}
 
-          {/* Desktop user section */}
-          <div className="border-t border-gray-200 p-4">
+              {/* Payments Section */}
+              {paymentNavigation.length > 0 && (
+                                 <div className="space-y-1">
+                   <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">Payments</h3>
+                                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-2 border-2 border-blue-300">
+                    <button
+                      onClick={() => setPaymentsDropdownOpen(!paymentsDropdownOpen)}
+                      className={`nav-item w-full text-left ${isPaymentPage ? 'active' : ''} bg-white/80 backdrop-blur-sm`}
+                    >
+                      <CurrencyDollarIcon className="h-5 w-5 flex-shrink-0" />
+                      <div className="flex-1">
+                        <div className="font-medium">Payment Center</div>
+                      </div>
+                      <ChevronDownIcon className={`h-4 w-4 transition-transform ${paymentsDropdownOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    
+                                         <div className={`payment-dropdown ${paymentsDropdownOpen ? 'open' : ''}`}>
+                       <div className="mt-2 space-y-1">
+                         {paymentNavigation.map((item) => {
+                           const isActive = location.pathname === item.href;
+                           return (
+                             <Link
+                               key={item.name}
+                               to={item.href}
+                               className={`nav-item ${isActive ? 'active' : ''} bg-white/60 backdrop-blur-sm`}
+                             >
+                               <item.icon className="h-4 w-4 flex-shrink-0" />
+                               <div className="flex-1">
+                                 <div className="font-medium text-sm">{item.name}</div>
+                               </div>
+                             </Link>
+                           );
+                         })}
+                       </div>
+                     </div>
+                  </div>
+                </div>
+              )}
+            </nav>
+          </div>
+
+                     {/* Desktop user section - fixed at bottom */}
+           <div className="border-t-2 border-gray-300 p-4 flex-shrink-0">
             <div className="flex items-center space-x-3">
               <div className="h-10 w-10 bg-gradient-to-r from-gray-600 to-gray-800 rounded-full flex items-center justify-center text-white font-medium">
                 {user?.name?.split(' ').map(n => n[0]).join('')}
@@ -482,7 +501,7 @@ export default function Layout({ children }: LayoutProps) {
       {/* Main content */}
       <div className="lg:pl-80">
         {/* Top navigation bar */}
-        <div className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm">
+                 <div className="sticky top-0 z-40 bg-white border-b-2 border-gray-300 shadow-sm">
           <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
             <div className="flex items-center space-x-4">
               <button
@@ -495,51 +514,46 @@ export default function Layout({ children }: LayoutProps) {
               
               <div>
                 <h1 className="text-xl font-semibold text-gray-900">{pageTitle}</h1>
-                <p className="text-sm text-gray-500">
-                  {[...navigation, ...paymentNavigation].find(item => item.href === location.pathname)?.description}
-                </p>
+
               </div>
             </div>
 
             <div className="flex items-center space-x-4">
-              {/* Desktop user menu */}
-              <div className="hidden lg:flex lg:items-center lg:space-x-4">
-                <span className="text-sm text-gray-600">Welcome back,</span>
-                <span className="font-medium text-gray-900">{user?.name}</span>
-                <div className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getRoleBadgeColor(user?.role)}`}>
-                  {user?.role}
+              {/* Weather widget */}
+              <div className="hidden md:flex items-center space-x-2 bg-gray-100 rounded-lg px-3 py-2">
+                <div className="relative">
+                  <div className="w-6 h-6 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full flex items-center justify-center">
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                  </div>
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full flex items-center justify-center text-xs text-white font-bold">
+                    9+
+                  </div>
+                </div>
+                <div className="text-sm">
+                  <div className="font-medium">28°C</div>
+                  <div className="text-gray-500 text-xs">Partly cloudy</div>
                 </div>
               </div>
 
-              {/* User dropdown */}
-              <div className="relative">
+              {/* User menu */}
+              <div className="relative user-menu">
                 <button
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
+                  className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition-colors"
                 >
-                  <UserCircleIcon className="h-8 w-8" />
-                  <ChevronDownIcon className={`h-4 w-4 transition-transform ${userMenuOpen ? 'rotate-180' : ''}`} />
+                  <div className="h-8 w-8 bg-gradient-to-r from-gray-600 to-gray-800 rounded-full flex items-center justify-center text-white text-sm font-medium">
+                    {user?.name?.split(' ').map(n => n[0]).join('')}
+                  </div>
+                  <span className="hidden md:block font-medium">{user?.name}</span>
                 </button>
 
                 {userMenuOpen && (
-                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50">
-                    <Link
-                      to="/profile"
-                      className="flex items-center px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
-                      onClick={() => setUserMenuOpen(false)}
-                    >
-                      <UserCircleIcon className="h-4 w-4 mr-3" />
-                      Profile Settings
-                    </Link>
-                    <hr className="my-1 border-gray-200" />
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
                     <button
-                      onClick={() => {
-                        setUserMenuOpen(false);
-                        handleLogout();
-                      }}
-                      className="flex items-center w-full px-4 py-2 text-gray-700 hover:bg-gray-50 transition-colors"
+                      onClick={handleLogout}
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
                     >
-                      <ArrowRightOnRectangleIcon className="h-4 w-4 mr-3" />
+                      <ArrowRightOnRectangleIcon className="h-4 w-4 inline mr-2" />
                       Sign Out
                     </button>
                   </div>
@@ -550,20 +564,11 @@ export default function Layout({ children }: LayoutProps) {
         </div>
 
         {/* Page content */}
-        <main className="flex-1">
-          <div className="p-4 sm:p-6 lg:p-8">
-            {children}
-          </div>
+        <main className="p-4 sm:p-6 lg:p-8">
+          {children}
         </main>
       </div>
-
-      {/* Click outside to close user menu */}
-      {userMenuOpen && (
-        <div 
-          className="fixed inset-0 z-30" 
-          onClick={() => setUserMenuOpen(false)} 
-        />
-      )}
     </div>
   );
 }
+

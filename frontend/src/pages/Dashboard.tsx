@@ -244,7 +244,7 @@ export default function Dashboard() {
       {/* User Management Section */}
       {(currentUser.role === 'superSuperAdmin' || currentUser.role === 'superAdmin' || currentUser.role === 'admin' || currentUser.role === 'auditor') && (
         <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
+          <div className="px-6 py-4 border-b-2 border-gray-400">
             <div className="flex items-center justify-between">
               <div>
                 <h2 className="text-lg font-medium text-gray-900">

@@ -201,7 +201,7 @@ export default function PaymentApproval() {
 
       {/* Pending Proofs */}
       <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b-2 border-gray-400">
           <h3 className="text-lg font-semibold text-gray-900">Pending Payment Proofs</h3>
         </div>
         <div className="p-6">

@@ -366,7 +366,7 @@ export default function VehicleSearch() {
                 </div>
               )}
               {vehicles.map((vehicle: any) => (
-                <div key={vehicle._id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                <div key={vehicle._id} className="border-2 border-gray-400 rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -410,7 +410,7 @@ export default function VehicleSearch() {
              {vehiclePage > 1 && (
                <button
                  onClick={() => setVehiclePage(vehiclePage - 1)}
-                 className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 whitespace-nowrap"
+                 className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-400 whitespace-nowrap"
                >
                  Previous
                </button>
@@ -421,7 +421,7 @@ export default function VehicleSearch() {
                <>
                  <button
                    onClick={() => setVehiclePage(1)}
-                   className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border border-gray-300"
+                   className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-400"
                  >
                    1
                  </button>
@@ -448,7 +448,7 @@ export default function VehicleSearch() {
                      className={`px-3 py-2 text-sm font-medium rounded-md ${
                        pageNum === vehiclePage
                          ? 'bg-blue-600 text-white'
-                         : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-300'
+                         : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-400'
                      }`}
                    >
                      {pageNum}
@@ -464,7 +464,7 @@ export default function VehicleSearch() {
                  )}
                  <button
                    onClick={() => setVehiclePage(vehiclePagination.pages)}
-                   className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border border-gray-300"
+                   className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-400"
                  >
                    {vehiclePagination.pages}
                  </button>
@@ -475,7 +475,7 @@ export default function VehicleSearch() {
              {vehiclePage < vehiclePagination.pages && (
                <button
                  onClick={() => setVehiclePage(vehiclePage + 1)}
-                 className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border border-gray-300 whitespace-nowrap"
+                 className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-400 whitespace-nowrap"
                >
                  Next
                </button>

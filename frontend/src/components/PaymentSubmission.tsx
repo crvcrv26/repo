@@ -212,7 +212,7 @@ export default function PaymentSubmission() {
 
       {/* Pending Payments */}
       <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b-2 border-gray-400">
           <h3 className="text-lg font-semibold text-gray-900">Pending Payments</h3>
         </div>
         <div className="p-6">
@@ -334,7 +334,7 @@ export default function PaymentSubmission() {
                         name="proofImage"
                         id="proofImage"
                         accept="image/*"
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                        className="mt-1 block w-full border-2 border-gray-400 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                         required
                       />
                     </div>
@@ -349,7 +349,7 @@ export default function PaymentSubmission() {
                         type="text"
                         name="transactionNumber"
                         id="transactionNumber"
-                        className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                        className="mt-1 block w-full border-2 border-gray-400 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                         placeholder="Enter transaction number"
                         required
                       />
@@ -364,7 +364,7 @@ export default function PaymentSubmission() {
                       type="date"
                       name="paymentDate"
                       id="paymentDate"
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      className="mt-1 block w-full border-2 border-gray-400 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                       required
                     />
                   </div>
@@ -380,7 +380,7 @@ export default function PaymentSubmission() {
                       step="0.01"
                       min="0"
                       defaultValue={selectedPayment.monthlyAmount}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      className="mt-1 block w-full border-2 border-gray-400 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                       required
                     />
                   </div>
@@ -393,7 +393,7 @@ export default function PaymentSubmission() {
                       name="notes"
                       id="notes"
                       rows={3}
-                      className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
+                      className="mt-1 block w-full border-2 border-gray-400 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500"
                       placeholder="Add any additional notes..."
                     />
                   </div>

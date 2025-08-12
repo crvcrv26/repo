@@ -379,7 +379,7 @@ const AdminPaymentManagement: React.FC = () => {
 
        {/* Admin Payments Table */}
       <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b-2 border-gray-400">
           <h2 className="text-lg font-medium text-gray-900">Admin Payments</h2>
         </div>
         {paymentsLoading ? (
@@ -549,7 +549,7 @@ const AdminPaymentManagement: React.FC = () => {
               <form onSubmit={handleGeneratePayments} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700">Selected Period</label>
-                  <div className="mt-1 p-3 bg-gray-50 border border-gray-300 rounded-md">
+                  <div className="mt-1 p-3 bg-gray-50 border-2 border-gray-400 rounded-md">
                     <p className="text-sm text-gray-700">
                       {new Date(2024, selectedMonth - 1).toLocaleDateString('en-US', { month: 'long' })} {selectedYear}
                     </p>

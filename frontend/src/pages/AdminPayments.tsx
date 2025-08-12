@@ -470,7 +470,7 @@ export default function AdminPayments() {
 
       {/* Payment Details Table */}
       <div className="bg-white rounded-lg shadow">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b-2 border-gray-400">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-semibold text-gray-900">Payment Details</h3>
             <div className="flex items-center space-x-3">
@@ -631,7 +631,7 @@ export default function AdminPayments() {
 
         {/* Pagination */}
         {detailsData?.pagination && (
-          <div className="px-6 py-4 border-t border-gray-200">
+          <div className="px-6 py-4 border-t-2 border-gray-400">
             <div className="flex items-center justify-between">
               <div className="text-sm text-gray-700">
                 Showing {((detailsData.pagination.page - 1) * detailsData.pagination.limit) + 1} to{' '}

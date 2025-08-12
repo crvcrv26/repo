@@ -250,7 +250,7 @@ const SuperAdminMyPayments: React.FC = () => {
 
       {/* Payments Table */}
       <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
+        <div className="px-6 py-4 border-b-2 border-gray-400">
           <h2 className="text-lg font-medium text-gray-900">Payment History</h2>
         </div>
         {paymentsLoading ? (
@@ -299,7 +299,7 @@ const SuperAdminMyPayments: React.FC = () => {
                       <div className="flex items-center">
                         <UserGroupIcon className="w-4 h-4 text-gray-400 mr-1" />
                         <span className="text-sm text-gray-900">
-                          {payment.userCount}/
+                          {payment.userCount}
                           {payment.deletedUserCount && payment.deletedUserCount > 0 && (
                             <span className="text-red-500"> ({payment.deletedUserCount} deleted)</span>
                           )}

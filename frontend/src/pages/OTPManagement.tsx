@@ -201,7 +201,7 @@ export default function OTPManagement() {
           ) : (
             <div className="space-y-4">
               {otpData.map((otpData) => (
-                <div key={otpData.userId} className="border border-gray-200 rounded-lg p-4">
+                <div key={otpData.userId} className="border-2 border-gray-400 rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
                       <div className="flex items-center space-x-4">
@@ -293,7 +293,7 @@ export default function OTPManagement() {
       </div>
 
       {/* Instructions */}
-      <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+              <div className="bg-gray-50 border-2 border-gray-400 rounded-lg p-4">
         <h3 className="text-sm font-medium text-gray-900 mb-2">Instructions for Admins</h3>
         <ol className="text-sm text-gray-600 space-y-1 list-decimal list-inside">
           <li>Click "Generate" to create a new 4-digit OTP for a user</li>
