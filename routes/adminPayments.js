@@ -752,10 +752,18 @@ router.post('/:paymentId/proof',
       const { paymentId } = req.params;
       const { proofType, transactionNumber, paymentDate, amount, notes } = req.body;
 
-      if (!req.file) {
+      // Validate based on proof type
+      if (proofType === 'screenshot' && !req.file) {
         return res.status(400).json({
           success: false,
-          message: 'Payment proof image is required'
+          message: 'Payment proof image is required for screenshot submissions'
+        });
+      }
+      
+      if (proofType === 'transaction' && !transactionNumber?.trim()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Transaction number is required for transaction submissions'
         });
       }
 
@@ -779,19 +787,25 @@ router.post('/:paymentId/proof',
       const cleanProofType = proofType === 'screenshot' ? 'screenshot' : 'transaction_number';
       
       // Create payment proof
-      const proof = new PaymentProof({
+      const proofData = {
         paymentId: paymentId,
         userId: req.user._id,
         adminId: payment.superAdminId,
         proofType: cleanProofType,
-        proofImageUrl: `/uploads/admin-payment-proofs/${req.file.filename}`,
-        proofImageName: req.file.originalname,
         transactionNumber: cleanProofType === 'transaction_number' ? transactionNumber : undefined,
         paymentDate: paymentDate,
         amount: amount,
         notes: notes,
         status: 'pending'
-      });
+      };
+      
+      // Add image fields only if screenshot type and file exists
+      if (cleanProofType === 'screenshot' && req.file) {
+        proofData.proofImageUrl = `/uploads/admin-payment-proofs/${req.file.filename}`;
+        proofData.proofImageName = req.file.originalname;
+      }
+      
+      const proof = new PaymentProof(proofData);
 
       await proof.save();
 

@@ -121,13 +121,24 @@ const AdminMyPayments: React.FC = () => {
   const handleSubmitProof = (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!selectedFile) {
+    // Validate based on proof type
+    if (proofForm.proofType === 'screenshot' && !selectedFile) {
       toast.error('Please select a payment proof image');
+      return;
+    }
+    
+    if (proofForm.proofType === 'transaction' && !proofForm.transactionNumber.trim()) {
+      toast.error('Please enter a transaction number');
       return;
     }
 
     const formData = new FormData();
-    formData.append('proofImage', selectedFile);
+    
+    // Only append proof image if screenshot type is selected
+    if (proofForm.proofType === 'screenshot' && selectedFile) {
+      formData.append('proofImage', selectedFile);
+    }
+    
     formData.append('proofType', proofForm.proofType);
     formData.append('transactionNumber', proofForm.transactionNumber);
     formData.append('paymentDate', proofForm.paymentDate);
@@ -422,7 +433,11 @@ const AdminMyPayments: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700">Proof Type</label>
                     <select
                       value={proofForm.proofType}
-                      onChange={(e) => setProofForm({ ...proofForm, proofType: e.target.value })}
+                      onChange={(e) => {
+                        setProofForm({ ...proofForm, proofType: e.target.value });
+                        // Clear selected file when switching proof types
+                        setSelectedFile(null);
+                      }}
                       className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                       required
                     >
@@ -430,26 +445,35 @@ const AdminMyPayments: React.FC = () => {
                       <option value="transaction">Transaction Number</option>
                     </select>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700">Proof Image</label>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
-                      className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
-                      required
-                    />
-                  </div>
+                  {proofForm.proofType === 'screenshot' && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Proof Image <span className="text-red-500">*</span>
+                      </label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        required
+                      />
+                      <p className="mt-1 text-sm text-gray-500">Upload a screenshot of your payment confirmation</p>
+                    </div>
+                  )}
                   {proofForm.proofType === 'transaction' && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700">Transaction Number</label>
+                      <label className="block text-sm font-medium text-gray-700">
+                        Transaction Number <span className="text-red-500">*</span>
+                      </label>
                       <input
                         type="text"
                         value={proofForm.transactionNumber}
                         onChange={(e) => setProofForm({ ...proofForm, transactionNumber: e.target.value })}
                         className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
                         placeholder="Enter transaction number"
+                        required
                       />
+                      <p className="mt-1 text-sm text-gray-500">Enter the transaction number from your payment receipt</p>
                     </div>
                   )}
                   <div>
