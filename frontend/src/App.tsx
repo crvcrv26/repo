@@ -18,6 +18,8 @@ import PaymentSubmission from './components/PaymentSubmission'
 import PaymentApproval from './components/PaymentApproval'
 import AdminPaymentManagement from './components/AdminPaymentManagement'
 import AdminMyPayments from './components/AdminMyPayments'
+import SuperSuperAdminPaymentManagement from './components/SuperSuperAdminPaymentManagement'
+import SuperAdminMyPayments from './components/SuperAdminMyPayments'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -55,6 +57,8 @@ function AppContent() {
         <Route path="/payment-approval" element={<PaymentApproval />} />
         <Route path="/admin-payment-management" element={<AdminPaymentManagement />} />
         <Route path="/admin-my-payments" element={<AdminMyPayments />} />
+        <Route path="/super-super-admin-payments" element={<SuperSuperAdminPaymentManagement />} />
+        <Route path="/super-admin-my-payments" element={<SuperAdminMyPayments />} />
         <Route path="/otp-management" element={<OTPManagement />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/profile" element={<Profile />} />

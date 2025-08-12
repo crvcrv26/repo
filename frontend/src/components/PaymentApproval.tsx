@@ -60,9 +60,16 @@ export default function PaymentApproval() {
   const { data: proofsData, isLoading } = useQuery({
     queryKey: ['pending-payment-proofs', user?.role],
     queryFn: async () => {
-      const endpoint = isSuperAdmin 
-        ? '/api/admin-payments/pending-proofs'
-        : '/api/payment-qr/admin/pending-proofs';
+      let endpoint;
+      
+      // Determine the correct endpoint based on user role
+      if (user?.role === 'superSuperAdmin') {
+        endpoint = '/api/super-super-admin-payments/pending-proofs';
+      } else if (isSuperAdmin) {
+        endpoint = '/api/admin-payments/pending-proofs';
+      } else {
+        endpoint = '/api/payment-qr/admin/pending-proofs';
+      }
       
       console.log('🔍 Frontend PaymentApproval query:');
       console.log('   User role:', user?.role);
@@ -89,9 +96,22 @@ export default function PaymentApproval() {
   // Review payment proof mutation
   const reviewProofMutation = useMutation({
     mutationFn: async ({ proofId, status, notes }: { proofId: string; status: string; notes: string }) => {
-      const endpoint = isSuperAdmin 
-        ? `/api/admin-payments/proof/${proofId}/review`
-        : `/api/payment-qr/proof/${proofId}/review`;
+      let endpoint;
+      
+      // Determine the correct endpoint based on user role
+      if (user?.role === 'superSuperAdmin') {
+        endpoint = `/api/super-super-admin-payments/proof/${proofId}/review`;
+      } else if (isSuperAdmin) {
+        endpoint = `/api/admin-payments/proof/${proofId}/review`;
+      } else {
+        endpoint = `/api/payment-qr/proof/${proofId}/review`;
+      }
+      
+      console.log('🔍 Reviewing payment proof:');
+      console.log('   User role:', user?.role);
+      console.log('   Endpoint:', endpoint);
+      console.log('   Proof ID:', proofId);
+      console.log('   Status:', status);
       
       const response = await fetch(endpoint, {
         method: 'PUT',
@@ -107,6 +127,17 @@ export default function PaymentApproval() {
     onSuccess: () => {
       toast.success('Payment proof reviewed successfully');
       queryClient.invalidateQueries({ queryKey: ['pending-payment-proofs', user?.role] });
+      
+      // Also invalidate payment queries to refresh payment status
+      if (user?.role === 'superSuperAdmin') {
+        queryClient.invalidateQueries({ queryKey: ['super-super-admin-payments'] });
+      } else if (user?.role === 'superAdmin') {
+        queryClient.invalidateQueries({ queryKey: ['super-admin-my-payments'] });
+        queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['admin-payments'] });
+      }
+      
       setShowReviewModal(false);
       setSelectedProof(null);
       setAdminNotes('');

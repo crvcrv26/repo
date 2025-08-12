@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 require('dotenv').config();
 
 // Import User model
-const User = require('./models/User');
+const User = require('../models/User.js');
 
 const createAdmins = async () => {
   try {
@@ -31,12 +31,21 @@ const createAdmins = async () => {
       isActive: true
     };
 
-    const superSuperAdmin = new User(superSuperAdminData);
-    await superSuperAdmin.save();
-    console.log('👑 Super Super Admin created successfully!');
-    console.log('📧 Email:', superSuperAdminData.email);
-    console.log('📱 Phone:', superSuperAdminData.phone);
-    console.log('🔑 Password:', superSuperAdminData.password);
+    // Check if Super Super Admin already exists
+    let superSuperAdmin = await User.findOne({ email: superSuperAdminData.email });
+    if (superSuperAdmin) {
+      console.log('👑 Super Super Admin already exists!');
+      console.log('📧 Email:', superSuperAdminData.email);
+      console.log('📱 Phone:', superSuperAdminData.phone);
+      console.log('🔑 Password:', superSuperAdminData.password);
+    } else {
+      superSuperAdmin = new User(superSuperAdminData);
+      await superSuperAdmin.save();
+      console.log('👑 Super Super Admin created successfully!');
+      console.log('📧 Email:', superSuperAdminData.email);
+      console.log('📱 Phone:', superSuperAdminData.phone);
+      console.log('🔑 Password:', superSuperAdminData.password);
+    }
 
     // Create Super Admin
     const superAdminData = {
@@ -55,12 +64,21 @@ const createAdmins = async () => {
       isActive: true
     };
 
-    const superAdmin = new User(superAdminData);
-    await superAdmin.save();
-    console.log('👨‍💼 Super Admin created successfully!');
-    console.log('📧 Email:', superAdminData.email);
-    console.log('📱 Phone:', superAdminData.phone);
-    console.log('🔑 Password:', superAdminData.password);
+    // Check if Super Admin already exists
+    let superAdmin = await User.findOne({ email: superAdminData.email });
+    if (superAdmin) {
+      console.log('👨‍💼 Super Admin already exists!');
+      console.log('📧 Email:', superAdminData.email);
+      console.log('📱 Phone:', superAdminData.phone);
+      console.log('🔑 Password:', superAdminData.password);
+    } else {
+      superAdmin = new User(superAdminData);
+      await superAdmin.save();
+      console.log('👨‍💼 Super Admin created successfully!');
+      console.log('📧 Email:', superAdminData.email);
+      console.log('📱 Phone:', superAdminData.phone);
+      console.log('🔑 Password:', superAdminData.password);
+    }
 
     console.log('\n🎉 Both admin users created successfully!');
     console.log('\n📋 Login Credentials:');

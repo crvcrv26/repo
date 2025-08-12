@@ -91,6 +91,7 @@ app.use('/api/money', authenticateToken, moneyRoutes);
 app.use('/api/payments', authenticateToken, paymentRoutes);
 app.use('/api/payment-qr', authenticateToken, require('./routes/paymentQR'));
 app.use('/api/admin-payments', authenticateToken, require('./routes/adminPayments'));
+app.use('/api/super-super-admin-payments', authenticateToken, require('./routes/superSuperAdminPayments'));
 
 // 404 handler
 app.use('*', (req, res) => {

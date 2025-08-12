@@ -104,8 +104,8 @@ const getNavigation = (userRole?: string) => {
 const getPaymentNavigation = (userRole?: string) => {
   const paymentItems = [];
 
-  // Add payment items for super admin roles
-  if (userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
+  // Add payment items for super super admin
+  if (userRole === 'superSuperAdmin') {
     paymentItems.push({ 
       name: 'Payment Management', 
       href: '/admin-payments', 
@@ -129,6 +129,46 @@ const getPaymentNavigation = (userRole?: string) => {
       href: '/admin-payment-management', 
       icon: CurrencyDollarIcon, 
       description: 'Manage admin payments' 
+    });
+    paymentItems.push({ 
+      name: 'SuperSuperAdmin Payment Management', 
+      href: '/super-super-admin-payments', 
+      icon: CurrencyDollarIcon, 
+      description: 'Manage super admin payments' 
+    });
+  }
+
+  // Add payment items for super admin
+  if (userRole === 'superAdmin') {
+    paymentItems.push({ 
+      name: 'Payment Management', 
+      href: '/admin-payments', 
+      icon: CurrencyDollarIcon, 
+      description: 'Manage team payments' 
+    });
+    paymentItems.push({ 
+      name: 'QR Code Management', 
+      href: '/qr-management', 
+      icon: QrCodeIcon, 
+      description: 'Upload and manage QR codes' 
+    });
+    paymentItems.push({ 
+      name: 'Payment Approval', 
+      href: '/payment-approval', 
+      icon: CheckCircleIcon, 
+      description: 'Review payment proofs' 
+    });
+    paymentItems.push({ 
+      name: 'Admin Payment Management', 
+      href: '/admin-payment-management', 
+      icon: CurrencyDollarIcon, 
+      description: 'Manage admin payments' 
+    });
+    paymentItems.push({ 
+      name: 'My SuperSuperAdmin Payments', 
+      href: '/super-admin-my-payments', 
+      icon: CurrencyDollarIcon, 
+      description: 'View payments to super super admin' 
     });
   }
 
