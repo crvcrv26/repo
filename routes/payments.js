@@ -143,13 +143,35 @@ router.get('/admin-summary',
       const auditorCount = await User.countDocuments({
         role: 'auditor',
         createdBy: req.user._id,
-        createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+        $or: [
+          // Active users (created before or during this month)
+          { 
+            isActive: true,
+            createdAt: { $lte: endOfMonth }
+          },
+          // Deleted users who were deleted during this month (regardless of when they were created)
+          {
+            isDeleted: true,
+            deletedAt: { $gte: startOfMonth, $lte: endOfMonth }
+          }
+        ]
       });
 
       const fieldAgentCount = await User.countDocuments({
         role: 'fieldAgent',
         createdBy: req.user._id,
-        createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+        $or: [
+          // Active users (created before or during this month)
+          { 
+            isActive: true,
+            createdAt: { $lte: endOfMonth }
+          },
+          // Deleted users who were deleted during this month (regardless of when they were created)
+          {
+            isDeleted: true,
+            deletedAt: { $gte: startOfMonth, $lte: endOfMonth }
+          }
+        ]
       });
 
       // Get admin's rates
@@ -698,15 +720,28 @@ router.post('/generate-monthly',
       const auditorRate = admin.paymentRates?.auditorRate || 0;
       const fieldAgentRate = admin.paymentRates?.fieldAgentRate || 0;
 
-      // Get all auditors and field agents created by this admin (both active and deleted)
-      // This includes users who were created during the month but deleted before payment generation
+      // Get all auditors and field agents created by this admin that should be billed for this month
+      // This includes:
+      // 1. Users created before or during this month who are still active
+      // 2. Users created before or during this month who were deleted during this month
       const startOfMonth = new Date(year, month - 1, 1);
       const endOfMonth = new Date(year, month, 0, 23, 59, 59, 999);
       
       const users = await User.find({
         role: { $in: ['auditor', 'fieldAgent'] },
         createdBy: req.user._id,
-        createdAt: { $gte: startOfMonth, $lte: endOfMonth }
+        $or: [
+          // Active users (created before or during this month)
+          { 
+            isActive: true,
+            createdAt: { $lte: endOfMonth }
+          },
+          // Deleted users who were deleted during this month (regardless of when they were created)
+          {
+            isDeleted: true,
+            deletedAt: { $gte: startOfMonth, $lte: endOfMonth }
+          }
+        ]
       }).select('_id role createdAt isDeleted deletedAt');
 
       const payments = [];
