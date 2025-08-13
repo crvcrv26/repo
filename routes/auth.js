@@ -139,17 +139,25 @@ router.post('/login', [
     }
 
     // For superSuperAdmin, superAdmin and admin - direct login
-    // Update last login
+    // Invalidate any existing session first (single-session-per-user)
+    user.invalidateSession();
+    
+    // Update last login and add to login history
     user.lastLogin = new Date();
     user.loginHistory.push({
       timestamp: new Date(),
       ip: req.ip,
       userAgent: req.get('User-Agent')
     });
+    
+    // Save user to update session info
     await user.save();
 
-    // Generate token
+    // Generate token (this will also update session info)
     const token = user.getSignedJwtToken();
+    
+    // Save again to persist the new session token
+    await user.save();
 
     res.json({
       success: true,
@@ -301,8 +309,11 @@ router.put('/change-password', authenticateToken, [
 // @access  Private
 router.post('/logout', authenticateToken, async (req, res) => {
   try {
-    // Set user offline and update last seen
+    // Invalidate current session
     await User.findByIdAndUpdate(req.user._id, {
+      currentSessionToken: null,
+      sessionCreatedAt: null,
+      sessionExpiresAt: null,
       isOnline: false,
       lastSeen: new Date()
     });
@@ -318,6 +329,58 @@ router.post('/logout', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error during logout'
+    });
+  }
+});
+
+// @desc    Validate current session
+// @route   GET /api/auth/validate-session
+// @access  Private
+router.get('/validate-session', authenticateToken, async (req, res) => {
+  try {
+    // If we reach here, the session is valid (authenticateToken middleware already validated it)
+    res.json({
+      success: true,
+      message: 'Session is valid',
+      data: {
+        user: req.user,
+        sessionValid: true
+      }
+    });
+  } catch (error) {
+    console.error('Session validation error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during session validation'
+    });
+  }
+});
+
+// @desc    Force logout from all devices (invalidate session)
+// @route   POST /api/auth/force-logout
+// @access  Private
+router.post('/force-logout', authenticateToken, async (req, res) => {
+  try {
+    // Invalidate current session
+    await User.findByIdAndUpdate(req.user._id, {
+      currentSessionToken: null,
+      sessionCreatedAt: null,
+      sessionExpiresAt: null,
+      isOnline: false,
+      lastSeen: new Date()
+    });
+
+    console.log(`User ${req.user._id} force logged out at ${new Date()}`);
+
+    res.json({
+      success: true,
+      message: 'Logged out from all devices successfully'
+    });
+  } catch (error) {
+    console.error('Force logout error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during force logout'
     });
   }
 });

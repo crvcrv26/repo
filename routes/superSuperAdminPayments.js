@@ -334,7 +334,7 @@ router.get('/',
       const skip = (pageNum - 1) * pageSize;
 
       const payments = await SuperSuperAdminPayment.find(query)
-        .populate('superAdminId', 'name email isDeleted deletedAt')
+        .populate('superAdminId', 'name email isDeleted deletedAt createdAt')
         .populate('superSuperAdminId', 'name email')
         .populate('paymentProof')
         .sort({ createdAt: -1 })
@@ -380,7 +380,7 @@ router.get('/',
           // Calculate proration for service charge if super admin was created mid-month
           let isProrated = payment.isProrated;
           let proratedDays = payment.proratedDays;
-          let totalDaysInMonth = payment.totalDaysInMonth;
+          let totalDaysInMonth = getLastDayOfMonth(year, monthNum);
           let proratedServiceRate = currentRate.serviceRate;
 
           if (payment.superAdminId && payment.superAdminId.createdAt >= startOfMonth && payment.superAdminId.createdAt <= endOfMonth) {
@@ -499,7 +499,7 @@ router.get('/my-payments',
           // Calculate proration for service charge if super admin was created mid-month
           let isProrated = payment.isProrated;
           let proratedDays = payment.proratedDays;
-          let totalDaysInMonth = payment.totalDaysInMonth;
+          let totalDaysInMonth = getLastDayOfMonth(year, monthNum);
           let proratedServiceRate = currentRate.serviceRate;
 
           if (req.user.createdAt >= startOfMonth && req.user.createdAt <= endOfMonth) {

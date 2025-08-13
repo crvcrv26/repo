@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import SessionStatus from './SessionStatus';
 import {
   HomeIcon,
   UsersIcon,
@@ -127,12 +128,12 @@ const getPaymentNavigation = (userRole?: string) => {
 
   // Add payment items for super admin
   if (userRole === 'superAdmin') {
-    paymentItems.push({ 
-      name: 'Payment Management', 
-      href: '/admin-payments', 
-      icon: CurrencyDollarIcon,
-      category: 'Team Payments'
-    });
+    // paymentItems.push({ 
+    //   name: 'Payment Management', 
+    //   href: '/admin-payments', 
+    //   icon: CurrencyDollarIcon,
+    //   category: 'Team Payments'
+    // });
     paymentItems.push({ 
       name: 'QR Code Management', 
       href: '/qr-management', 
@@ -519,6 +520,9 @@ export default function Layout({ children }: LayoutProps) {
             </div>
 
             <div className="flex items-center space-x-4">
+              {/* Session Status */}
+              <SessionStatus className="hidden md:flex" />
+              
               {/* Weather widget */}
               <div className="hidden md:flex items-center space-x-2 bg-gray-100 rounded-lg px-3 py-2">
                 <div className="relative">

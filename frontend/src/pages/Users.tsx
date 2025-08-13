@@ -150,6 +150,11 @@ export default function Users() {
       queryClient.invalidateQueries({ queryKey: ['users'] })
       toast.success(data.data.message)
       
+      // Check if force logout is required (user was deactivated)
+      if (data.data.forceLogout) {
+        toast.success('User has been logged out from all active sessions due to deactivation.')
+      }
+      
       // Check if current user was deactivated
       if (!variables.isActive && currentUser && variables.userId === currentUser._id) {
         toast.error('Your account has been deactivated. You will be logged out.')
@@ -238,9 +243,24 @@ export default function Users() {
       return
     }
     
-    const confirmMessage = user.isActive 
-      ? `Are you sure you want to deactivate ${user.name}? ${user.role === 'admin' ? 'This will also deactivate all their associated users.' : ''}`
-      : `Are you sure you want to activate ${user.name}?`
+    let cascadeMessage = '';
+    if (user.isActive) {
+      // Deactivation messages
+      if (user.role === 'superAdmin') {
+        cascadeMessage = 'This will also deactivate all Admins, Field Agents, and Auditors under them.';
+      } else if (user.role === 'admin') {
+        cascadeMessage = 'This will also deactivate all Field Agents and Auditors under them.';
+      }
+    } else {
+      // Activation messages
+      if (user.role === 'superAdmin') {
+        cascadeMessage = 'This will also activate all Admins, Field Agents, and Auditors under them.';
+      } else if (user.role === 'admin') {
+        cascadeMessage = 'This will also activate all Field Agents and Auditors under them.';
+      }
+    }
+    
+    const confirmMessage = `Are you sure you want to ${user.isActive ? 'deactivate' : 'activate'} ${user.name}? ${cascadeMessage}`
     
     if (window.confirm(confirmMessage)) {
       statusUpdateMutation.mutate({ 
@@ -273,6 +293,37 @@ export default function Users() {
   }
 
   const canManageUsers = currentUser?.role === 'admin' || currentUser?.role === 'superAdmin' || currentUser?.role === 'superSuperAdmin'
+  
+  // Check if current user can manage a specific user
+  const canManageUser = (user: User) => {
+    if (!currentUser) return false
+    
+    // SuperSuperAdmin can manage everyone except themselves
+    if (currentUser.role === 'superSuperAdmin') {
+      return user.role !== 'superSuperAdmin' || user._id !== currentUser._id
+    }
+    
+    // SuperAdmin can manage admins, field agents, and auditors in their hierarchy
+    if (currentUser.role === 'superAdmin') {
+      if (user.role === 'superSuperAdmin' || user.role === 'superAdmin') {
+        return false
+      }
+      // Can manage users they created or users created by their admins
+      return user.createdBy?._id === currentUser._id || 
+             (user.createdBy && user.createdBy._id !== currentUser._id && 
+              // This would need to be checked on the backend for proper hierarchy validation
+              (user.role === 'admin' || user.role === 'fieldAgent' || user.role === 'auditor'))
+    }
+    
+    // Admin can only manage field agents and auditors they created
+    if (currentUser.role === 'admin') {
+      return (user.role === 'fieldAgent' || user.role === 'auditor') && 
+             user.createdBy?._id === currentUser._id
+    }
+    
+    return false
+  }
+  
   // Admin can delete their own field agents and auditors, super admins can delete anyone except protected roles
   const canDelete = (user: User) => {
     // Never allow deletion of superSuperAdmin or superAdmin
@@ -380,8 +431,8 @@ export default function Users() {
             }`}>
               {user.isActive ? 'Active' : 'Deactive'}
             </span>
-                      {/* Status toggle for superSuperAdmin only */}
-          {currentUser?.role === 'superSuperAdmin' && user.role !== 'superSuperAdmin' && (
+                      {/* Status toggle for authorized users */}
+          {canManageUser(user) && (
             <button
               onClick={() => handleStatusToggle(user)}
               disabled={statusUpdateMutation.isPending}
@@ -438,8 +489,8 @@ export default function Users() {
           }`}>
             {user.isActive ? 'Active' : 'Deactive'}
           </span>
-          {/* Status toggle for superSuperAdmin only */}
-          {currentUser?.role === 'superSuperAdmin' && user.role !== 'superSuperAdmin' && (
+          {/* Status toggle for authorized users */}
+          {canManageUser(user) && (
             <button
               onClick={() => handleStatusToggle(user)}
               disabled={statusUpdateMutation.isPending}

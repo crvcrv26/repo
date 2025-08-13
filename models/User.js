@@ -110,6 +110,19 @@ const userSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  // Session management fields for single-session-per-user
+  currentSessionToken: {
+    type: String,
+    default: null
+  },
+  sessionCreatedAt: {
+    type: Date,
+    default: null
+  },
+  sessionExpiresAt: {
+    type: Date,
+    default: null
+  },
   paymentRates: {
     auditorRate: {
       type: Number,
@@ -145,12 +158,35 @@ userSchema.pre('save', async function(next) {
   this.password = await bcrypt.hash(this.password, salt);
 });
 
-// Sign JWT and return
+// Generate a unique session token
+userSchema.methods.generateSessionToken = function() {
+  return crypto.randomBytes(32).toString('hex');
+};
+
+// Sign JWT and return with session token
 userSchema.methods.getSignedJwtToken = function() {
+  // Generate new session token
+  const sessionToken = this.generateSessionToken();
+  const expiresIn = process.env.JWT_EXPIRE || '7d';
+  
+  // Calculate expiration date
+  const expiresAt = new Date();
+  expiresAt.setDate(expiresAt.getDate() + (expiresIn.includes('d') ? parseInt(expiresIn) : 7));
+  
+  // Update session info in user document
+  this.currentSessionToken = sessionToken;
+  this.sessionCreatedAt = new Date();
+  this.sessionExpiresAt = expiresAt;
+  this.isOnline = true;
+  this.lastSeen = new Date();
+  
   return jwt.sign(
-    { userId: this._id },
+    { 
+      userId: this._id,
+      sessionToken: sessionToken
+    },
     process.env.JWT_SECRET,
-    { expiresIn: process.env.JWT_EXPIRE || '7d' }
+    { expiresIn: expiresIn }
   );
 };
 
@@ -176,6 +212,15 @@ userSchema.methods.getResetPasswordToken = function() {
   return resetToken;
 };
 
+// Invalidate current session
+userSchema.methods.invalidateSession = function() {
+  this.currentSessionToken = null;
+  this.sessionCreatedAt = null;
+  this.sessionExpiresAt = null;
+  this.isOnline = false;
+  this.lastSeen = new Date();
+};
+
 // Virtual for user's full name
 userSchema.virtual('fullName').get(function() {
   return `${this.name}`;
@@ -193,6 +238,7 @@ userSchema.set('toJSON', {
     delete ret.password;
     delete ret.resetPasswordToken;
     delete ret.resetPasswordExpire;
+    delete ret.currentSessionToken;
     return ret;
   }
 });

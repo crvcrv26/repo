@@ -304,18 +304,25 @@ router.post('/verify', async (req, res) => {
     // Mark OTP as used
     await otpData.markAsUsed()
 
-    // Generate JWT token
-    const jwt = require('jsonwebtoken')
-    const token = jwt.sign(
-      { 
-        userId: user._id, 
-        email: user.email, 
-        role: user.role,
-        name: user.name 
-      },
-      process.env.JWT_SECRET,
-      { expiresIn: '24h' }
-    )
+    // Invalidate any existing session first (single-session-per-user)
+    user.invalidateSession();
+    
+    // Update last login and add to login history
+    user.lastLogin = new Date();
+    user.loginHistory.push({
+      timestamp: new Date(),
+      ip: req.ip,
+      userAgent: req.get('User-Agent')
+    });
+    
+    // Save user to update session info
+    await user.save();
+
+    // Generate JWT token with session token
+    const token = user.getSignedJwtToken();
+    
+    // Save again to persist the new session token
+    await user.save();
 
     res.json({
       success: true,

@@ -27,6 +27,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>
   loginWithOTP: (token: string, user: User) => void
   logout: () => Promise<void>
+  forceLogout: () => Promise<void>
   updateProfile: (data: any) => Promise<void>
 }
 
@@ -44,6 +45,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
+  // Function to clear auth data
+  const clearAuthData = () => {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    setUser(null)
+  }
+
+  // Function to handle session invalidation
+  const handleSessionInvalidation = () => {
+    clearAuthData()
+    // Redirect to login page
+    window.location.href = '/login'
+  }
+
   useEffect(() => {
     const initAuth = async () => {
       const token = localStorage.getItem('token')
@@ -51,11 +66,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       if (token && savedUser) {
         try {
-          const response = await authAPI.getProfile()
-          setUser(response.data.data)
-        } catch (error) {
-          localStorage.removeItem('token')
-          localStorage.removeItem('user')
+          // Validate session with backend
+          const response = await authAPI.validateSession()
+          setUser(response.data.data.user)
+        } catch (error: any) {
+          // If session is invalid, clear auth data
+          if (error.response?.status === 401) {
+            const errorMessage = error.response?.data?.message
+            if (errorMessage?.includes('Session invalidated') || 
+                errorMessage?.includes('Session expired')) {
+              console.log('Session invalidated from another device')
+              handleSessionInvalidation()
+              return
+            }
+          }
+          clearAuthData()
         }
       }
       setLoading(false)
@@ -85,9 +110,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error) {
       console.error('Logout error:', error)
     } finally {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      setUser(null)
+      clearAuthData()
+    }
+  }
+
+  const forceLogout = async () => {
+    try {
+      await authAPI.forceLogout()
+    } catch (error) {
+      console.error('Force logout error:', error)
+    } finally {
+      clearAuthData()
     }
   }
 
@@ -104,6 +137,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     login,
     loginWithOTP,
     logout,
+    forceLogout,
     updateProfile,
   }
 

@@ -491,10 +491,10 @@ router.get('/by-admin/:adminId', authenticateToken, authorizeRole('superSuperAdm
 
 // @desc    Update user status (activate/deactivate)
 // @route   PUT /api/users/:id/status
-// @access  Private (SuperSuperAdmin only)
+// @access  Private (SuperSuperAdmin, SuperAdmin, Admin)
 router.put('/:id/status', 
   authenticateToken, 
-  authorizeRole('superSuperAdmin'), 
+  authorizeRole('superSuperAdmin', 'superAdmin', 'admin'), 
   [
     body('isActive').isBoolean().withMessage('Status must be true or false')
   ], 
@@ -528,47 +528,269 @@ router.put('/:id/status',
         });
       }
 
-      // Update user status
-      const updatedUser = await User.findByIdAndUpdate(
-        userId,
-        { 
-          isActive,
-          // If deactivating, set offline
-          ...(isActive === false && { isOnline: false })
-        },
-        { new: true }
-      ).select('-password');
-
-      // If deactivating an admin, also deactivate their associated users
-      if (!isActive && targetUser.role === 'admin') {
-        await User.updateMany(
-          { createdBy: userId },
-          { isActive: false, isOnline: false }
-        );
-      }
-
-      // Force logout for deactivated user and their team
-      if (!isActive) {
-        // Set target user and their team offline (simulates forced logout)
-        if (targetUser.role === 'admin') {
-          // Deactivate admin and all their users
-          await User.updateMany(
-            { $or: [{ _id: userId }, { createdBy: userId }] },
-            { isOnline: false, lastSeen: new Date() }
-          );
-        } else {
-          // Just the individual user
-          await User.findByIdAndUpdate(userId, {
-            isOnline: false,
-            lastSeen: new Date()
+      // Authorization checks based on user role
+      if (req.user.role === 'admin') {
+        // Admin can only manage users they created
+        if (targetUser.createdBy?.toString() !== req.user._id.toString()) {
+          return res.status(403).json({
+            success: false,
+            message: 'You can only manage users you created'
+          });
+        }
+        // Admin cannot manage other admins or superAdmins
+        if (targetUser.role === 'admin' || targetUser.role === 'superAdmin' || targetUser.role === 'superSuperAdmin') {
+          return res.status(403).json({
+            success: false,
+            message: 'You can only manage field agents and auditors'
+          });
+        }
+      } else if (req.user.role === 'superAdmin') {
+        // SuperAdmin can only manage users they created or users created by their admins
+        const canManage = targetUser.createdBy?.toString() === req.user._id.toString() || 
+                         (targetUser.createdBy && await User.findById(targetUser.createdBy).then(u => u?.createdBy?.toString() === req.user._id.toString()));
+        
+        if (!canManage) {
+          return res.status(403).json({
+            success: false,
+            message: 'You can only manage users in your hierarchy'
+          });
+        }
+        // SuperAdmin cannot manage other superAdmins or superSuperAdmin
+        if (targetUser.role === 'superAdmin' || targetUser.role === 'superSuperAdmin') {
+          return res.status(403).json({
+            success: false,
+            message: 'You can only manage admins, field agents, and auditors'
           });
         }
       }
 
+      // Handle cascading activation/deactivation based on role hierarchy
+      let affectedCount = 0;
+      let affectedMessage = '';
+
+      if (targetUser.role === 'superSuperAdmin') {
+        // SuperSuperAdmin: Cascade to all SuperAdmins, Admins, Field Agents, and Auditors
+        if (!isActive) {
+          // Deactivation: Find all SuperAdmins created by this SuperSuperAdmin
+          const superAdmins = await User.find({ 
+            createdBy: userId, 
+            role: 'superAdmin' 
+          });
+          
+                      // Deactivate all SuperAdmins
+            if (superAdmins.length > 0) {
+              const superAdminIds = superAdmins.map(sa => sa._id);
+              await User.updateMany(
+                { _id: { $in: superAdminIds } },
+                { 
+                  isActive: false, 
+                  isOnline: false, 
+                  lastSeen: new Date(),
+                  currentSessionToken: null,
+                  sessionCreatedAt: null,
+                  sessionExpiresAt: null
+                }
+              );
+            
+            // Find all Admins created by these SuperAdmins
+            const admins = await User.find({ 
+              createdBy: { $in: superAdminIds }, 
+              role: 'admin' 
+            });
+            
+            // Deactivate all Admins
+            if (admins.length > 0) {
+              const adminIds = admins.map(a => a._id);
+              await User.updateMany(
+                { _id: { $in: adminIds } },
+                { 
+                  isActive: false, 
+                  isOnline: false, 
+                  lastSeen: new Date(),
+                  currentSessionToken: null,
+                  sessionCreatedAt: null,
+                  sessionExpiresAt: null
+                }
+              );
+              
+              // Deactivate all Field Agents and Auditors created by these Admins
+              await User.updateMany(
+                { createdBy: { $in: adminIds }, role: { $in: ['fieldAgent', 'auditor'] } },
+                { 
+                  isActive: false, 
+                  isOnline: false, 
+                  lastSeen: new Date(),
+                  currentSessionToken: null,
+                  sessionCreatedAt: null,
+                  sessionExpiresAt: null
+                }
+              );
+            }
+            
+            affectedCount = superAdmins.length + admins.length;
+            affectedMessage = `SuperSuperAdmin deactivated successfully. ${superAdmins.length} SuperAdmin(s) and ${admins.length} Admin(s) have also been deactivated.`;
+          } else {
+            affectedMessage = 'SuperSuperAdmin deactivated successfully.';
+          }
+        } else {
+          // Activation: Find all SuperAdmins created by this SuperSuperAdmin
+          const superAdmins = await User.find({ 
+            createdBy: userId, 
+            role: 'superAdmin' 
+          });
+          
+          // Activate all SuperAdmins
+          if (superAdmins.length > 0) {
+            const superAdminIds = superAdmins.map(sa => sa._id);
+            await User.updateMany(
+              { _id: { $in: superAdminIds } },
+              { isActive: true }
+            );
+            
+            // Find all Admins created by these SuperAdmins
+            const admins = await User.find({ 
+              createdBy: { $in: superAdminIds }, 
+              role: 'admin' 
+            });
+            
+            // Activate all Admins
+            if (admins.length > 0) {
+              const adminIds = admins.map(a => a._id);
+              await User.updateMany(
+                { _id: { $in: adminIds } },
+                { isActive: true }
+              );
+              
+              // Activate all Field Agents and Auditors created by these Admins
+              await User.updateMany(
+                { createdBy: { $in: adminIds }, role: { $in: ['fieldAgent', 'auditor'] } },
+                { isActive: true }
+              );
+            }
+            
+            affectedCount = superAdmins.length + admins.length;
+            affectedMessage = `SuperSuperAdmin activated successfully. ${superAdmins.length} SuperAdmin(s) and ${admins.length} Admin(s) have also been activated.`;
+          } else {
+            affectedMessage = 'SuperSuperAdmin activated successfully.';
+          }
+        }
+      } else if (targetUser.role === 'superAdmin') {
+        // SuperAdmin: Cascade to all Admins, Field Agents, and Auditors
+        if (!isActive) {
+          // Deactivation: Find all Admins created by this SuperAdmin
+          const admins = await User.find({ 
+            createdBy: userId, 
+            role: 'admin' 
+          });
+          
+          // Deactivate all Admins
+          if (admins.length > 0) {
+            const adminIds = admins.map(a => a._id);
+            await User.updateMany(
+              { _id: { $in: adminIds } },
+              { 
+                isActive: false, 
+                isOnline: false, 
+                lastSeen: new Date(),
+                currentSessionToken: null,
+                sessionCreatedAt: null,
+                sessionExpiresAt: null
+              }
+            );
+            
+            // Deactivate all Field Agents and Auditors created by these Admins
+            await User.updateMany(
+              { createdBy: { $in: adminIds }, role: { $in: ['fieldAgent', 'auditor'] } },
+              { 
+                isActive: false, 
+                isOnline: false, 
+                lastSeen: new Date(),
+                currentSessionToken: null,
+                sessionCreatedAt: null,
+                sessionExpiresAt: null
+              }
+            );
+          }
+          
+          affectedCount = admins.length;
+          affectedMessage = `SuperAdmin deactivated successfully. ${admins.length} Admin(s) have also been deactivated.`;
+        } else {
+          // Activation: Find all Admins created by this SuperAdmin
+          const admins = await User.find({ 
+            createdBy: userId, 
+            role: 'admin' 
+          });
+          
+          // Activate all Admins
+          if (admins.length > 0) {
+            const adminIds = admins.map(a => a._id);
+            await User.updateMany(
+              { _id: { $in: adminIds } },
+              { isActive: true }
+            );
+            
+            // Activate all Field Agents and Auditors created by these Admins
+            await User.updateMany(
+              { createdBy: { $in: adminIds }, role: { $in: ['fieldAgent', 'auditor'] } },
+              { isActive: true }
+            );
+          }
+          
+          affectedCount = admins.length;
+          affectedMessage = `SuperAdmin activated successfully. ${admins.length} Admin(s) have also been activated.`;
+        }
+      } else if (targetUser.role === 'admin') {
+        // Admin: Cascade to all Field Agents and Auditors
+        if (!isActive) {
+          // Deactivation: Deactivate all Field Agents and Auditors created by this Admin
+          const result = await User.updateMany(
+            { createdBy: userId, role: { $in: ['fieldAgent', 'auditor'] } },
+            { 
+              isActive: false, 
+              isOnline: false, 
+              lastSeen: new Date(),
+              currentSessionToken: null,
+              sessionCreatedAt: null,
+              sessionExpiresAt: null
+            }
+          );
+          
+          affectedCount = result.modifiedCount;
+          affectedMessage = `Admin deactivated successfully. ${affectedCount} user(s) have also been deactivated.`;
+        } else {
+          // Activation: Activate all Field Agents and Auditors created by this Admin
+          const result = await User.updateMany(
+            { createdBy: userId, role: { $in: ['fieldAgent', 'auditor'] } },
+            { isActive: true }
+          );
+          
+          affectedCount = result.modifiedCount;
+          affectedMessage = `Admin activated successfully. ${affectedCount} user(s) have also been activated.`;
+        }
+      }
+
+      // Update the target user status
+      const updatedUser = await User.findByIdAndUpdate(
+        userId,
+        { 
+          isActive,
+          // If deactivating, set offline and clear session
+          ...(isActive === false && { 
+            isOnline: false, 
+            lastSeen: new Date(),
+            currentSessionToken: null,
+            sessionCreatedAt: null,
+            sessionExpiresAt: null
+          })
+        },
+        { new: true }
+      ).select('-password');
+
       res.json({
         success: true,
-        message: `User ${isActive ? 'activated' : 'deactivated'} successfully`,
+        message: affectedMessage || `User ${isActive ? 'activated' : 'deactivated'} successfully`,
         data: updatedUser,
+        affectedCount,
         forceLogout: !isActive // Signal frontend to handle forced logout
       });
 
@@ -649,6 +871,11 @@ router.delete('/:id',
       targetUser.isDeleted = true; // Add this field to track deleted users
       targetUser.deletedAt = new Date();
       targetUser.deletedBy = req.user._id;
+      targetUser.isOnline = false;
+      targetUser.lastSeen = new Date();
+      targetUser.currentSessionToken = null;
+      targetUser.sessionCreatedAt = null;
+      targetUser.sessionExpiresAt = null;
       await targetUser.save();
 
       // If deleting an admin, also mark their associated users as deleted
@@ -659,6 +886,11 @@ router.delete('/:id',
           associatedUser.isDeleted = true;
           associatedUser.deletedAt = new Date();
           associatedUser.deletedBy = req.user._id;
+          associatedUser.isOnline = false;
+          associatedUser.lastSeen = new Date();
+          associatedUser.currentSessionToken = null;
+          associatedUser.sessionCreatedAt = null;
+          associatedUser.sessionExpiresAt = null;
           await associatedUser.save();
         }
         

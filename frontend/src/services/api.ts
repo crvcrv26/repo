@@ -28,9 +28,29 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      window.location.href = '/login'
+      const errorMessage = error.response?.data?.message
+      
+      // Handle session invalidation specifically
+      if (errorMessage?.includes('Session invalidated') || 
+          errorMessage?.includes('Session expired')) {
+        // Clear auth data
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        
+        // Show user-friendly message
+        if (typeof window !== 'undefined') {
+          // Only show alert if we're in browser environment
+          alert('You have been logged out because you logged in from another device.')
+          window.location.href = '/login'
+        }
+      } else {
+        // Regular 401 - just redirect to login
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login'
+        }
+      }
     }
     return Promise.reject(error)
   }
@@ -46,6 +66,8 @@ export const authAPI = {
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
     api.put('/auth/change-password', data),
   logout: () => api.post('/auth/logout'),
+  validateSession: () => api.get('/auth/validate-session'),
+  forceLogout: () => api.post('/auth/force-logout'),
 }
 
 // Users API

@@ -17,7 +17,7 @@ const authenticateToken = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Get user from database
+    // Get user from database with session info
     const user = await User.findById(decoded.userId).select('-password');
     
     if (!user) {
@@ -44,6 +44,30 @@ const authenticateToken = async (req, res, next) => {
           message: 'Your admin account is deactivated. Please contact support.'
         });
       }
+    }
+
+    // Validate session token for single-session-per-user
+    if (!user.currentSessionToken || !decoded.sessionToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'Session expired. Please login again.'
+      });
+    }
+
+    // Check if session token matches
+    if (user.currentSessionToken !== decoded.sessionToken) {
+      return res.status(401).json({
+        success: false,
+        message: 'Session invalidated. You have been logged out from another device.'
+      });
+    }
+
+    // Check if session has expired
+    if (user.sessionExpiresAt && new Date() > user.sessionExpiresAt) {
+      return res.status(401).json({
+        success: false,
+        message: 'Session expired. Please login again.'
+      });
     }
 
     // Update online status and last seen
