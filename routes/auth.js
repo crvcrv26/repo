@@ -3,8 +3,38 @@ const { body, validationResult } = require('express-validator');
 const User = require('../models/User');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 const crypto = require('crypto');
+const multer = require('multer');
+const path = require('path');
 
 const router = express.Router();
+
+// Configure multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, 'uploads/profile-images/');
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'profile-' + req.user._id + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  // Accept only image files
+  if (file.mimetype.startsWith('image/')) {
+    cb(null, true);
+  } else {
+    cb(new Error('Only image files are allowed!'), false);
+  }
+};
+
+const upload = multer({
+  storage: storage,
+  limits: {
+    fileSize: 5 * 1024 * 1024 // 5MB limit
+  },
+  fileFilter: fileFilter
+});
 
 // @desc    Register user
 // @route   POST /api/auth/register
@@ -250,6 +280,118 @@ router.put('/profile', authenticateToken, [
     res.status(500).json({
       success: false,
       message: 'Server error during profile update'
+    });
+  }
+});
+
+// @desc    Upload profile image
+// @route   POST /api/auth/upload-profile-image
+// @access  Private
+router.post('/upload-profile-image', authenticateToken, upload.single('profileImage'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image file provided'
+      });
+    }
+
+    // Create the file path for the uploaded image
+    const imagePath = `/uploads/profile-images/${req.file.filename}`;
+
+    // Update user's profile image
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { profileImage: imagePath },
+      { new: true, runValidators: true }
+    );
+
+    res.json({
+      success: true,
+      message: 'Profile image uploaded successfully',
+      data: {
+        user,
+        imagePath: imagePath
+      }
+    });
+  } catch (error) {
+    console.error('Upload profile image error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during image upload'
+    });
+  }
+});
+
+// @desc    Remove profile image
+// @route   DELETE /api/auth/remove-profile-image
+// @access  Private
+router.delete('/remove-profile-image', authenticateToken, async (req, res) => {
+  try {
+    // Update user to remove profile image
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      { profileImage: null },
+      { new: true, runValidators: true }
+    );
+
+    res.json({
+      success: true,
+      message: 'Profile image removed successfully',
+      data: user
+    });
+  } catch (error) {
+    console.error('Remove profile image error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during image removal'
+    });
+  }
+});
+
+// @desc    Get user profile with extended information
+// @route   GET /api/auth/profile-details
+// @access  Private
+router.get('/profile-details', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id)
+      .populate('createdBy', 'name email')
+      .populate('adminId', 'name email');
+
+    // Get role-specific information
+    let roleSpecificInfo = {};
+
+    if (user.role === 'fieldAgent' || user.role === 'auditor') {
+      // Get payment rates if admin has set them
+      if (user.adminId) {
+        const admin = await User.findById(user.adminId);
+        if (admin && admin.paymentRates) {
+          roleSpecificInfo.paymentRates = {
+            auditorRate: admin.paymentRates.auditorRate || 0,
+            fieldAgentRate: admin.paymentRates.fieldAgentRate || 0
+          };
+        }
+      }
+    }
+
+    // Get login history (last 5 logins)
+    const recentLogins = user.loginHistory
+      ? user.loginHistory.slice(-5).reverse()
+      : [];
+
+    res.json({
+      success: true,
+      data: {
+        user,
+        roleSpecificInfo,
+        recentLogins
+      }
+    });
+  } catch (error) {
+    console.error('Get profile details error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error'
     });
   }
 });

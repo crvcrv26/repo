@@ -62,9 +62,16 @@ export const authAPI = {
     api.post('/auth/login', data),
   register: (data: any) => api.post('/auth/register', data),
   getProfile: () => api.get('/auth/me'),
+  getProfileDetails: () => api.get('/auth/profile-details'),
   updateProfile: (data: any) => api.put('/auth/profile', data),
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
     api.put('/auth/change-password', data),
+  uploadProfileImage: (formData: FormData) => api.post('/auth/upload-profile-image', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+  }),
+  removeProfileImage: () => api.delete('/auth/remove-profile-image'),
   logout: () => api.post('/auth/logout'),
   validateSession: () => api.get('/auth/validate-session'),
   forceLogout: () => api.post('/auth/force-logout'),

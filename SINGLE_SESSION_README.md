@@ -163,14 +163,14 @@ Response: { success: true, message: "Logged out from all devices" }
 ### Environment Variables
 ```bash
 JWT_SECRET=your_jwt_secret
-JWT_EXPIRE=7d  # Session expiration time
+JWT_EXPIRE=30d  # Session expiration time
 BCRYPT_SALT_ROUNDS=12
 ```
 
 ### Session Settings
 - **Session Token Length**: 32 bytes (64 hex characters)
 - **Validation Frequency**: Every 30 seconds (frontend)
-- **Token Expiration**: Configurable via JWT_EXPIRE environment variable
+- **Token Expiration**: Configurable via JWT_EXPIRE environment variable (default: 30 days)
 
 ## Security Considerations
 
@@ -215,6 +215,21 @@ curl -X POST http://localhost:5000/api/auth/login \
 # Test session validation
 curl -X GET http://localhost:5000/api/auth/validate-session \
   -H "Authorization: Bearer <token_from_device_a>"
+```
+
+### Configuration Examples
+```bash
+# Set to 30 days (default)
+JWT_EXPIRE=30d
+
+# Set to 7 days
+JWT_EXPIRE=7d
+
+# Set to 24 hours
+JWT_EXPIRE=24h
+
+# Set to 1 hour
+JWT_EXPIRE=1h
 ```
 
 ## Troubleshooting

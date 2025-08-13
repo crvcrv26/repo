@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import SessionStatus from './SessionStatus';
+import ProfileImage from './ProfileImage';
 import {
   HomeIcon,
   UsersIcon,
@@ -383,22 +384,30 @@ export default function Layout({ children }: LayoutProps) {
 
                          {/* Mobile user section - fixed at bottom */}
              <div className="border-t-2 border-gray-300 p-4 flex-shrink-0">
-              <div className="flex items-center space-x-3 mb-4">
-                <div className="h-10 w-10 bg-gradient-to-r from-gray-600 to-gray-800 rounded-full flex items-center justify-center text-white font-medium">
-                  {user?.name?.split(' ').map(n => n[0]).join('')}
-                </div>
-                <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-3 mb-4">
+                 {user && <ProfileImage user={user} />}
+                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900 truncate">{user?.name}</p>
                   <p className="text-sm text-gray-500 truncate">{user?.email}</p>
                 </div>
               </div>
-              <button
-                onClick={handleLogout}
-                className="btn btn-outline btn-sm w-full"
-              >
-                <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2" />
-                Sign Out
-              </button>
+              <div className="space-y-2">
+                <Link
+                  to="/profile"
+                  onClick={() => setSidebarOpen(false)}
+                  className="btn btn-outline btn-sm w-full"
+                >
+                  <UserCircleIcon className="h-4 w-4 mr-2" />
+                  Profile
+                </Link>
+                <button
+                  onClick={handleLogout}
+                  className="btn btn-outline btn-sm w-full"
+                >
+                  <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2" />
+                  Sign Out
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -483,10 +492,8 @@ export default function Layout({ children }: LayoutProps) {
 
                      {/* Desktop user section - fixed at bottom */}
            <div className="border-t-2 border-gray-300 p-4 flex-shrink-0">
-            <div className="flex items-center space-x-3">
-              <div className="h-10 w-10 bg-gradient-to-r from-gray-600 to-gray-800 rounded-full flex items-center justify-center text-white font-medium">
-                {user?.name?.split(' ').map(n => n[0]).join('')}
-              </div>
+            <div className="flex items-center space-x-3 mb-3">
+              {user && <ProfileImage user={user} />}
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-900 truncate">{user?.name}</p>
                 <p className="text-sm text-gray-500 truncate">{user?.email}</p>
@@ -494,6 +501,22 @@ export default function Layout({ children }: LayoutProps) {
                   {user?.role}
                 </div>
               </div>
+            </div>
+            <div className="space-y-2">
+              <Link
+                to="/profile"
+                className="btn btn-outline btn-sm w-full"
+              >
+                <UserCircleIcon className="h-4 w-4 mr-2" />
+                Profile
+              </Link>
+              <button
+                onClick={handleLogout}
+                className="btn btn-outline btn-sm w-full"
+              >
+                <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2" />
+                Sign Out
+              </button>
             </div>
           </div>
         </div>
@@ -545,14 +568,20 @@ export default function Layout({ children }: LayoutProps) {
                   onClick={() => setUserMenuOpen(!userMenuOpen)}
                   className="flex items-center space-x-2 text-gray-700 hover:text-gray-900 transition-colors"
                 >
-                  <div className="h-8 w-8 bg-gradient-to-r from-gray-600 to-gray-800 rounded-full flex items-center justify-center text-white text-sm font-medium">
-                    {user?.name?.split(' ').map(n => n[0]).join('')}
-                  </div>
+                  {user && <ProfileImage user={user} />}
                   <span className="hidden md:block font-medium">{user?.name}</span>
                 </button>
 
                 {userMenuOpen && (
                   <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg py-1 z-50">
+                    <Link
+                      to="/profile"
+                      className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                      onClick={() => setUserMenuOpen(false)}
+                    >
+                      <UserCircleIcon className="h-4 w-4 inline mr-2" />
+                      Profile
+                    </Link>
                     <button
                       onClick={handleLogout}
                       className="block w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"

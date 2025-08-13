@@ -24,7 +24,13 @@ const { authenticateToken } = require('./middleware/auth');
 const app = express();
 
 // Security middleware
-app.use(helmet());
+app.use(helmet({
+  // Let other origins (like :3000) embed resources from this server
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+
+  // Keep COEP off in dev unless you really need it
+  crossOriginEmbedderPolicy: false,
+}));
 app.use(compression());
 
 // Rate limiting - exclude auth routes
@@ -66,9 +72,24 @@ if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));
 }
 
-// Static files with logging
+// Static files with logging and CORS headers
 app.use('/uploads', (req, res, next) => {
   console.log('📁 Static file request:', req.method, req.url);
+  
+  // Add CORS headers for static files - more permissive for images
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  res.header('Access-Control-Expose-Headers', 'Content-Length, Content-Type');
+  
+  // CORP (embedding) header — THIS fixes the NotSameOrigin block
+  res.setHeader('Cross-Origin-Resource-Policy', 'cross-origin');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
   next();
 }, express.static(path.join(__dirname, 'uploads')));
 

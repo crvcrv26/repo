@@ -1,7 +1,8 @@
-import React, { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { authAPI } from '../services/api'
-import toast from 'react-hot-toast'
+import React, { useState, useEffect } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { authAPI } from '../services/api';
+import toast from 'react-hot-toast';
+import ProfileImage from '../components/ProfileImage';
 import { 
   UserIcon,
   EnvelopeIcon,
@@ -9,126 +10,276 @@ import {
   MapPinIcon,
   ShieldCheckIcon,
   KeyIcon,
-  PencilIcon
-} from '@heroicons/react/24/outline'
-import { useAuth } from '../hooks/useAuth'
+  PencilIcon,
+  CameraIcon,
+  TrashIcon,
+  ClockIcon,
+  CurrencyDollarIcon,
+  CalendarIcon,
+  CheckCircleIcon,
+  XCircleIcon
+} from '@heroicons/react/24/outline';
+import { useAuth } from '../hooks/useAuth';
+
+interface ProfileDetails {
+  user: any;
+  roleSpecificInfo: any;
+  recentLogins: any[];
+}
 
 export default function Profile() {
-  const { user, updateProfile } = useAuth()
-  const queryClient = useQueryClient()
+  const { user, updateProfile } = useAuth();
+  const queryClient = useQueryClient();
   
-  const [isEditing, setIsEditing] = useState(false)
-  const [isChangingPassword, setIsChangingPassword] = useState(false)
+  const [isEditing, setIsEditing] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
     city: user?.location?.city || '',
     state: user?.location?.state || ''
-  })
+  });
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: ''
-  })
+  });
+
+  // Fetch detailed profile information
+  const { data: profileDetails, isLoading } = useQuery<ProfileDetails>({
+    queryKey: ['profileDetails'],
+    queryFn: () => authAPI.getProfileDetails().then(res => res.data.data),
+    enabled: !!user
+  });
 
   // Update profile mutation
   const updateProfileMutation = useMutation({
     mutationFn: (data: any) => authAPI.updateProfile(data),
     onSuccess: (response) => {
-      updateProfile(response.data.data)
-      setIsEditing(false)
-      toast.success('Profile updated successfully')
+      updateProfile(response.data.data);
+      queryClient.invalidateQueries({ queryKey: ['profileDetails'] });
+      setIsEditing(false);
+      toast.success('Profile updated successfully');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to update profile')
+      toast.error(error.response?.data?.message || 'Failed to update profile');
     }
-  })
+  });
 
   // Change password mutation
   const changePasswordMutation = useMutation({
     mutationFn: (data: { currentPassword: string; newPassword: string }) =>
       authAPI.changePassword(data),
     onSuccess: () => {
-      setIsChangingPassword(false)
-      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' })
-      toast.success('Password changed successfully')
+      setIsChangingPassword(false);
+      setPasswordData({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      toast.success('Password changed successfully');
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to change password')
+      toast.error(error.response?.data?.message || 'Failed to change password');
     }
-  })
+  });
+
+  // Upload profile image mutation
+  const uploadImageMutation = useMutation({
+    mutationFn: (formData: FormData) => authAPI.uploadProfileImage(formData),
+    onSuccess: (response) => {
+      updateProfile(response.data.data.user);
+      queryClient.invalidateQueries({ queryKey: ['profileDetails'] });
+      setIsUploadingImage(false);
+      toast.success('Profile image uploaded successfully');
+    },
+    onError: (error: any) => {
+      setIsUploadingImage(false);
+      toast.error(error.response?.data?.message || 'Failed to upload image');
+    }
+  });
+
+  // Remove profile image mutation
+  const removeImageMutation = useMutation({
+    mutationFn: () => authAPI.removeProfileImage(),
+    onSuccess: (response) => {
+      updateProfile(response.data.data);
+      queryClient.invalidateQueries({ queryKey: ['profileDetails'] });
+      toast.success('Profile image removed successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || 'Failed to remove image');
+    }
+  });
+
+  // Update form data when user changes
+  useEffect(() => {
+    if (user) {
+      setFormData({
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        city: user.location?.city || '',
+        state: user.location?.state || ''
+      });
+    }
+  }, [user]);
 
   const handleProfileUpdate = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     updateProfileMutation.mutate({
       name: formData.name,
       location: {
         city: formData.city,
         state: formData.state
       }
-    })
-  }
+    });
+  };
 
   const handlePasswordChange = (e: React.FormEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error('New passwords do not match')
-      return
+      toast.error('New passwords do not match');
+      return;
     }
 
     if (passwordData.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters')
-      return
+      toast.error('Password must be at least 6 characters');
+      return;
     }
 
     changePasswordMutation.mutate({
       currentPassword: passwordData.currentPassword,
       newPassword: passwordData.newPassword
-    })
-  }
+    });
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please select an image file');
+      return;
+    }
+
+    // Validate file size (5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('Image size must be less than 5MB');
+      return;
+    }
+
+    setIsUploadingImage(true);
+    const formData = new FormData();
+    formData.append('profileImage', file);
+    uploadImageMutation.mutate(formData);
+  };
+
+  const handleRemoveImage = () => {
+    if (confirm('Are you sure you want to remove your profile image?')) {
+      removeImageMutation.mutate();
+    }
+  };
 
   const getRoleColor = (role: string) => {
     switch (role) {
-      case 'superAdmin': return 'bg-red-100 text-red-800'
-      case 'admin': return 'bg-blue-100 text-blue-800'
-      case 'fieldAgent': return 'bg-green-100 text-green-800'
-      case 'auditor': return 'bg-purple-100 text-purple-800'
-      default: return 'bg-gray-100 text-gray-800'
+      case 'superSuperAdmin': return 'bg-gradient-to-r from-yellow-400 to-orange-500 text-white';
+      case 'superAdmin': return 'bg-gradient-to-r from-pink-500 to-red-500 text-white';
+      case 'admin': return 'bg-gradient-to-r from-blue-500 to-purple-600 text-white';
+      case 'fieldAgent': return 'bg-gradient-to-r from-green-500 to-emerald-600 text-white';
+      case 'auditor': return 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white';
+      default: return 'bg-gray-100 text-gray-800';
     }
-  }
+  };
 
   const getRoleIcon = (role: string) => {
     switch (role) {
-      case 'superAdmin': return ShieldCheckIcon
-      case 'admin': return UserIcon
-      case 'fieldAgent': return UserIcon
-      case 'auditor': return UserIcon
-      default: return UserIcon
+      case 'superSuperAdmin': return ShieldCheckIcon;
+      case 'superAdmin': return ShieldCheckIcon;
+      case 'admin': return UserIcon;
+      case 'fieldAgent': return UserIcon;
+      case 'auditor': return UserIcon;
+      default: return UserIcon;
     }
-  }
+  };
 
-  if (!user) {
+  if (!user || isLoading) {
     return (
-      <div className="text-center py-12">
-        <p className="text-gray-600">Loading profile...</p>
+      <div className="flex items-center justify-center py-12">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <span className="ml-2 text-gray-600">Loading profile...</span>
       </div>
-    )
+    );
   }
 
-  const RoleIcon = getRoleIcon(user.role)
+  const RoleIcon = getRoleIcon(user.role);
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
-        <p className="text-gray-600">Manage your account information</p>
+        <p className="text-gray-600">Manage your account information and settings</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Profile Image Section */}
+        <div className="lg:col-span-1">
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="text-center">
+              <div className="relative inline-block">
+                <ProfileImage 
+                  user={user} 
+                  size="xl" 
+                  showBorder={true}
+                  className="mx-auto"
+                />
+                
+                {/* Image Upload Controls */}
+                <div className="mt-4 space-y-2">
+                  <label className="cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={handleImageUpload}
+                      className="hidden"
+                      disabled={isUploadingImage}
+                    />
+                    <div className="flex items-center justify-center space-x-2 text-sm text-blue-600 hover:text-blue-800">
+                      <CameraIcon className="h-4 w-4" />
+                      <span>{isUploadingImage ? 'Uploading...' : 'Upload Image'}</span>
+                    </div>
+                  </label>
+                  
+                  {user.profileImage && (
+                    <button
+                      onClick={handleRemoveImage}
+                      disabled={removeImageMutation.isLoading}
+                      className="flex items-center justify-center space-x-2 text-sm text-red-600 hover:text-red-800 mx-auto"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                      <span>{removeImageMutation.isLoading ? 'Removing...' : 'Remove Image'}</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <h3 className="text-lg font-semibold text-gray-900">{user.name}</h3>
+                <p className="text-sm text-gray-600">{user.email}</p>
+                <div className="mt-2">
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${getRoleColor(user.role)}`}>
+                    <RoleIcon className="h-3 w-3 mr-1" />
+                    {user.role.replace(/([A-Z])/g, ' $1').trim()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* Profile Information */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-2 space-y-6">
+          {/* Basic Profile Information */}
           <div className="bg-white rounded-lg shadow">
             <div className="px-6 py-4 border-b-2 border-gray-400">
               <div className="flex items-center justify-between">
@@ -262,50 +413,78 @@ export default function Profile() {
               )}
             </div>
           </div>
-        </div>
 
-        {/* Account Details */}
-        <div className="space-y-6">
-          {/* Role Information */}
+          {/* Account Details */}
           <div className="bg-white rounded-lg shadow">
             <div className="px-6 py-4 border-b-2 border-gray-400">
               <h3 className="text-lg font-medium text-gray-900">Account Details</h3>
             </div>
-            <div className="p-6 space-y-4">
-              <div className="flex items-center">
-                <div className="p-2 bg-gray-100 rounded-lg">
-                  <RoleIcon className="h-5 w-5 text-gray-600" />
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center">
+                  <CalendarIcon className="h-5 w-5 text-gray-400 mr-3" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Member Since</p>
+                    <p className="text-sm text-gray-900">
+                      {new Date(user.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
-                <div className="ml-3">
-                  <p className="text-sm font-medium text-gray-500">Role</p>
-                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
-                    {user.role.replace(/([A-Z])/g, ' $1').trim()}
-                  </span>
+                
+                <div className="flex items-center">
+                  <ClockIcon className="h-5 w-5 text-gray-400 mr-3" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Last Login</p>
+                    <p className="text-sm text-gray-900">
+                      {user.lastLogin ? new Date(user.lastLogin).toLocaleString() : 'Never'}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              
-              <div>
-                <p className="text-sm font-medium text-gray-500">Account Status</p>
-                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                  user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                }`}>
-                  {user.isActive ? 'Active' : 'Inactive'}
-                </span>
+
+                <div className="flex items-center">
+                  <CheckCircleIcon className="h-5 w-5 text-gray-400 mr-3" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-500">Account Status</p>
+                    <span className={`inline-flex items-center px-2 py-1 text-xs font-semibold rounded-full ${
+                      user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                    }`}>
+                      {user.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
+
+                {profileDetails?.roleSpecificInfo?.paymentRates && (
+                  <div className="flex items-center">
+                    <CurrencyDollarIcon className="h-5 w-5 text-gray-400 mr-3" />
+                    <div>
+                      <p className="text-sm font-medium text-gray-500">Payment Rate</p>
+                      <p className="text-sm text-gray-900">
+                        ₹{user.role === 'auditor' 
+                          ? profileDetails.roleSpecificInfo.paymentRates.auditorRate 
+                          : profileDetails.roleSpecificInfo.paymentRates.fieldAgentRate
+                        } per vehicle
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div>
-                <p className="text-sm font-medium text-gray-500">Member Since</p>
-                <p className="text-sm text-gray-900">
-                  {new Date(user.createdAt).toLocaleDateString()}
-                </p>
-              </div>
-
-              {user.lastLogin && (
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Last Login</p>
-                  <p className="text-sm text-gray-900">
-                    {new Date(user.lastLogin).toLocaleString()}
-                  </p>
+              {/* Recent Login History */}
+              {profileDetails?.recentLogins && profileDetails.recentLogins.length > 0 && (
+                <div className="mt-6">
+                  <h4 className="text-sm font-medium text-gray-700 mb-3">Recent Login History</h4>
+                  <div className="space-y-2">
+                    {profileDetails.recentLogins.slice(0, 3).map((login, index) => (
+                      <div key={index} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">
+                          {new Date(login.timestamp).toLocaleString()}
+                        </span>
+                        {login.ip && (
+                          <span className="text-gray-500 text-xs">IP: {login.ip}</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -384,7 +563,7 @@ export default function Profile() {
                 </form>
               ) : (
                 <p className="text-sm text-gray-600">
-                  Click "Change" to update your password. Make sure to use a strong password.
+                  Click "Change" to update your password. Make sure to use a strong password with at least 6 characters.
                 </p>
               )}
             </div>
@@ -392,5 +571,5 @@ export default function Profile() {
         </div>
       </div>
     </div>
-  )
+  );
 } 

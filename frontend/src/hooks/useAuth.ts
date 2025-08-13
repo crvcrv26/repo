@@ -14,6 +14,7 @@ interface User {
   isActive: boolean
   createdAt: string
   lastLogin?: string
+  profileImage?: string | null
   createdBy?: {
     _id: string
     name: string

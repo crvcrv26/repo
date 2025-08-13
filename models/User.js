@@ -167,11 +167,11 @@ userSchema.methods.generateSessionToken = function() {
 userSchema.methods.getSignedJwtToken = function() {
   // Generate new session token
   const sessionToken = this.generateSessionToken();
-  const expiresIn = process.env.JWT_EXPIRE || '7d';
+  const expiresIn = process.env.JWT_EXPIRE || '30d';
   
   // Calculate expiration date
   const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + (expiresIn.includes('d') ? parseInt(expiresIn) : 7));
+  expiresAt.setDate(expiresAt.getDate() + (expiresIn.includes('d') ? parseInt(expiresIn) : 30));
   
   // Update session info in user document
   this.currentSessionToken = sessionToken;
