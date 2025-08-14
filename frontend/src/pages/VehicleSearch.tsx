@@ -487,9 +487,11 @@ export default function VehicleSearch() {
       {/* Vehicle Details Modal */}
       {showDetailsModal && selectedVehicle && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-lg rounded-md bg-white">
+          <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-900">Vehicle Details</h3>
+              <h3 className="text-lg font-medium text-gray-900">
+                {currentUser?.role === 'fieldAgent' ? 'Vehicle Information' : 'Vehicle Details'}
+              </h3>
               <button
                 onClick={() => setShowDetailsModal(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -499,125 +501,153 @@ export default function VehicleSearch() {
             </div>
             
             <div className="max-h-96 overflow-y-auto">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                 {/* Primary Info */}
-                 <div className="space-y-3">
-                   <h4 className="font-medium text-gray-900 border-b pb-2">Primary Information</h4>
-                   <div>
-                     <p className="text-sm font-medium text-gray-700">Excel File</p>
-                     <p className="text-sm text-gray-900 font-mono">{selectedVehicle.excel_file?.originalName || selectedVehicle.excel_file?.filename || 'N/A'}</p>
-                   </div>
-                   <div>
-                     <p className="text-sm font-medium text-gray-700">Registration Number</p>
-                     <p className="text-sm text-gray-900 font-mono">{selectedVehicle.registration_number || 'N/A'}</p>
-                   </div>
-                   <div>
-                     <p className="text-sm font-medium text-gray-700">Customer Name</p>
-                     <p className="text-sm text-gray-900">{selectedVehicle.customer_name || 'N/A'}</p>
-                   </div>
-                   <div>
-                     <p className="text-sm font-medium text-gray-700">Loan Number</p>
-                     <p className="text-sm text-gray-900 font-mono">{selectedVehicle.loan_number || 'N/A'}</p>
-                   </div>
-                   <div>
-                     <p className="text-sm font-medium text-gray-700">Branch</p>
-                     <p className="text-sm text-gray-900">{selectedVehicle.branch || 'N/A'}</p>
-                   </div>
-                 </div>
-
-                {/* Vehicle Details */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-gray-900 border-b pb-2">Vehicle Information</h4>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Make</p>
-                    <p className="text-sm text-gray-900">{selectedVehicle.make || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Model</p>
-                    <p className="text-sm text-gray-900">{selectedVehicle.model || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Chassis Number</p>
-                    <p className="text-sm text-gray-900 font-mono">{selectedVehicle.chasis_number || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Engine Number</p>
-                    <p className="text-sm text-gray-900 font-mono">{selectedVehicle.engine_number || 'N/A'}</p>
-                  </div>
-                </div>
-
-                {/* Financial Details */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-gray-900 border-b pb-2">Financial Information</h4>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">EMI</p>
-                    <p className="text-sm text-gray-900">{selectedVehicle.emi || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">POS</p>
-                    <p className="text-sm text-gray-900">{selectedVehicle.pos || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Bucket</p>
-                    <p className="text-sm text-gray-900">{selectedVehicle.bucket || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Product Name</p>
-                    <p className="text-sm text-gray-900">{selectedVehicle.product_name || 'N/A'}</p>
-                  </div>
-                </div>
-
-                {/* Additional Details */}
-                <div className="space-y-3">
-                  <h4 className="font-medium text-gray-900 border-b pb-2">Additional Information</h4>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Address</p>
-                    <p className="text-sm text-gray-900">{selectedVehicle.address || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Sec 17</p>
-                    <p className="text-sm text-gray-900">{selectedVehicle.sec_17 || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">Seasoning</p>
-                    <p className="text-sm text-gray-900">{selectedVehicle.seasoning || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-700">TBR</p>
-                    <p className="text-sm text-gray-900">{selectedVehicle.tbr || 'N/A'}</p>
-                  </div>
-                </div>
-
-                {/* Confirmer Details */}
-                {(selectedVehicle.first_confirmer_name || selectedVehicle.second_confirmer_name || selectedVehicle.third_confirmer_name) && (
-                  <div className="space-y-3 md:col-span-2 lg:col-span-3">
-                    <h4 className="font-medium text-gray-900 border-b pb-2">Confirmer Details</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      {selectedVehicle.first_confirmer_name && (
-                        <div>
-                          <p className="text-sm font-medium text-gray-700">1st Confirmer</p>
-                          <p className="text-sm text-gray-900">{selectedVehicle.first_confirmer_name}</p>
-                          <p className="text-sm text-gray-600">{selectedVehicle.first_confirmer_no}</p>
-                        </div>
-                      )}
-                      {selectedVehicle.second_confirmer_name && (
-                        <div>
-                          <p className="text-sm font-medium text-gray-700">2nd Confirmer</p>
-                          <p className="text-sm text-gray-900">{selectedVehicle.second_confirmer_name}</p>
-                          <p className="text-sm text-gray-600">{selectedVehicle.second_confirmer_no}</p>
-                        </div>
-                      )}
-                      {selectedVehicle.third_confirmer_name && (
-                        <div>
-                          <p className="text-sm font-medium text-gray-700">3rd Confirmer</p>
-                          <p className="text-sm text-gray-900">{selectedVehicle.third_confirmer_name}</p>
-                          <p className="text-sm text-gray-600">{selectedVehicle.third_confirmer_no}</p>
-                        </div>
-                      )}
+              {currentUser?.role === 'fieldAgent' ? (
+                // Simplified view for field agents - only 4 specific fields
+                <div className="space-y-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <h4 className="font-medium text-blue-900 mb-4 text-center">Vehicle Details</h4>
+                    <div className="grid grid-cols-1 gap-4">
+                      <div className="flex justify-between items-center py-2 border-b border-blue-200">
+                        <span className="text-sm font-medium text-blue-800">Customer Name:</span>
+                        <span className="text-sm text-blue-900 font-semibold">{selectedVehicle.customer_name || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-blue-200">
+                        <span className="text-sm font-medium text-blue-800">Registration No:</span>
+                        <span className="text-sm text-blue-900 font-mono font-semibold">{selectedVehicle.registration_number || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-blue-200">
+                        <span className="text-sm font-medium text-blue-800">Chassis No:</span>
+                        <span className="text-sm text-blue-900 font-mono font-semibold">{selectedVehicle.chasis_number || 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2">
+                        <span className="text-sm font-medium text-blue-800">Engine Number:</span>
+                        <span className="text-sm text-blue-900 font-mono font-semibold">{selectedVehicle.engine_number || 'N/A'}</span>
+                      </div>
                     </div>
                   </div>
-                )}
-              </div>
+                </div>
+              ) : (
+                // Full view for other roles
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                   {/* Primary Info */}
+                   <div className="space-y-3">
+                     <h4 className="font-medium text-gray-900 border-b pb-2">Primary Information</h4>
+                     <div>
+                       <p className="text-sm font-medium text-gray-700">Excel File</p>
+                       <p className="text-sm text-gray-900 font-mono">{selectedVehicle.excel_file?.originalName || selectedVehicle.excel_file?.filename || 'N/A'}</p>
+                     </div>
+                     <div>
+                       <p className="text-sm font-medium text-gray-700">Registration Number</p>
+                       <p className="text-sm text-gray-900 font-mono">{selectedVehicle.registration_number || 'N/A'}</p>
+                     </div>
+                     <div>
+                       <p className="text-sm font-medium text-gray-700">Customer Name</p>
+                       <p className="text-sm text-gray-900">{selectedVehicle.customer_name || 'N/A'}</p>
+                     </div>
+                     <div>
+                       <p className="text-sm font-medium text-gray-700">Loan Number</p>
+                       <p className="text-sm text-gray-900 font-mono">{selectedVehicle.loan_number || 'N/A'}</p>
+                     </div>
+                     <div>
+                       <p className="text-sm font-medium text-gray-700">Branch</p>
+                       <p className="text-sm text-gray-900">{selectedVehicle.branch || 'N/A'}</p>
+                     </div>
+                   </div>
+
+                  {/* Vehicle Details */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-900 border-b pb-2">Vehicle Information</h4>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Make</p>
+                      <p className="text-sm text-gray-900">{selectedVehicle.make || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Model</p>
+                      <p className="text-sm text-gray-900">{selectedVehicle.model || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Chassis Number</p>
+                      <p className="text-sm text-gray-900 font-mono">{selectedVehicle.chasis_number || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Engine Number</p>
+                      <p className="text-sm text-gray-900 font-mono">{selectedVehicle.engine_number || 'N/A'}</p>
+                    </div>
+                  </div>
+
+                  {/* Financial Details */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-900 border-b pb-2">Financial Information</h4>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">EMI</p>
+                      <p className="text-sm text-gray-900">{selectedVehicle.emi || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">POS</p>
+                      <p className="text-sm text-gray-900">{selectedVehicle.pos || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Bucket</p>
+                      <p className="text-sm text-gray-900">{selectedVehicle.bucket || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Product Name</p>
+                      <p className="text-sm text-gray-900">{selectedVehicle.product_name || 'N/A'}</p>
+                    </div>
+                  </div>
+
+                  {/* Additional Details */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-gray-900 border-b pb-2">Additional Information</h4>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Address</p>
+                      <p className="text-sm text-gray-900">{selectedVehicle.address || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Sec 17</p>
+                      <p className="text-sm text-gray-900">{selectedVehicle.sec_17 || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">Seasoning</p>
+                      <p className="text-sm text-gray-900">{selectedVehicle.seasoning || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-700">TBR</p>
+                      <p className="text-sm text-gray-900">{selectedVehicle.tbr || 'N/A'}</p>
+                    </div>
+                  </div>
+
+                  {/* Confirmer Details */}
+                  {(selectedVehicle.first_confirmer_name || selectedVehicle.second_confirmer_name || selectedVehicle.third_confirmer_name) && (
+                    <div className="space-y-3 md:col-span-2 lg:col-span-3">
+                      <h4 className="font-medium text-gray-900 border-b pb-2">Confirmer Details</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {selectedVehicle.first_confirmer_name && (
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">1st Confirmer</p>
+                            <p className="text-sm text-gray-900">{selectedVehicle.first_confirmer_name}</p>
+                            <p className="text-sm text-gray-600">{selectedVehicle.first_confirmer_no}</p>
+                          </div>
+                        )}
+                        {selectedVehicle.second_confirmer_name && (
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">2nd Confirmer</p>
+                            <p className="text-sm text-gray-900">{selectedVehicle.second_confirmer_name}</p>
+                            <p className="text-sm text-gray-600">{selectedVehicle.second_confirmer_no}</p>
+                          </div>
+                        )}
+                        {selectedVehicle.third_confirmer_name && (
+                          <div>
+                            <p className="text-sm font-medium text-gray-700">3rd Confirmer</p>
+                            <p className="text-sm text-gray-900">{selectedVehicle.third_confirmer_name}</p>
+                            <p className="text-sm text-gray-600">{selectedVehicle.third_confirmer_no}</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end mt-6">

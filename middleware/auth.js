@@ -76,6 +76,14 @@ const authenticateToken = async (req, res, next) => {
       lastSeen: new Date()
     });
 
+    // Check if user has been inactive for more than 5 minutes and mark as offline
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    if (user.lastSeen && user.lastSeen < fiveMinutesAgo) {
+      await User.findByIdAndUpdate(user._id, {
+        isOnline: false
+      });
+    }
+
     req.user = user;
     next();
   } catch (error) {

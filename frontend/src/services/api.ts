@@ -74,6 +74,8 @@ export const authAPI = {
   removeProfileImage: () => api.delete('/auth/remove-profile-image'),
   logout: () => api.post('/auth/logout'),
   validateSession: () => api.get('/auth/validate-session'),
+  updateOnlineStatus: () => api.post('/auth/update-online-status'),
+  updateOfflineStatus: () => api.post('/auth/update-offline-status'),
   forceLogout: () => api.post('/auth/force-logout'),
 }
 

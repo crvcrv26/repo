@@ -480,12 +480,14 @@ router.post('/logout', authenticateToken, async (req, res) => {
 // @access  Private
 router.get('/validate-session', authenticateToken, async (req, res) => {
   try {
-    // If we reach here, the session is valid (authenticateToken middleware already validated it)
+    // Get fresh user data with online status
+    const user = await User.findById(req.user._id).select('-password');
+    
     res.json({
       success: true,
       message: 'Session is valid',
       data: {
-        user: req.user,
+        user: user,
         sessionValid: true
       }
     });
@@ -494,6 +496,52 @@ router.get('/validate-session', authenticateToken, async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Server error during session validation'
+    });
+  }
+});
+
+// @desc    Update user online status
+// @route   POST /api/auth/update-online-status
+// @access  Private
+router.post('/update-online-status', authenticateToken, async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user._id, {
+      isOnline: true,
+      lastSeen: new Date()
+    });
+
+    res.json({
+      success: true,
+      message: 'Online status updated'
+    });
+  } catch (error) {
+    console.error('Update online status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during online status update'
+    });
+  }
+});
+
+// @desc    Update user offline status
+// @route   POST /api/auth/update-offline-status
+// @access  Private
+router.post('/update-offline-status', authenticateToken, async (req, res) => {
+  try {
+    await User.findByIdAndUpdate(req.user._id, {
+      isOnline: false,
+      lastSeen: new Date()
+    });
+
+    res.json({
+      success: true,
+      message: 'Offline status updated'
+    });
+  } catch (error) {
+    console.error('Update offline status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during offline status update'
     });
   }
 });

@@ -303,16 +303,16 @@ export default function Layout({ children }: LayoutProps) {
           />
           <div className="fixed inset-y-0 left-0 w-80 bg-white shadow-2xl flex flex-col">
             {/* Mobile sidebar header */}
-                         <div className="flex h-16 items-center justify-between px-6 border-b-2 border-gray-300 flex-shrink-0">
+                         <div className="flex h-16 items-center justify-between px-6 border-b border-gray-200 flex-shrink-0">
               <div className="flex items-center">
-                <div className="h-8 w-8 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-lg flex items-center justify-center">
-                  <ChartBarSolid className="h-5 w-5 text-white" />
+                <div className="h-10 w-10 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center shadow-lg">
+                  <ChartBarSolid className="h-6 w-6 text-white" />
                 </div>
-                <span className="ml-3 text-xl font-bold text-gray-900">RepoTrack</span>
+                <span className="ml-3 text-xl font-bold text-gradient">RepoTrack</span>
               </div>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors duration-200 p-2 rounded-lg hover:bg-gray-100"
               >
                 <XMarkIcon className="h-6 w-6" />
               </button>
@@ -383,19 +383,29 @@ export default function Layout({ children }: LayoutProps) {
             </div>
 
                          {/* Mobile user section - fixed at bottom */}
-             <div className="border-t-2 border-gray-300 p-4 flex-shrink-0">
+                                      <div className="border-t border-gray-200 p-4 flex-shrink-0 bg-gray-50">
                               <div className="flex items-center space-x-3 mb-4">
                  {user && <ProfileImage user={user} />}
                  <div className="flex-1 min-w-0">
                   <p className="font-medium text-gray-900 truncate">{user?.name}</p>
                   <p className="text-sm text-gray-500 truncate">{user?.email}</p>
+                  <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-1 ${
+                    user?.role === 'superSuperAdmin' ? 'bg-orange-100 text-orange-800' :
+                    user?.role === 'superAdmin' ? 'bg-red-100 text-red-800' :
+                    user?.role === 'admin' ? 'bg-blue-100 text-blue-800' :
+                    user?.role === 'fieldAgent' ? 'bg-green-100 text-green-800' :
+                    user?.role === 'auditor' ? 'bg-purple-100 text-purple-800' :
+                    'bg-gray-100 text-gray-800'
+                  }`}>
+                    {user?.role?.replace(/([A-Z])/g, ' $1').trim()}
+                  </span>
                 </div>
               </div>
               <div className="space-y-2">
                 <Link
                   to="/profile"
                   onClick={() => setSidebarOpen(false)}
-                  className="btn btn-outline btn-sm w-full"
+                  className="btn btn-outline-primary btn-sm w-full"
                 >
                   <UserCircleIcon className="h-4 w-4 mr-2" />
                   Profile
@@ -491,28 +501,35 @@ export default function Layout({ children }: LayoutProps) {
           </div>
 
                      {/* Desktop user section - fixed at bottom */}
-           <div className="border-t-2 border-gray-300 p-4 flex-shrink-0">
+           <div className="border-t border-gray-200 p-4 flex-shrink-0 bg-gray-50">
             <div className="flex items-center space-x-3 mb-3">
               {user && <ProfileImage user={user} />}
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-900 truncate">{user?.name}</p>
                 <p className="text-sm text-gray-500 truncate">{user?.email}</p>
-                <div className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium mt-1 ${getRoleBadgeColor(user?.role)}`}>
-                  {user?.role}
-                </div>
+                <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-1 ${
+                  user?.role === 'superSuperAdmin' ? 'bg-orange-100 text-orange-800' :
+                  user?.role === 'superAdmin' ? 'bg-red-100 text-red-800' :
+                  user?.role === 'admin' ? 'bg-blue-100 text-blue-800' :
+                  user?.role === 'fieldAgent' ? 'bg-green-100 text-green-800' :
+                  user?.role === 'auditor' ? 'bg-purple-100 text-purple-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {user?.role?.replace(/([A-Z])/g, ' $1').trim()}
+                </span>
               </div>
             </div>
             <div className="space-y-2">
               <Link
                 to="/profile"
-                className="btn btn-outline btn-sm w-full"
+                className="btn btn-outline-primary btn-sm w-full"
               >
                 <UserCircleIcon className="h-4 w-4 mr-2" />
                 Profile
               </Link>
               <button
                 onClick={handleLogout}
-                className="btn btn-outline btn-sm w-full"
+                className="btn btn-danger btn-sm w-full"
               >
                 <ArrowRightOnRectangleIcon className="h-4 w-4 mr-2" />
                 Sign Out
@@ -525,12 +542,12 @@ export default function Layout({ children }: LayoutProps) {
       {/* Main content */}
       <div className="lg:pl-80">
         {/* Top navigation bar */}
-                 <div className="sticky top-0 z-40 bg-white border-b-2 border-gray-300 shadow-sm">
+                 <div className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm backdrop-blur-sm">
           <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
             <div className="flex items-center space-x-4">
               <button
                 type="button"
-                className="text-gray-600 hover:text-gray-900 lg:hidden"
+                className="text-gray-600 hover:text-gray-900 lg:hidden p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
                 onClick={() => setSidebarOpen(true)}
               >
                 <Bars3Icon className="h-6 w-6" />
