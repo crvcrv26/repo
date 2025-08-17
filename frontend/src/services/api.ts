@@ -1,13 +1,30 @@
 import axios from 'axios'
 
-const API_BASE_URL = (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api'
+// Get API URL dynamically based on environment
+const getApiBaseUrl = () => {
+  // Check if we're running through ngrok
+  const currentHost = window.location.hostname;
+  
+  if (currentHost.includes('ngrok-free.app') || 
+      currentHost.includes('ngrok.io') || 
+      currentHost.includes('ngrok.app')) {
+    // Use the same host for API calls when running through ngrok
+    return `${window.location.protocol}//${currentHost}/api`;
+  }
+  
+  // Use environment variable or default
+  return (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
+};
 
+const API_BASE_URL = getApiBaseUrl();
 const api = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
 })
+
+
 
 // Request interceptor to add auth token
 api.interceptors.request.use(
@@ -76,6 +93,7 @@ export const authAPI = {
   validateSession: () => api.get('/auth/validate-session'),
   updateOnlineStatus: () => api.post('/auth/update-online-status'),
   updateOfflineStatus: () => api.post('/auth/update-offline-status'),
+  checkOnlineStatus: () => api.post('/auth/check-online-status'),
   forceLogout: () => api.post('/auth/force-logout'),
 }
 

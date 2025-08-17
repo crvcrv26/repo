@@ -381,7 +381,7 @@
   }
   
   .table-header th {
-    @apply px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
+    @apply px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider;
   }
   
   .table-body {
@@ -393,7 +393,30 @@
   }
   
   .table-cell {
-    @apply px-6 py-4 whitespace-nowrap text-sm text-gray-900;
+    @apply px-3 py-3 whitespace-nowrap text-sm text-gray-900;
+  }
+
+  /* Money Management Table Specific */
+  .money-table {
+    @apply min-w-full divide-y divide-gray-200;
+  }
+  
+  .money-table th {
+    @apply px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider bg-gray-50 border-r border-gray-200;
+  }
+  
+  .money-table td {
+    @apply px-4 py-3 whitespace-nowrap text-sm text-gray-900 border-r border-gray-200;
+  }
+  
+  .money-table-container {
+    @apply overflow-x-auto max-h-[70vh] border border-gray-200 rounded-lg;
+  }
+  
+  /* Table border styling */
+  .table th:last-child,
+  .table td:last-child {
+    @apply border-r-0;
   }
 
   /* Modal Components */
@@ -432,6 +455,29 @@
   
   .nav-item-icon {
     @apply mr-3 h-5 w-5;
+  }
+
+  /* Payment Dropdown */
+  .payment-dropdown {
+    @apply max-h-0 overflow-hidden transition-all duration-200 ease-in-out;
+  }
+  
+  .payment-dropdown.open {
+    @apply max-h-96 overflow-visible;
+  }
+  
+  .payment-dropdown .nav-item {
+    @apply pl-8 py-1.5 text-xs;
+  }
+
+  /* Sidebar Toggle */
+  .sidebar-toggle {
+    @apply fixed top-4 left-4 z-50 lg:hidden bg-white rounded-lg shadow-lg p-2 border border-gray-200;
+  }
+
+  /* Sidebar Close Button */
+  .sidebar-close {
+    @apply absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors duration-200 p-2 rounded-lg hover:bg-gray-100;
   }
 
   /* Loading States */

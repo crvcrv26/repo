@@ -546,6 +546,53 @@ router.post('/update-offline-status', authenticateToken, async (req, res) => {
   }
 });
 
+// @desc    Check and update online status based on activity
+// @route   POST /api/auth/check-online-status
+// @access  Private
+router.post('/check-online-status', authenticateToken, async (req, res) => {
+  try {
+    const user = await User.findById(req.user._id);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    // Check if user has been inactive for more than 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const shouldBeOffline = user.lastSeen && user.lastSeen < fiveMinutesAgo;
+
+    // Update online status based on activity
+    if (shouldBeOffline && user.isOnline) {
+      await User.findByIdAndUpdate(req.user._id, {
+        isOnline: false
+      });
+    } else if (!shouldBeOffline && !user.isOnline) {
+      await User.findByIdAndUpdate(req.user._id, {
+        isOnline: true
+      });
+    }
+
+    // Get updated user data
+    const updatedUser = await User.findById(req.user._id).select('-password');
+
+    res.json({
+      success: true,
+      message: 'Online status checked',
+      data: {
+        user: updatedUser
+      }
+    });
+  } catch (error) {
+    console.error('Check online status error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error during online status check'
+    });
+  }
+});
+
 // @desc    Force logout from all devices (invalidate session)
 // @route   POST /api/auth/force-logout
 // @access  Private

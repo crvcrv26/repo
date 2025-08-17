@@ -21,7 +21,6 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import MoneyRecordForm from '../components/MoneyRecordForm';
-import ImportMoneyModal from '../components/ImportMoneyModal';
 
 interface MoneyRecord {
   _id: string;
@@ -43,6 +42,12 @@ interface MoneyRecord {
   repo_date: string;
   service_tax: number;
   payment_to_repo_team: number;
+  field_agent?: {
+    _id: string;
+    name: string;
+    email: string;
+    phone: string;
+  };
   created_by: {
     _id: string;
     name: string;
@@ -92,9 +97,7 @@ export default function MoneyManagement() {
   
   // Modal states
   const [showForm, setShowForm] = useState(false);
-  const [showImport, setShowImport] = useState(false);
   const [showViewModal, setShowViewModal] = useState(false);
-  const [showDeleteAllModal, setShowDeleteAllModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<MoneyRecord | null>(null);
   const [viewingRecord, setViewingRecord] = useState<MoneyRecord | null>(null);
 
@@ -128,18 +131,7 @@ export default function MoneyManagement() {
     }
   });
 
-  // Delete all mutation
-  const deleteAllMutation = useMutation({
-    mutationFn: () => moneyAPI.deleteAll(),
-    onSuccess: (response) => {
-      queryClient.invalidateQueries({ queryKey: ['money-records'] });
-      toast.success(response.data.message || 'All records deleted successfully');
-      setShowDeleteAllModal(false);
-    },
-    onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Failed to delete all records');
-    }
-  });
+
 
   const handleDelete = async (record: MoneyRecord) => {
     if (window.confirm(`Are you sure you want to delete the record for ${record.registration_number}?`)) {
@@ -162,41 +154,9 @@ export default function MoneyManagement() {
     setShowForm(true);
   };
 
-  const handleDeleteAll = () => {
-    setShowDeleteAllModal(true);
-  };
 
-  const confirmDeleteAll = () => {
-    deleteAllMutation.mutate();
-  };
 
-  const handleDownloadBeforeDelete = async () => {
-    try {
-      // Export all data before deletion
-      const response = await moneyAPI.export({
-        search: debouncedSearch.trim(),
-        bank: filters.bank.trim(),
-        status: filters.status.trim(),
-        repo_payment_status: filters.repo_payment_status.trim(),
-        from: filters.from,
-        to: filters.to
-      });
-      
-      // Create download link
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-      link.setAttribute('download', `money_records_backup_${new Date().toISOString().split('T')[0]}.xlsx`);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      
-      toast.success('Data exported successfully! You can now proceed with deletion.');
-    } catch (error: any) {
-      toast.error('Failed to export data. Deletion cancelled.');
-    }
-  };
+
 
   const handleCloseForm = () => {
     setShowForm(false);
@@ -365,7 +325,30 @@ export default function MoneyManagement() {
     <div className="p-6">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-[var(--brand-navy)]">Money Management</h1>
-        <p className="text-gray-600 mt-2">Manage payment and billing records for repossession work</p>
+        <p className="text-gray-600 mt-2">
+          {currentUser?.role === 'fieldAgent' 
+            ? 'View your assigned payment and billing records' 
+            : 'Manage payment and billing records for repossession work'}
+        </p>
+        
+        {/* Summary Card for Field Agents */}
+        {currentUser?.role === 'fieldAgent' && (
+          <div className="mt-4">
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center">
+                <div className="h-10 w-10 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <CurrencyDollarIcon className="h-6 w-6 text-blue-600" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-lg font-semibold text-blue-900">Your Records</h3>
+                  <p className="text-blue-700">
+                    You have {records.length} assigned money record{records.length !== 1 ? 's' : ''}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Header Actions */}
@@ -404,32 +387,21 @@ export default function MoneyManagement() {
             </button>
           )}
           
-          <button onClick={handleAdd} className="btn btn-primary">
-            <PlusIcon className="h-4 w-4 mr-1" />
-            Add Record
-          </button>
-          
-          <button onClick={() => setShowImport(true)} className="btn btn-secondary">
-            <DocumentArrowUpIcon className="h-4 w-4 mr-1" />
-            Import Excel
-          </button>
+          {/* Only show Add Record button for non-field agents */}
+          {currentUser?.role !== 'fieldAgent' && (
+            <button onClick={handleAdd} className="btn btn-primary">
+              <PlusIcon className="h-4 w-4 mr-1" />
+              Add Record
+            </button>
+          )}
           
           <button 
             onClick={handleExport} 
             className="btn btn-outline"
-            title="Export in import-ready format - edit and re-import seamlessly!"
+            title="Export records to Excel"
           >
             <DocumentArrowDownIcon className="h-4 w-4 mr-1" />
             Export
-          </button>
-          
-          <button 
-            onClick={handleDeleteAll} 
-            className="btn btn-danger"
-            title="Delete all your money records (with backup option)"
-          >
-            <TrashIcon className="h-4 w-4 mr-1" />
-            Delete All
           </button>
         </div>
       </div>
@@ -515,48 +487,56 @@ export default function MoneyManagement() {
       <div className="card">
         <div className="card-body p-0">
           {records.length > 0 ? (
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto max-h-[70vh] border border-gray-200 rounded-lg">
               <table className="min-w-full divide-y divide-gray-200 table">
-                <thead>
+                <thead className="bg-gray-50 sticky top-0 z-10">
                   <tr>
-                    <th>Registration</th>
-                    <th>Bill Date</th>
-                    <th>Bank</th>
-                    <th>Vehicle</th>
-                    <th>Status</th>
-                    <th>Yard</th>
-                    <th>Repo Amount</th>
-                    <th>Payment Status</th>
-                    <th>Total Amount</th>
-                    <th>Customer</th>
-                    <th>Confirmed By</th>
-                    <th className="w-32">Actions</th>
+                    <th className="sticky left-0 bg-gray-50 z-20 min-w-[140px] px-4 py-3 border-r border-gray-200">Registration</th>
+                    <th className="min-w-[100px] px-4 py-3 border-r border-gray-200">Bill Date</th>
+                    <th className="min-w-[120px] px-4 py-3 border-r border-gray-200">Repo Date</th>
+                    <th className="min-w-[120px] px-4 py-3 border-r border-gray-200">Bank</th>
+                    <th className="min-w-[120px] px-4 py-3 border-r border-gray-200">Vehicle</th>
+                    <th className="min-w-[100px] px-4 py-3 border-r border-gray-200">Status</th>
+                    <th className="min-w-[120px] px-4 py-3 border-r border-gray-200">Yard</th>
+                    <th className="min-w-[120px] px-4 py-3 border-r border-gray-200">Repo Amount</th>
+                    <th className="min-w-[120px] px-4 py-3 border-r border-gray-200">Payment Status</th>
+                    <th className="min-w-[120px] px-4 py-3 border-r border-gray-200">Payment to Repo Team</th>
+                    <th className="min-w-[140px] px-4 py-3 border-r border-gray-200">Field Agent</th>
+                    {currentUser?.role !== 'fieldAgent' && (
+                      <th className="w-32 sticky right-0 bg-gray-50 z-20 px-4 py-3">Actions</th>
+                    )}
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="bg-white divide-y divide-gray-200">
                   {records.map((record) => (
-                    <tr key={record._id}>
-                      <td>
-                        <div className="font-mono font-semibold text-[var(--brand-navy)]">
+                    <tr key={record._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="sticky left-0 bg-white z-10 min-w-[140px] px-4 py-3 border-r border-gray-200">
+                        <div className="font-mono font-semibold text-[var(--brand-navy)] text-sm">
                           {record.registration_number}
                         </div>
                         <div className="text-xs text-gray-500">{record.loan_number}</div>
                       </td>
-                      <td>
+                      <td className="min-w-[100px] px-4 py-3 border-r border-gray-200">
                         <div className="flex items-center">
                           <CalendarIcon className="h-4 w-4 text-gray-400 mr-1" />
-                          {formatDate(record.bill_date)}
+                          <span className="text-sm">{formatDate(record.bill_date)}</span>
                         </div>
                       </td>
-                      <td className="font-medium">{record.bank}</td>
-                      <td>
+                      <td className="min-w-[120px] px-4 py-3 border-r border-gray-200">
+                        <div className="flex items-center">
+                          <CalendarIcon className="h-4 w-4 text-gray-400 mr-1" />
+                          <span className="text-sm">{formatDate(record.repo_date)}</span>
+                        </div>
+                      </td>
+                      <td className="min-w-[120px] font-medium text-sm px-4 py-3 border-r border-gray-200">{record.bank}</td>
+                      <td className="min-w-[120px] px-4 py-3 border-r border-gray-200">
                         <div className="text-sm">
                           <div className="font-medium">{record.make}</div>
-                          <div className="text-gray-600">{record.model}</div>
+                          <div className="text-gray-600 text-xs">{record.model}</div>
                         </div>
                       </td>
-                      <td>
-                        <span className={`badge ${
+                      <td className="min-w-[100px] px-4 py-3 border-r border-gray-200">
+                        <span className={`badge text-xs ${
                           record.status.includes('YARD') ? 'badge-warning' :
                           record.status.includes('RELEASE') ? 'badge-success' :
                           'badge-gray'
@@ -564,15 +544,15 @@ export default function MoneyManagement() {
                           {record.status}
                         </span>
                       </td>
-                      <td>{record.yard_name}</td>
-                      <td>
+                      <td className="min-w-[120px] text-sm px-4 py-3 border-r border-gray-200">{record.yard_name}</td>
+                      <td className="min-w-[120px] px-4 py-3 border-r border-gray-200">
                         <div className="flex items-center">
                           <CurrencyDollarIcon className="h-4 w-4 text-green-600 mr-1" />
-                          <span className="font-semibold">{formatCurrency(record.repo_bill_amount)}</span>
+                          <span className="font-semibold text-sm">{formatCurrency(record.repo_bill_amount)}</span>
                         </div>
                       </td>
-                      <td>
-                        <span className={`badge ${
+                      <td className="min-w-[120px] px-4 py-3 border-r border-gray-200">
+                        <span className={`badge text-xs ${
                           record.repo_payment_status === 'Done' ? 'badge-success' :
                           record.repo_payment_status === 'Payment Due' ? 'badge-danger' :
                           'badge-warning'
@@ -580,39 +560,61 @@ export default function MoneyManagement() {
                           {record.repo_payment_status}
                         </span>
                       </td>
-                      <td>
-                        <span className="font-semibold text-[var(--brand-navy)]">
-                          {formatCurrency(record.total_bill_amount)}
+                      <td className="min-w-[120px] px-4 py-3 border-r border-gray-200">
+                        <span className="font-semibold text-sm text-[var(--brand-navy)]">
+                          {formatCurrency(record.payment_to_repo_team)}
                         </span>
                       </td>
-                      <td>{record.customer_name}</td>
-                      <td>{record.confirmed_by}</td>
-                      <td>
-                        <div className="flex items-center justify-center space-x-1">
-                          <button
-                            onClick={() => handleView(record)}
-                            className="p-2 text-yellow-600 hover:bg-yellow-50 rounded-md border border-transparent hover:border-yellow-200 transition-all duration-200"
-                            title="View complete record"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleEdit(record)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-md border border-transparent hover:border-blue-200 transition-all duration-200"
-                            title="Edit record"
-                          >
-                            <PencilIcon className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(record)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-md border border-transparent hover:border-red-200 transition-all duration-200"
-                            title="Delete record"
-                            disabled={deleteMutation.isPending}
-                          >
-                            <TrashIcon className="h-4 w-4" />
-                          </button>
-                        </div>
+                      <td className="min-w-[140px] px-4 py-3 border-r border-gray-200">
+                        {record.field_agent ? (
+                          <div className="text-sm">
+                            <div className="font-medium">{record.field_agent.name}</div>
+                            <div className="text-gray-600 text-xs">{record.field_agent.phone}</div>
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-xs">Not assigned</span>
+                        )}
                       </td>
+                      {currentUser?.role !== 'fieldAgent' ? (
+                        <td className="sticky right-0 bg-white z-10 w-32 px-4 py-3">
+                          <div className="flex items-center justify-center space-x-1">
+                            <button
+                              onClick={() => handleView(record)}
+                              className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded-md border border-transparent hover:border-yellow-200 transition-all duration-200"
+                              title="View complete record"
+                            >
+                              <EyeIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleEdit(record)}
+                              className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-md border border-transparent hover:border-blue-200 transition-all duration-200"
+                              title="Edit record"
+                            >
+                              <PencilIcon className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(record)}
+                              className="p-1.5 text-red-600 hover:bg-red-50 rounded-md border border-transparent hover:border-red-200 transition-all duration-200"
+                              title="Delete record"
+                              disabled={deleteMutation.isPending}
+                            >
+                              <TrashIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      ) : (
+                        <td className="sticky right-0 bg-white z-10 w-16 px-4 py-3">
+                          <div className="flex items-center justify-center">
+                            <button
+                              onClick={() => handleView(record)}
+                              className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded-md border border-transparent hover:border-yellow-200 transition-all duration-200"
+                              title="View complete record"
+                            >
+                              <EyeIcon className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -625,12 +627,16 @@ export default function MoneyManagement() {
               <p className="text-gray-600 mb-4">
                 {search || Object.values(filters).some(f => f) 
                   ? 'No records match your current filters.' 
-                  : 'Start by adding your first money record.'}
+                  : currentUser?.role === 'fieldAgent' 
+                    ? 'No records have been assigned to you yet.' 
+                    : 'Start by adding your first money record.'}
               </p>
-              <button onClick={handleAdd} className="btn btn-primary">
-                <PlusIcon className="h-4 w-4 mr-1" />
-                Add First Record
-              </button>
+              {currentUser?.role !== 'fieldAgent' && (
+                <button onClick={handleAdd} className="btn btn-primary">
+                  <PlusIcon className="h-4 w-4 mr-1" />
+                  Add First Record
+                </button>
+              )}
             </div>
           )}
         </div>
@@ -672,16 +678,6 @@ export default function MoneyManagement() {
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ['money-records'] });
             handleCloseForm();
-          }}
-        />
-      )}
-
-      {showImport && (
-        <ImportMoneyModal
-          onClose={() => setShowImport(false)}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ['money-records'] });
-            setShowImport(false);
           }}
         />
       )}
@@ -767,16 +763,21 @@ export default function MoneyManagement() {
                       <p className="text-lg font-semibold text-green-600">{formatCurrency(viewingRecord.repo_bill_amount)}</p>
                     </div>
                     <div>
-                      <label className="text-sm font-medium text-gray-600">Total Bill Amount</label>
-                      <p className="text-lg font-semibold text-[var(--brand-navy)]">{formatCurrency(viewingRecord.total_bill_amount)}</p>
-                    </div>
-                    <div>
-                      <label className="text-sm font-medium text-gray-600">Service Tax</label>
-                      <p className="text-sm text-gray-900">{formatCurrency(viewingRecord.service_tax)}</p>
-                    </div>
-                    <div>
                       <label className="text-sm font-medium text-gray-600">Payment to Repo Team</label>
-                      <p className="text-sm text-gray-900">{formatCurrency(viewingRecord.payment_to_repo_team)}</p>
+                      <p className="text-lg font-semibold text-[var(--brand-navy)]">{formatCurrency(viewingRecord.payment_to_repo_team)}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Field Agent</label>
+                      <p className="text-sm text-gray-900">
+                        {viewingRecord.field_agent ? (
+                          <>
+                            {viewingRecord.field_agent.name}<br />
+                            <span className="text-gray-500">{viewingRecord.field_agent.phone}</span>
+                          </>
+                        ) : (
+                          'Not assigned'
+                        )}
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -845,100 +846,25 @@ export default function MoneyManagement() {
                 <button onClick={handleCloseViewModal} className="btn btn-outline">
                   Close
                 </button>
-                <button
-                  onClick={() => {
-                    handleEdit(viewingRecord);
-                    handleCloseViewModal();
-                  }}
-                  className="btn btn-primary"
-                >
-                  <PencilIcon className="h-4 w-4 mr-1" />
-                  Edit Record
-                </button>
+                {currentUser?.role !== 'fieldAgent' && (
+                  <button
+                    onClick={() => {
+                      handleEdit(viewingRecord);
+                      handleCloseViewModal();
+                    }}
+                    className="btn btn-primary"
+                  >
+                    <PencilIcon className="h-4 w-4 mr-1" />
+                    Edit Record
+                  </button>
+                )}
               </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Delete All Confirmation Modal */}
-      {showDeleteAllModal && (
-        <div className="modal-overlay">
-          <div className="modal-container">
-            <div className="modal-content max-w-lg">
-              <div className="modal-header">
-                <h2 className="text-xl font-bold text-red-600 flex items-center">
-                  <ExclamationTriangleIcon className="h-6 w-6 mr-2" />
-                  Delete All Records
-                </h2>
-                <button onClick={() => setShowDeleteAllModal(false)} className="text-gray-400 hover:text-gray-600">
-                  <XMarkIcon className="h-6 w-6" />
-                </button>
-              </div>
 
-              <div className="modal-body">
-                <div className="text-center">
-                  <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                    <h3 className="text-lg font-semibold text-red-800 mb-2">
-                      ⚠️ WARNING: This action cannot be undone!
-                    </h3>
-                    <p className="text-red-700">
-                      You are about to delete <strong>ALL</strong> your money management records. 
-                      This will permanently remove all data from the system.
-                    </p>
-                  </div>
-
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <h4 className="text-md font-semibold text-blue-800 mb-2">
-                      💾 Backup Recommendation
-                    </h4>
-                    <p className="text-blue-700 mb-3">
-                      We strongly recommend downloading a backup of your data before proceeding.
-                    </p>
-                    <button 
-                      onClick={handleDownloadBeforeDelete}
-                      className="btn btn-primary w-full"
-                    >
-                      <DocumentArrowDownIcon className="h-4 w-4 mr-2" />
-                      Download Backup First
-                    </button>
-                  </div>
-
-                  <div className="text-gray-600 mb-4">
-                    <p>Total records that will be deleted: <strong>{moneyData?.total || 0}</strong></p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="modal-footer">
-                <button 
-                  onClick={() => setShowDeleteAllModal(false)} 
-                  className="btn btn-outline mr-3"
-                >
-                  Cancel
-                </button>
-                <button 
-                  onClick={confirmDeleteAll}
-                  disabled={deleteAllMutation.isLoading}
-                  className="btn btn-danger"
-                >
-                  {deleteAllMutation.isLoading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent mr-2"></div>
-                      Deleting...
-                    </>
-                  ) : (
-                    <>
-                      <TrashIcon className="h-4 w-4 mr-2" />
-                      Yes, Delete All Records
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

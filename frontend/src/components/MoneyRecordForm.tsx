@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { moneyAPI, excelAPI } from '../services/api';
+import { moneyAPI, excelAPI, usersAPI } from '../services/api';
 import { toast } from 'react-hot-toast';
 import {
   XMarkIcon,
@@ -35,6 +35,7 @@ interface MoneyRecord {
   repo_date: string;
   service_tax: number;
   payment_to_repo_team: number;
+  field_agent?: string;
 }
 
 interface MoneyRecordFormProps {
@@ -62,6 +63,7 @@ interface FormData {
   repo_date: string;
   service_tax: number;
   payment_to_repo_team: number;
+  field_agent?: string;
 }
 
 export default function MoneyRecordForm({ record, onClose, onSuccess }: MoneyRecordFormProps) {
@@ -94,7 +96,8 @@ export default function MoneyRecordForm({ record, onClose, onSuccess }: MoneyRec
       confirmed_by: '',
       repo_date: '',
       service_tax: 0,
-      payment_to_repo_team: 0
+      payment_to_repo_team: 0,
+      field_agent: ''
     }
   });
 
@@ -111,6 +114,15 @@ export default function MoneyRecordForm({ record, onClose, onSuccess }: MoneyRec
     enabled: regSearchTerm.length >= 3,
     staleTime: 30000
   });
+
+  // Fetch field agents for dropdown
+  const { data: fieldAgentsData } = useQuery({
+    queryKey: ['field-agents'],
+    queryFn: () => usersAPI.getAll({ role: 'fieldAgent', limit: 100 }),
+    staleTime: 300000 // 5 minutes
+  });
+
+  const fieldAgents = fieldAgentsData?.data?.data || [];
 
   // Create/Update mutation
   const saveMutation = useMutation({
@@ -293,20 +305,7 @@ export default function MoneyRecordForm({ record, onClose, onSuccess }: MoneyRec
                       </div>
                     )}
                     
-                    {/* Debug dropdown - always show when searching */}
-                    {showSuggestions && regSearchTerm.length >= 3 && (
-                      <div className="absolute z-50 w-full mt-1 bg-red-100 border-2 border-red-500 rounded-md shadow-lg p-4 text-center">
-                        <div className="text-sm font-bold text-red-800">DEBUG: Search active for "{regSearchTerm}"</div>
-                        <div className="text-xs text-red-600 mt-1">
-                          API Data: {vehicleSuggestions ? 'Loaded' : 'Loading...'}
-                        </div>
-                        {vehicleSuggestions?.data?.data && (
-                          <div className="text-xs text-red-600">
-                            Results: {vehicleSuggestions.data.data.length} vehicles
-                          </div>
-                        )}
-                      </div>
-                    )}
+                  
 
                     {/* No suggestions message */}
                     {showSuggestions && regSearchTerm.length >= 3 && 
@@ -488,6 +487,22 @@ export default function MoneyRecordForm({ record, onClose, onSuccess }: MoneyRec
                     placeholder="0.00"
                   />
                   {errors.payment_to_repo_team && <p className="mt-1 text-sm text-red-600">{errors.payment_to_repo_team.message}</p>}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Field Agent</label>
+                  <select
+                    {...register('field_agent')}
+                    className="form-select"
+                  >
+                    <option value="">Select Field Agent</option>
+                    {fieldAgents.map((agent: any) => (
+                      <option key={agent._id} value={agent._id}>
+                        {agent.name} - {agent.phone}
+                      </option>
+                    ))}
+                  </select>
+                  {errors.field_agent && <p className="mt-1 text-sm text-red-600">{errors.field_agent.message}</p>}
                 </div>
               </div>
             </div>

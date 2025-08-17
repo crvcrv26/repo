@@ -128,10 +128,10 @@ async function getAdminDataCounts() {
 
 // @desc    Get money records with search, filters, and pagination
 // @route   GET /api/money
-// @access  Private (Admin, Auditor, SuperAdmin, SuperSuperAdmin)
+// @access  Private (Admin, Auditor, SuperAdmin, SuperSuperAdmin, FieldAgent)
 router.get('/', 
   authenticateToken, 
-  authorizeRole('admin', 'auditor', 'superAdmin', 'superSuperAdmin'),
+  authorizeRole('admin', 'auditor', 'superAdmin', 'superSuperAdmin', 'fieldAgent'),
   async (req, res) => {
     try {
       const {
@@ -166,6 +166,9 @@ router.get('/',
       } else if (req.user.role === 'auditor') {
         // Auditors can see money records created by their admin
         query.created_by = req.user.adminId;
+      } else if (req.user.role === 'fieldAgent') {
+        // Field agents can see money records assigned to them
+        query.field_agent = req.user._id;
       }
 
       // Search across multiple fields
@@ -216,6 +219,7 @@ router.get('/',
         MoneyRecord.find(query)
           .populate('created_by', 'name email')
           .populate('updated_by', 'name email')
+          .populate('field_agent', 'name email phone')
           .sort(sortObj)
           .skip(skip)
           .limit(pageSize)
@@ -247,10 +251,10 @@ router.get('/',
 
 // @desc    Export money records to Excel
 // @route   GET /api/money/export
-// @access  Private (Admin, Auditor)
+// @access  Private (Admin, Auditor, FieldAgent)
 router.get('/export',
   authenticateToken,
-  authorizeRole('admin', 'auditor'),
+  authorizeRole('admin', 'auditor', 'fieldAgent'),
   async (req, res) => {
     try {
       const {
@@ -268,6 +272,8 @@ router.get('/export',
         query = { created_by: req.user._id };
       } else if (req.user.role === 'auditor') {
         query = { created_by: req.user.adminId };
+      } else if (req.user.role === 'fieldAgent') {
+        query = { field_agent: req.user._id };
       }
 
       if (search) {
@@ -392,15 +398,16 @@ router.get('/export',
 
 // @desc    Get single money record
 // @route   GET /api/money/:id
-// @access  Private (Admin, Auditor, SuperAdmin, SuperSuperAdmin)
+// @access  Private (Admin, Auditor, SuperAdmin, SuperSuperAdmin, FieldAgent)
 router.get('/:id',
   authenticateToken,
-  authorizeRole('admin', 'auditor', 'superAdmin', 'superSuperAdmin'),
+  authorizeRole('admin', 'auditor', 'superAdmin', 'superSuperAdmin', 'fieldAgent'),
   async (req, res) => {
     try {
       const record = await MoneyRecord.findById(req.params.id)
         .populate('created_by', 'name email')
         .populate('updated_by', 'name email')
+        .populate('field_agent', 'name email phone')
         .populate('source_excel_file_id', 'originalName filename');
 
       if (!record) {
@@ -419,6 +426,12 @@ router.get('/:id',
         });
       } else if (req.user.role === 'auditor' && 
                  record.created_by._id.toString() !== req.user.adminId.toString()) {
+        return res.status(403).json({
+          success: false,
+          message: 'Access denied to this record'
+        });
+      } else if (req.user.role === 'fieldAgent' && 
+                 record.field_agent && record.field_agent._id.toString() !== req.user._id.toString()) {
         return res.status(403).json({
           success: false,
           message: 'Access denied to this record'
@@ -442,7 +455,7 @@ router.get('/:id',
 
 // @desc    Create new money record
 // @route   POST /api/money
-// @access  Private (Admin, Auditor)
+// @access  Private (Admin, Auditor only - Field agents cannot create)
 router.post('/',
   authenticateToken,
   authorizeRole('admin', 'auditor'),
@@ -490,7 +503,7 @@ router.post('/',
 
 // @desc    Update money record
 // @route   PUT /api/money/:id
-// @access  Private (Admin, Auditor)
+// @access  Private (Admin, Auditor only - Field agents cannot edit)
 router.put('/:id',
   authenticateToken,
   authorizeRole('admin', 'auditor'),
@@ -560,7 +573,7 @@ router.put('/:id',
 
 // @desc    Delete all money records
 // @route   DELETE /api/money/delete-all
-// @access  Private (Admin, Auditor only - not super admins)
+// @access  Private (Admin, Auditor only - not super admins or field agents)
 router.delete('/delete-all',
   authenticateToken,
   authorizeRole('admin', 'auditor'),
@@ -606,7 +619,7 @@ router.delete('/delete-all',
 
 // @desc    Delete money record
 // @route   DELETE /api/money/:id
-// @access  Private (Admin, Auditor)
+// @access  Private (Admin, Auditor only - Field agents cannot delete)
 router.delete('/:id',
   authenticateToken,
   authorizeRole('admin', 'auditor'),

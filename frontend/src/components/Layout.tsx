@@ -80,6 +80,14 @@ const getNavigation = (userRole?: string) => {
     });
   }
 
+  if (userRole === 'fieldAgent') {
+    baseNavigation.push({ 
+      name: 'Money Management', 
+      href: '/money', 
+      icon: CurrencyDollarIcon
+    });
+  }
+
   // Add common navigation items
   baseNavigation.push({
     name: 'Vehicle Search', 
@@ -248,17 +256,21 @@ const getPageTitle = (pathname: string, navigation: any[]) => {
 
 export default function Layout({ children }: LayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [desktopSidebarOpen, setDesktopSidebarOpen] = useState(true);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [paymentsDropdownOpen, setPaymentsDropdownOpen] = useState(false);
   const { user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Close user menu when clicking outside
+  // Close user menu and payment dropdown when clicking outside
   const handleClickOutside = (event: MouseEvent) => {
     const target = event.target as Element;
     if (!target.closest('.user-menu')) {
       setUserMenuOpen(false);
+    }
+    if (!target.closest('.payment-dropdown') && !target.closest('.payment-dropdown-button')) {
+      setPaymentsDropdownOpen(false);
     }
   };
 
@@ -348,7 +360,7 @@ export default function Layout({ children }: LayoutProps) {
                     <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-3 mb-2">Payments</h3>
                     <button
                       onClick={() => setPaymentsDropdownOpen(!paymentsDropdownOpen)}
-                      className={`nav-item w-full text-left ${isPaymentPage ? 'active' : ''}`}
+                      className={`nav-item w-full text-left payment-dropdown-button ${isPaymentPage ? 'active' : ''}`}
                     >
                       <CurrencyDollarIcon className="h-5 w-5 flex-shrink-0" />
                       <div className="flex-1">
@@ -365,7 +377,10 @@ export default function Layout({ children }: LayoutProps) {
                              <Link
                                key={item.name}
                                to={item.href}
-                               onClick={() => setSidebarOpen(false)}
+                               onClick={() => {
+                                 setSidebarOpen(false);
+                                 setPaymentsDropdownOpen(false);
+                               }}
                                className={`nav-item ${isActive ? 'active' : ''}`}
                              >
                                <item.icon className="h-4 w-4 flex-shrink-0" />
@@ -424,10 +439,11 @@ export default function Layout({ children }: LayoutProps) {
       )}
 
       {/* Desktop sidebar */}
-      <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-80 lg:flex-col">
+      {desktopSidebarOpen && (
+        <div className="hidden lg:fixed lg:inset-y-0 lg:flex lg:w-80 lg:flex-col">
                    <div className="flex flex-col flex-grow bg-white border-r-2 border-gray-300 shadow-sm">
-          {/* Desktop sidebar header */}
-                       <div className="flex h-16 items-center px-6 border-b-2 border-gray-300 flex-shrink-0">
+                    {/* Desktop sidebar header */}
+                        <div className="flex h-16 items-center px-6 border-b-2 border-gray-300 flex-shrink-0">
             <div className="flex items-center">
               <div className="h-10 w-10 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-xl flex items-center justify-center">
                 <ChartBarSolid className="h-6 w-6 text-white" />
@@ -466,7 +482,7 @@ export default function Layout({ children }: LayoutProps) {
                                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-2 border-2 border-blue-300">
                     <button
                       onClick={() => setPaymentsDropdownOpen(!paymentsDropdownOpen)}
-                      className={`nav-item w-full text-left ${isPaymentPage ? 'active' : ''} bg-white/80 backdrop-blur-sm`}
+                      className={`nav-item w-full text-left payment-dropdown-button ${isPaymentPage ? 'active' : ''} bg-white/80 backdrop-blur-sm`}
                     >
                       <CurrencyDollarIcon className="h-5 w-5 flex-shrink-0" />
                       <div className="flex-1">
@@ -483,6 +499,7 @@ export default function Layout({ children }: LayoutProps) {
                              <Link
                                key={item.name}
                                to={item.href}
+                               onClick={() => setPaymentsDropdownOpen(false)}
                                className={`nav-item ${isActive ? 'active' : ''} bg-white/60 backdrop-blur-sm`}
                              >
                                <item.icon className="h-4 w-4 flex-shrink-0" />
@@ -538,9 +555,10 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
       </div>
+      )}
 
       {/* Main content */}
-      <div className="lg:pl-80">
+      <div className={`${desktopSidebarOpen ? 'lg:pl-80' : 'lg:pl-0'}`}>
         {/* Top navigation bar */}
                  <div className="sticky top-0 z-40 bg-white border-b border-gray-200 shadow-sm backdrop-blur-sm">
           <div className="flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -551,6 +569,18 @@ export default function Layout({ children }: LayoutProps) {
                 onClick={() => setSidebarOpen(true)}
               >
                 <Bars3Icon className="h-6 w-6" />
+              </button>
+              <button
+                type="button"
+                className="text-gray-600 hover:text-gray-900 hidden lg:block p-2 rounded-lg hover:bg-gray-100 transition-colors duration-200"
+                onClick={() => setDesktopSidebarOpen(!desktopSidebarOpen)}
+                title={desktopSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
+              >
+                {desktopSidebarOpen ? (
+                  <XMarkIcon className="h-6 w-6" />
+                ) : (
+                  <Bars3Icon className="h-6 w-6" />
+                )}
               </button>
               
               <div>

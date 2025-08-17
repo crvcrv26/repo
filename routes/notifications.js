@@ -101,7 +101,7 @@ router.get('/',
   authorizeRole('admin', 'superAdmin', 'superSuperAdmin'),
   async (req, res) => {
     try {
-      const { page = 1, limit = 50, unreadOnly = false } = req.query;
+      const { page = 1, limit = 50, unreadOnly = false, search = '' } = req.query;
       const skip = (page - 1) * limit;
 
       // Build query based on user role
@@ -122,6 +122,13 @@ router.get('/',
         query.isRead = false;
       }
 
+      // Add search functionality for vehicle number
+      if (search && search.trim()) {
+        const searchTerm = search.trim();
+        query.vehicleNumber = { $regex: searchTerm, $options: 'i' };
+        console.log('🔍 Search query:', { searchTerm, query });
+      }
+
       // Get notifications with pagination
       const notifications = await Notification.find(query)
         .populate('user', 'name email role')
@@ -131,6 +138,7 @@ router.get('/',
         .limit(parseInt(limit));
 
       const total = await Notification.countDocuments(query);
+      console.log('📊 Search results:', { total, search: search || 'none' });
 
       // Format notifications for display
       const formattedNotifications = notifications.map(notif => {

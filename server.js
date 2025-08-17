@@ -23,6 +23,9 @@ const { authenticateToken } = require('./middleware/auth');
 
 const app = express();
 
+// Import User model for cleanup
+const User = require('./models/User');
+
 // Security middleware
 app.use(helmet({
   // Let other origins (like :3000) embed resources from this server
@@ -54,14 +57,52 @@ app.use(compression());
 // app.use('/api/auth', authLimiter);
 
 // CORS configuration
+const allowedOrigins = [
+  // Local development
+  'http://localhost:3000',
+  'http://localhost:3001', 
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:3001',
+  
+  // ngrok domains (wildcard)
+  /^https:\/\/.*\.ngrok-free\.app$/,
+  /^https:\/\/.*\.ngrok\.io$/,
+  /^https:\/\/.*\.ngrok\.app$/,
+  
+  // Production domains (add your actual domains)
+  // 'https://your-frontend-domain.com'
+];
+
+// CORS configuration
 app.use(cors({
-  origin: process.env.NODE_ENV === 'production' 
-    ? ['https://your-frontend-domain.com'] 
-    : ['http://localhost:3000', 'http://localhost:3001', 'http://127.0.0.1:3000', 'http://127.0.0.1:3001'],
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    // Check if origin is in allowed list
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return origin === allowedOrigin;
+      }
+      if (allowedOrigin instanceof RegExp) {
+        return allowedOrigin.test(origin);
+      }
+      return false;
+    });
+    
+    if (isAllowed) {
+      callback(null, true);
+    } else {
+      console.log('Blocked origin:', origin);
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
 }));
+
+
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -157,6 +198,28 @@ const startServer = async () => {
 };
 
 startServer();
+
+// Cleanup inactive users every 5 minutes
+setInterval(async () => {
+  try {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const result = await User.updateMany(
+      { 
+        isOnline: true, 
+        lastSeen: { $lt: fiveMinutesAgo } 
+      },
+      { 
+        isOnline: false 
+      }
+    );
+    
+    if (result.modifiedCount > 0) {
+      console.log(`Marked ${result.modifiedCount} inactive users as offline`);
+    }
+  } catch (error) {
+    console.error('Error cleaning up inactive users:', error);
+  }
+}, 5 * 60 * 1000); // Run every 5 minutes
 
 // Graceful shutdown
 process.on('SIGTERM', () => {

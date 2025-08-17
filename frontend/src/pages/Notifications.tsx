@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { notificationsAPI } from '../services/api'
 import { useAuth } from '../hooks/useAuth'
@@ -6,7 +6,7 @@ import {
   BellIcon,
   EyeIcon,
   MapPinIcon,
-
+  MagnifyingGlassIcon,
   ClockIcon,
   CheckCircleIcon,
   XMarkIcon,
@@ -35,15 +35,32 @@ export default function Notifications() {
   const [showLocationModal, setShowLocationModal] = useState(false)
   const [filter, setFilter] = useState('all') // 'all', 'unread', 'viewed', 'verified'
   const [page, setPage] = useState(1)
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
+  // Debounce search to prevent excessive API calls
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search)
+      setPage(1) // Reset to first page when search changes
+    }, 300) // 300ms delay
+
+    return () => clearTimeout(timer)
+  }, [search])
 
   // Fetch notifications
   const { data: notificationsData, isLoading } = useQuery({
-    queryKey: ['notifications', filter, page],
-    queryFn: () => notificationsAPI.getAll({ 
-      page, 
-      limit: 20, 
-      unreadOnly: filter === 'unread' ? 'true' : 'false' 
-    }),
+    queryKey: ['notifications', filter, page, debouncedSearch],
+    queryFn: () => {
+      const params = { 
+        page, 
+        limit: 20, 
+        unreadOnly: filter === 'unread' ? 'true' : 'false',
+        search: debouncedSearch
+      };
+      console.log('🔍 Frontend search params:', params);
+      return notificationsAPI.getAll(params);
+    },
     enabled: !!currentUser && ['admin', 'superAdmin', 'superSuperAdmin'].includes(currentUser.role),
     refetchInterval: 30000, // Refetch every 30 seconds for real-time updates
   })
@@ -78,6 +95,16 @@ export default function Notifications() {
   const notifications = notificationsData?.data?.data || []
   const pagination = notificationsData?.data?.pagination
   const stats = statsData?.data?.data || { total: 0, unread: 0, viewed: 0, verified: 0 }
+  
+  // Debug: Log notifications when they change
+  useEffect(() => {
+    console.log('📋 Notifications updated:', { 
+      count: notifications.length, 
+      search: debouncedSearch,
+      filter,
+      page 
+    });
+  }, [notifications, debouncedSearch, filter, page]);
 
   const handleMarkAsRead = (notifId: string) => {
     markAsReadMutation.mutate(notifId)
@@ -227,33 +254,58 @@ export default function Notifications() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Search and Filters */}
       <div className="card">
         <div className="card-body">
-          <div className="flex items-center space-x-4">
-            <FunnelIcon className="h-5 w-5 text-gray-500" />
-            <div className="flex space-x-2">
-              {[
-                { key: 'all', label: 'All' },
-                { key: 'unread', label: 'Unread' },
-                { key: 'viewed', label: 'Viewed Only' },
-                { key: 'verified', label: 'Verified Only' }
-              ].map((filterOption) => (
-                <button
-                  key={filterOption.key}
-                  onClick={() => {
-                    setFilter(filterOption.key)
-                    setPage(1)
-                  }}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    filter === filterOption.key
-                      ? 'bg-yellow text-navy'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                >
-                  {filterOption.label}
-                </button>
-              ))}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0 lg:space-x-4">
+            {/* Search */}
+            <div className="flex-1 max-w-md">
+              <div className="relative">
+                <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search by registration number..."
+                  className="form-input pl-10 w-full"
+                />
+                {search && (
+                  <button
+                    onClick={() => setSearch('')}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <XMarkIcon className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Filters */}
+            <div className="flex items-center space-x-4">
+              <FunnelIcon className="h-5 w-5 text-gray-500" />
+              <div className="flex space-x-2">
+                {[
+                  { key: 'all', label: 'All' },
+                  { key: 'unread', label: 'Unread' },
+                  { key: 'viewed', label: 'Viewed Only' },
+                  { key: 'verified', label: 'Verified Only' }
+                ].map((filterOption) => (
+                  <button
+                    key={filterOption.key}
+                    onClick={() => {
+                      setFilter(filterOption.key)
+                      setPage(1)
+                    }}
+                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      filter === filterOption.key
+                        ? 'bg-yellow text-navy'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    {filterOption.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
@@ -272,7 +324,8 @@ export default function Notifications() {
               <BellIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-navy">No notifications</h3>
               <p className="text-gray-600 mt-2">
-                {filter === 'unread' ? 'No unread notifications' : 'No activity to show'}
+                {debouncedSearch ? `No notifications found for "${debouncedSearch}"` : 
+                 filter === 'unread' ? 'No unread notifications' : 'No activity to show'}
               </p>
             </div>
           ) : (

@@ -25,13 +25,24 @@ export default function SessionStatus({ className = '' }: SessionStatusProps) {
       setSessionStatus('checking');
       const response = await authAPI.validateSession();
       setSessionStatus('valid');
-      setIsOnline(response.data?.data?.user?.isOnline || false);
       setLastChecked(new Date());
     } catch (error: any) {
       if (error.response?.status === 401) {
         setSessionStatus('invalid');
         setIsOnline(false);
       }
+    }
+  };
+
+  // Check and update online status based on activity
+  const checkOnlineStatus = async () => {
+    if (!user) return;
+    
+    try {
+      const response = await authAPI.checkOnlineStatus();
+      setIsOnline(response.data?.data?.user?.isOnline || false);
+    } catch (error) {
+      console.error('Failed to check online status:', error);
     }
   };
 
@@ -50,14 +61,22 @@ export default function SessionStatus({ className = '' }: SessionStatusProps) {
   useEffect(() => {
     if (user) {
       checkSession();
+      checkOnlineStatus(); // Initial online status check
       
-      // Check session every 30 seconds
-      const interval = setInterval(checkSession, 30000);
+      // Check session every 5 minutes (300000ms)
+      const sessionInterval = setInterval(checkSession, 300000);
       
-      // Update online status when user is active
+      // Check online status every 5 minutes
+      const onlineStatusInterval = setInterval(checkOnlineStatus, 300000);
+      
+      // Update online status when user is active (debounced)
+      let activityTimeout: NodeJS.Timeout;
       const activityEvents = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
       const handleActivity = () => {
-        updateOnlineStatus();
+        clearTimeout(activityTimeout);
+        activityTimeout = setTimeout(() => {
+          updateOnlineStatus();
+        }, 1000); // Debounce activity updates to 1 second
       };
       
       activityEvents.forEach(event => {
@@ -68,7 +87,9 @@ export default function SessionStatus({ className = '' }: SessionStatusProps) {
       updateOnlineStatus();
       
       return () => {
-        clearInterval(interval);
+        clearInterval(sessionInterval);
+        clearInterval(onlineStatusInterval);
+        clearTimeout(activityTimeout);
         activityEvents.forEach(event => {
           document.removeEventListener(event, handleActivity);
         });
@@ -80,17 +101,17 @@ export default function SessionStatus({ className = '' }: SessionStatusProps) {
   useEffect(() => {
     const handleVisibilityChange = () => {
       if (document.hidden && user) {
-        // User switched tabs or minimized browser
-        authAPI.updateOfflineStatus().catch(console.error);
+        // User switched tabs or minimized browser - don't immediately set offline
+        // Let the 5-minute check handle this
       } else if (!document.hidden && user) {
-        // User returned to tab
+        // User returned to tab - update online status
         updateOnlineStatus();
       }
     };
 
     const handleBeforeUnload = () => {
       if (user) {
-        // User is closing the page
+        // User is closing the page - set offline immediately
         navigator.sendBeacon(`${import.meta.env.VITE_API_URL || 'http://localhost:5000/api'}/auth/update-offline-status`, JSON.stringify({}));
       }
     };
@@ -135,6 +156,9 @@ export default function SessionStatus({ className = '' }: SessionStatusProps) {
       
       <span className="text-gray-400 text-xs">
         Last checked: {lastChecked.toLocaleTimeString()}
+      </span>
+      <span className="text-gray-400 text-xs">
+        Next check: {new Date(lastChecked.getTime() + 300000).toLocaleTimeString()}
       </span>
     </div>
   );

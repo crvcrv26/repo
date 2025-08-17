@@ -96,6 +96,13 @@ const moneyRecordSchema = new mongoose.Schema({
     default: 0
   },
   
+  // Field agent assignment
+  field_agent: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: false
+  },
+  
   // Bookkeeping/meta fields
   created_by: {
     type: mongoose.Schema.Types.ObjectId,
@@ -127,5 +134,6 @@ moneyRecordSchema.index({ bank: 1 });
 moneyRecordSchema.index({ status: 1 });
 moneyRecordSchema.index({ repo_payment_status: 1 });
 moneyRecordSchema.index({ created_by: 1 });
+moneyRecordSchema.index({ field_agent: 1 });
 
 module.exports = mongoose.model('MoneyRecord', moneyRecordSchema);

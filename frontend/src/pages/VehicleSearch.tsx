@@ -369,20 +369,29 @@ export default function VehicleSearch() {
                 <div key={vehicle._id} className="border-2 border-gray-400 rounded-lg p-4 hover:shadow-md transition-shadow">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {currentUser?.role === 'fieldAgent' ? (
+                        // For field agents: Show only registration number
                         <div>
                           <p className="text-sm font-medium text-gray-900">Registration Number</p>
                           <p className="text-sm text-gray-600 font-mono">{vehicle.registration_number || 'N/A'}</p>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">Chassis Number</p>
-                          <p className="text-sm text-gray-600 font-mono">{vehicle.chasis_number || 'N/A'}</p>
+                      ) : (
+                        // For other roles: Show all three fields
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">Registration Number</p>
+                            <p className="text-sm text-gray-600 font-mono">{vehicle.registration_number || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">Chassis Number</p>
+                            <p className="text-sm text-gray-600 font-mono">{vehicle.chasis_number || 'N/A'}</p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-900">Engine Number</p>
+                            <p className="text-sm text-gray-600 font-mono">{vehicle.engine_number || 'N/A'}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">Engine Number</p>
-                          <p className="text-sm text-gray-600 font-mono">{vehicle.engine_number || 'N/A'}</p>
-                        </div>
-                      </div>
+                      )}
                     </div>
                     <div className="ml-4">
                       <button
