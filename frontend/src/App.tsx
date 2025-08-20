@@ -20,6 +20,8 @@ import AdminPaymentManagement from './components/AdminPaymentManagement'
 import AdminMyPayments from './components/AdminMyPayments'
 import SuperSuperAdminPaymentManagement from './components/SuperSuperAdminPaymentManagement'
 import SuperAdminMyPayments from './components/SuperAdminMyPayments'
+import AppManagement from './components/AppManagement'
+import Landing from './pages/Landing'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -35,8 +37,9 @@ function AppContent() {
   if (!user) {
     return (
       <Routes>
+        <Route path="/" element={<Landing />} />
         <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     )
   }
@@ -45,6 +48,7 @@ function AppContent() {
     <Layout>
       <Routes>
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/landing" element={<Landing />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/users" element={<Users />} />
         <Route path="/excel-files" element={<ExcelFiles />} />
@@ -59,6 +63,7 @@ function AppContent() {
         <Route path="/admin-my-payments" element={<AdminMyPayments />} />
         <Route path="/super-super-admin-payments" element={<SuperSuperAdminPaymentManagement />} />
         <Route path="/super-admin-my-payments" element={<SuperAdminMyPayments />} />
+        <Route path="/app-management" element={<AppManagement />} />
         <Route path="/otp-management" element={<OTPManagement />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/profile" element={<Profile />} />

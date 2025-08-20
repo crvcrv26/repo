@@ -22,3 +22,8 @@ export const getImageUrl = (imagePath: string): string => {
   console.log('🔗 Generated image URL:', fullUrl);
   return fullUrl;
 };
+
+// Helper function to get download URL for app files
+export const getAppDownloadUrl = (appId: string): string => {
+  return `${BACKEND_BASE_URL}/api/app-management/download/${appId}`;
+};

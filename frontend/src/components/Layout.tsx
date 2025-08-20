@@ -48,6 +48,15 @@ const getNavigation = (userRole?: string) => {
     });
   }
 
+  // Add App Management for SuperSuperAdmin only
+  if (userRole === 'superSuperAdmin') {
+    baseNavigation.push({ 
+      name: 'App Management', 
+      href: '/app-management', 
+      icon: Cog6ToothIcon
+    });
+  }
+
   // Add admin-specific features (non-payment related)
   if (userRole === 'admin' || userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
     baseNavigation.push({ 
@@ -93,6 +102,13 @@ const getNavigation = (userRole?: string) => {
     name: 'Vehicle Search', 
     href: '/vehicle-search', 
     icon: MagnifyingGlassIcon
+  });
+  
+  // Add Landing page link for all users
+  baseNavigation.push({
+    name: 'Landing Page', 
+    href: '/landing', 
+    icon: HomeIcon
   });
 
   return baseNavigation;

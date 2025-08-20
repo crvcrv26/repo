@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { useAuth } from '../hooks/useAuth';
 import { authAPI, otpAPI } from '../services/api';
+import api from '../services/api';
 import toast from 'react-hot-toast';
+import { getAppDownloadUrl } from '../utils/config';
 import { 
   EnvelopeIcon,
   LockClosedIcon,
@@ -13,7 +15,9 @@ import {
   ArrowLeftIcon,
   UserIcon,
   ShieldCheckIcon,
-  CheckCircleIcon
+  CheckCircleIcon,
+  DevicePhoneMobileIcon,
+  DocumentArrowDownIcon
 } from '@heroicons/react/24/outline';
 import { 
   ChartBarIcon as ChartBarSolid 
@@ -28,6 +32,15 @@ interface OTPForm {
   otp: string;
 }
 
+interface PublicAppVersion {
+  _id: string;
+  appType: 'main' | 'emergency' | string;
+  version: string;
+  downloadCount?: number;
+  description?: string;
+  features?: string[];
+}
+
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -35,6 +48,11 @@ export default function Login() {
   const [showOTPForm, setShowOTPForm] = useState(false);
   const [userData, setUserData] = useState<any>(null);
   const [otpTimer, setOtpTimer] = useState(300); // 5 minutes
+
+  // NEW: App versions state
+  const [appsLoading, setAppsLoading] = useState(true);
+  const [appVersions, setAppVersions] = useState<PublicAppVersion[]>([]);
+
   const { login, loginWithOTP } = useAuth();
   const navigate = useNavigate();
   
@@ -62,10 +80,28 @@ export default function Login() {
     return () => clearInterval(interval);
   }, [showOTPForm, otpTimer]);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  // NEW: Fetch public app versions
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const res = await api.get('/app-management/public/versions');
+        if (mounted) setAppVersions(res.data?.data || []);
+      } catch {
+        toast.error('Failed to load app downloads');
+      } finally {
+        if (mounted) setAppsLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
+
+  const mainApp = appVersions.find(a => a.appType === 'main');
+  const emergencyApp = appVersions.find(a => a.appType === 'emergency');
+
+  const handleDownload = (appId: string) => {
+    const downloadUrl = getAppDownloadUrl(appId);
+    window.open(downloadUrl, '_blank');
   };
 
   const onSubmit = async (data: LoginForm) => {
@@ -264,7 +300,7 @@ export default function Login() {
           <div className="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-gray-900 to-transparent"></div>
         </div>
 
-        {/* Right Side - Login Form */}
+        {/* Right Side - Login Form + App Downloads */}
         <div className="flex-1 flex items-center justify-center p-4 lg:p-12">
           <div className="w-full max-w-md">
             <div className="lg:hidden mb-8 text-center">
@@ -276,6 +312,7 @@ export default function Login() {
               </div>
             </div>
 
+            {/* Login Card */}
             <div className="card">
               <div className="card-header text-center">
                 <h2 className="text-3xl font-bold text-gray-900">Sign In</h2>
@@ -374,9 +411,92 @@ export default function Login() {
                 </div>
               </div>
             </div>
+
+            {/* NEW: App Downloads (normal UI) */}
+            <div className="mt-6 card">
+              <div className="card-header">
+                <div className="flex items-center gap-2">
+                  <DevicePhoneMobileIcon className="h-5 w-5 text-blue-600" />
+                  <h3 className="font-semibold">Download Mobile Apps</h3>
+                </div>
+              </div>
+              <div className="card-body">
+                {appsLoading ? (
+                  <div className="space-y-3">
+                    <div className="h-10 bg-gray-200 rounded animate-pulse" />
+                    <div className="h-10 bg-gray-200 rounded animate-pulse" />
+                  </div>
+                ) : (mainApp || emergencyApp) ? (
+                  <div className="space-y-3">
+                    {mainApp && (
+                      <button
+                        onClick={() => handleDownload(mainApp._id)}
+                        className="w-full inline-flex items-center justify-between px-4 py-3 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 transition"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-lg bg-blue-600 grid place-items-center">
+                            <DevicePhoneMobileIcon className="h-5 w-5 text-white" />
+                          </div>
+                          <div className="text-left">
+                            <p className="font-medium text-gray-900">Main App</p>
+                            <p className="text-xs text-gray-600">
+                              v{mainApp.version} • {mainApp.downloadCount || 0} downloads
+                            </p>
+                          </div>
+                        </div>
+                        <span className="inline-flex items-center text-blue-700 font-medium">
+                          <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
+                          Download APK
+                        </span>
+                      </button>
+                    )}
+
+                    {emergencyApp && (
+                      <button
+                        onClick={() => handleDownload(emergencyApp._id)}
+                        className="w-full inline-flex items-center justify-between px-4 py-3 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 transition"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="h-9 w-9 rounded-lg bg-red-600 grid place-items-center">
+                            <DevicePhoneMobileIcon className="h-5 w-5 text-white" />
+                          </div>
+                          <div className="text-left">
+                            <p className="font-medium text-gray-900">Emergency App</p>
+                            <p className="text-xs text-gray-600">
+                              v{emergencyApp.version} • {emergencyApp.downloadCount || 0} downloads
+                            </p>
+                          </div>
+                        </div>
+                        <span className="inline-flex items-center text-red-700 font-medium">
+                          <DocumentArrowDownIcon className="h-5 w-5 mr-2" />
+                          Download APK
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-sm text-gray-600">
+                    No public builds available yet. Please check back soon.
+                  </div>
+                )}
+
+                <div className="mt-4 text-xs text-gray-500">
+                  Compatible with Android 6.0+. APKs are signed & verified.
+                </div>
+              </div>
+            </div>
+
+            {/* End downloads */}
           </div>
         </div>
       </div>
     </div>
   );
+}
+
+// Helpers
+function formatTime(seconds: number) {
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
 }
