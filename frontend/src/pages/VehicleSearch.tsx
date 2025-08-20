@@ -3,7 +3,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { excelAPI, notificationsAPI } from '../services/api'
 import {
   MagnifyingGlassIcon,
-  DocumentArrowDownIcon,
   EyeIcon,
   XMarkIcon,
   ClockIcon,
@@ -83,85 +82,7 @@ export default function VehicleSearch() {
     }
   }
 
-  const handleExportToExcel = async () => {
-    try {
-      await excelAPI.searchVehicles({ 
-        search: vehicleSearch, 
- 
-        page: 1, 
-        limit: 1000 // Get more data for export
-      })
-      
-      // Create CSV content
-      const headers = [
-        'Registration Number',
-        'Customer Name', 
-        'Loan Number',
-        'Make',
-        'Model',
-        'Branch',
-        'Chassis Number',
-        'Engine Number',
-        'EMI',
-        'Address',
-        'First Confirmer Name',
-        'First Confirmer No',
-        'Second Confirmer Name',
-        'Second Confirmer No',
-        'Third Confirmer Name',
-        'Third Confirmer No',
-        'POS',
-        'Bucket',
-        'Sec 17',
-        'Seasoning',
-        'TBR',
-        'Allocation',
-        'Product Name'
-      ]
-      
-      const csvContent = [
-        headers.join(','),
-        ...vehicles.map((vehicle: any) => [
-          vehicle.registration_number || '',
-          vehicle.customer_name || '',
-          vehicle.loan_number || '',
-          vehicle.make || '',
-          vehicle.model || '',
-          vehicle.branch || '',
-          vehicle.chasis_number || '',
-          vehicle.engine_number || '',
-          vehicle.emi || '',
-          vehicle.address || '',
-          vehicle.first_confirmer_name || '',
-          vehicle.first_confirmer_no || '',
-          vehicle.second_confirmer_name || '',
-          vehicle.second_confirmer_no || '',
-          vehicle.third_confirmer_name || '',
-          vehicle.third_confirmer_no || '',
-          vehicle.pos || '',
-          vehicle.bucket || '',
-          vehicle.sec_17 || '',
-          vehicle.seasoning || '',
-          vehicle.tbr || '',
-          vehicle.allocation || '',
-          vehicle.product_name || ''
-        ].map(field => `"${field}"`).join(','))
-      ].join('\n')
-
-      // Download CSV file
-      const blob = new Blob([csvContent], { type: 'text/csv' })
-      const url = window.URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = `vehicle_search_results_${new Date().toISOString().split('T')[0]}.csv`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      window.URL.revokeObjectURL(url)
-    } catch (error) {
-      console.error('Export failed:', error)
-    }
-  }
+  // Export functionality removed
 
   return (
     <div className="space-y-6">
@@ -171,15 +92,7 @@ export default function VehicleSearch() {
           <p className="text-gray-600">Search through Excel-uploaded vehicle data</p>
         </div>
         <div className="flex space-x-3">
-          {vehicles.length > 0 && (
-            <button
-              onClick={handleExportToExcel}
-              className="btn btn-secondary"
-            >
-              <DocumentArrowDownIcon className="h-5 w-5" />
-              Export to CSV
-            </button>
-          )}
+          {/* Export functionality removed */}
         </div>
       </div>
 

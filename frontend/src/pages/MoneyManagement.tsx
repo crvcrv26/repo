@@ -604,15 +604,7 @@ export default function MoneyManagement() {
                         </td>
                       ) : (
                         <td className="sticky right-0 bg-white z-10 w-16 px-4 py-3">
-                          <div className="flex items-center justify-center">
-                            <button
-                              onClick={() => handleView(record)}
-                              className="p-1.5 text-yellow-600 hover:bg-yellow-50 rounded-md border border-transparent hover:border-yellow-200 transition-all duration-200"
-                              title="View complete record"
-                            >
-                              <EyeIcon className="h-4 w-4" />
-                            </button>
-                          </div>
+                          {/* Field agents can only see table data, no view button */}
                         </td>
                       )}
                     </tr>

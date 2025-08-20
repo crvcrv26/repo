@@ -9,7 +9,8 @@ import {
   DocumentTextIcon,
   CheckCircleIcon,
   XCircleIcon,
-  ClockIcon
+  ClockIcon,
+  ExclamationTriangleIcon
 } from '@heroicons/react/24/outline';
 import api from '../services/api';
 import { getImageUrl } from '../utils/config';
@@ -555,11 +556,25 @@ const AdminPaymentManagement: React.FC = () => {
                     </p>
                   </div>
                 </div>
-                <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
-                  <p className="text-sm text-yellow-800">
-                    This will generate payments for all admins based on the number of users they created in the selected month.
-                  </p>
-                </div>
+                                 {!currentRate ? (
+                   <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                     <div className="flex items-center">
+                       <ExclamationTriangleIcon className="h-5 w-5 text-red-400 mr-2" />
+                       <p className="text-sm text-red-800 font-medium">
+                         Warning: No payment rates have been set yet!
+                       </p>
+                     </div>
+                     <p className="text-sm text-red-700 mt-1">
+                       Please set payment rates first before generating payments. Payments cannot be generated without rates.
+                     </p>
+                   </div>
+                 ) : (
+                   <div className="bg-yellow-50 border border-yellow-200 rounded-md p-3">
+                     <p className="text-sm text-yellow-800">
+                       This will generate payments for all admins based on the number of users they created in the selected month.
+                     </p>
+                   </div>
+                 )}
                 <div className="flex justify-end space-x-3">
                   <button
                     type="button"
