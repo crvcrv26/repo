@@ -103,13 +103,6 @@ const getNavigation = (userRole?: string) => {
     href: '/vehicle-search', 
     icon: MagnifyingGlassIcon
   });
-  
-  // Add Landing page link for all users
-  baseNavigation.push({
-    name: 'Landing Page', 
-    href: '/landing', 
-    icon: HomeIcon
-  });
 
   return baseNavigation;
 };
