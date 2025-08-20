@@ -624,6 +624,109 @@ function clearSearchCache() {
   console.log('🗑️ Search cache cleared due to new data upload');
 }
 
+// @desc    Test endpoint to check Excel file cleanup (remove in production)
+// @route   GET /api/excel/cleanup-test
+// @access  Private (SuperAdmin, Admin)
+router.get('/cleanup-test',
+  authenticateToken,
+  authorizeRole('superSuperAdmin', 'superAdmin', 'admin'),
+  async (req, res) => {
+    try {
+      // Get all Excel files from database
+      const dbFiles = await ExcelFile.find({});
+      
+      // Get all physical files from directory
+      const uploadDir = path.join(__dirname, '../uploads/excel');
+      const physicalFiles = await fs.readdir(uploadDir);
+      
+      // Find orphaned files (files that exist physically but not in database)
+      const dbFilenames = dbFiles.map(file => file.filename);
+      const orphanedFiles = physicalFiles.filter(filename => !dbFilenames.includes(filename));
+      
+      // Find missing files (files that exist in database but not physically)
+      const physicalFilenames = physicalFiles;
+      const missingFiles = dbFiles.filter(file => !physicalFilenames.includes(file.filename));
+      
+      res.json({
+        success: true,
+        data: {
+          totalDbFiles: dbFiles.length,
+          totalPhysicalFiles: physicalFiles.length,
+          orphanedFiles: orphanedFiles,
+          missingFiles: missingFiles.map(file => ({
+            id: file._id,
+            filename: file.filename,
+            filePath: file.filePath
+          })),
+          dbFiles: dbFiles.map(file => ({
+            id: file._id,
+            filename: file.filename,
+            filePath: file.filePath,
+            status: file.status
+          }))
+        }
+      });
+      
+    } catch (error) {
+      console.error('Excel cleanup test error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  }
+);
+
+// @desc    Clean up orphaned Excel files (remove in production)
+// @route   POST /api/excel/cleanup-orphaned
+// @access  Private (SuperAdmin, Admin)
+router.post('/cleanup-orphaned',
+  authenticateToken,
+  authorizeRole('superSuperAdmin', 'superAdmin', 'admin'),
+  async (req, res) => {
+    try {
+      // Get all Excel files from database
+      const dbFiles = await ExcelFile.find({});
+      
+      // Get all physical files from directory
+      const uploadDir = path.join(__dirname, '../uploads/excel');
+      const physicalFiles = await fs.readdir(uploadDir);
+      
+      // Find orphaned files (files that exist physically but not in database)
+      const dbFilenames = dbFiles.map(file => file.filename);
+      const orphanedFiles = physicalFiles.filter(filename => !dbFilenames.includes(filename));
+      
+      let deletedCount = 0;
+      
+      // Delete orphaned files
+      for (const filename of orphanedFiles) {
+        try {
+          const filePath = path.join(uploadDir, filename);
+          await fs.unlink(filePath);
+          deletedCount++;
+          console.log(`✅ Deleted orphaned Excel file: ${filename}`);
+        } catch (error) {
+          console.error(`❌ Error deleting orphaned file ${filename}:`, error.message);
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: `Cleaned up ${deletedCount} orphaned Excel files`,
+        deletedCount,
+        orphanedFiles
+      });
+      
+    } catch (error) {
+      console.error('Excel cleanup error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  }
+);
+
 // @desc    ULTRA-FAST vehicle search - only 3 key fields
 // @route   GET /api/excel/vehicles  
 // @access  Private (All roles)

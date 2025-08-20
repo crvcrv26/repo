@@ -86,4 +86,8 @@ paymentProofSchema.pre('save', function(next) {
   next();
 });
 
+// Create indexes for better performance
+paymentProofSchema.index({ status: 1, reviewedAt: 1, proofType: 1 });
+paymentProofSchema.index({ status: 1, reviewedAt: 1 });
+
 module.exports = mongoose.model('PaymentProof', paymentProofSchema);

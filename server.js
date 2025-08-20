@@ -25,6 +25,8 @@ const app = express();
 
 // Import User model for cleanup
 const User = require('./models/User');
+const PaymentProof = require('./models/PaymentProof');
+const fs = require('fs').promises;
 
 // Security middleware
 app.use(helmet({
@@ -204,6 +206,116 @@ app.use('/api/admin-payments', authenticateToken, require('./routes/adminPayment
 app.use('/api/super-super-admin-payments', authenticateToken, require('./routes/superSuperAdminPayments'));
 app.use('/api/app-management', require('./routes/appManagement'));
 
+// Manual cleanup endpoint for testing (remove in production)
+app.post('/api/cleanup/payment-proofs', async (req, res) => {
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    
+    // First, let's see all approved proofs to understand what we're working with
+    const allApprovedProofs = await PaymentProof.find({
+      status: 'approved',
+      proofType: 'screenshot',
+      proofImageName: { $exists: true, $ne: null }
+    });
+    
+    console.log('🔍 All approved proofs found:', allApprovedProofs.length);
+    allApprovedProofs.forEach((proof, index) => {
+      console.log(`Proof ${index + 1}:`, {
+        id: proof._id,
+        status: proof.status,
+        reviewedAt: proof.reviewedAt,
+        proofImageName: proof.proofImageName,
+        proofImageUrl: proof.proofImageUrl
+      });
+    });
+    
+    const approvedProofs = await PaymentProof.find({
+      status: 'approved',
+      reviewedAt: { $lt: sevenDaysAgo },
+      proofType: 'screenshot',
+      proofImageName: { $exists: true, $ne: null }
+    });
+    
+    console.log('🔍 Proofs older than 7 days:', approvedProofs.length);
+    console.log('🔍 Seven days ago timestamp:', sevenDaysAgo);
+    
+    let deletedCount = 0;
+    
+    for (const proof of approvedProofs) {
+      try {
+        console.log(`🔍 Processing proof: ${proof._id}`);
+        console.log(`   - Image name: ${proof.proofImageName}`);
+        console.log(`   - Image URL: ${proof.proofImageUrl}`);
+        
+        // Determine the correct directory and extract the actual filename from the URL
+        let uploadDir = 'payment-proofs'; // default
+        let actualFileName = proof.proofImageName; // fallback to original name
+        
+        if (proof.proofImageUrl) {
+          if (proof.proofImageUrl.includes('super-admin-payment-proofs')) {
+            uploadDir = 'super-admin-payment-proofs';
+          } else if (proof.proofImageUrl.includes('admin-payment-proofs')) {
+            uploadDir = 'admin-payment-proofs';
+          } else if (proof.proofImageUrl.includes('payment-proofs')) {
+            uploadDir = 'payment-proofs';
+          }
+          
+          // Extract the actual filename from the URL
+          const urlParts = proof.proofImageUrl.split('/');
+          if (urlParts.length > 0) {
+            actualFileName = urlParts[urlParts.length - 1];
+          }
+        }
+        
+        console.log(`   - Determined directory: ${uploadDir}`);
+        console.log(`   - Actual filename from URL: ${actualFileName}`);
+        
+        const imagePath = path.join(__dirname, 'uploads', uploadDir, actualFileName);
+        console.log(`   - Full image path: ${imagePath}`);
+        
+        // Check if file exists before trying to delete
+        try {
+          await fs.access(imagePath);
+          console.log(`   - File exists, attempting deletion...`);
+        } catch (accessError) {
+          console.log(`   - File does not exist: ${accessError.message}`);
+          continue;
+        }
+        
+        await fs.unlink(imagePath);
+        console.log(`   - File deleted successfully`);
+        
+        await PaymentProof.findByIdAndUpdate(proof._id, {
+          $unset: { proofImageUrl: 1, proofImageName: 1 }
+        });
+        console.log(`   - Database record updated`);
+        
+        deletedCount++;
+        console.log(`✅ Manual cleanup: Deleted ${proof.proofImageName} from ${uploadDir}`);
+      } catch (fileError) {
+        console.error(`❌ Error processing proof ${proof._id}:`, fileError.message);
+        console.error(`   - Image name: ${proof.proofImageName}`);
+        console.error(`   - Image URL: ${proof.proofImageUrl}`);
+      }
+    }
+    
+    res.json({
+      success: true,
+      message: `Cleaned up ${deletedCount} payment proof photos`,
+      totalFound: approvedProofs.length,
+      deletedCount,
+      allApprovedCount: allApprovedProofs.length,
+      sevenDaysAgo: sevenDaysAgo.toISOString()
+    });
+  } catch (error) {
+    console.error('Error in manual cleanup:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error during cleanup'
+    });
+  }
+});
+
 // 404 handler
 app.use('*', (req, res) => {
   res.status(404).json({
@@ -270,6 +382,68 @@ setInterval(async () => {
     console.error('Error cleaning up inactive users:', error);
   }
 }, 5 * 60 * 1000); // Run every 5 minutes
+
+// Cleanup approved payment proof photos after 7 days
+setInterval(async () => {
+  try {
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    
+    // Find approved payment proofs that were reviewed more than 7 days ago
+    const approvedProofs = await PaymentProof.find({
+      status: 'approved',
+      reviewedAt: { $lt: sevenDaysAgo },
+      proofType: 'screenshot',
+      proofImageName: { $exists: true, $ne: null }
+    });
+
+    if (approvedProofs.length > 0) {
+      console.log(`🗑️ Found ${approvedProofs.length} approved payment proofs to cleanup`);
+
+      for (const proof of approvedProofs) {
+        try {
+          // Determine the correct directory and extract the actual filename from the URL
+          let uploadDir = 'payment-proofs'; // default
+          let actualFileName = proof.proofImageName; // fallback to original name
+          
+          if (proof.proofImageUrl) {
+            if (proof.proofImageUrl.includes('super-admin-payment-proofs')) {
+              uploadDir = 'super-admin-payment-proofs';
+            } else if (proof.proofImageUrl.includes('admin-payment-proofs')) {
+              uploadDir = 'admin-payment-proofs';
+            } else if (proof.proofImageUrl.includes('payment-proofs')) {
+              uploadDir = 'payment-proofs';
+            }
+            
+            // Extract the actual filename from the URL
+            const urlParts = proof.proofImageUrl.split('/');
+            if (urlParts.length > 0) {
+              actualFileName = urlParts[urlParts.length - 1];
+            }
+          }
+
+          // Delete the image file
+          const imagePath = path.join(__dirname, 'uploads', uploadDir, actualFileName);
+          await fs.unlink(imagePath);
+          console.log(`✅ Deleted payment proof image: ${actualFileName} from ${uploadDir}`);
+
+          // Update the proof record to remove image references
+          await PaymentProof.findByIdAndUpdate(proof._id, {
+            $unset: { proofImageUrl: 1, proofImageName: 1 }
+          });
+          console.log(`✅ Updated payment proof record: ${proof._id}`);
+
+        } catch (fileError) {
+          console.error(`❌ Error deleting file ${actualFileName}:`, fileError.message);
+          // Continue with other files even if one fails
+        }
+      }
+
+      console.log(`✅ Payment proof cleanup completed for ${approvedProofs.length} records`);
+    }
+  } catch (error) {
+    console.error('Error cleaning up payment proof photos:', error);
+  }
+}, 24 * 60 * 60 * 1000); // Run every 24 hours
 
 // Graceful shutdown
 process.on('SIGTERM', () => {
