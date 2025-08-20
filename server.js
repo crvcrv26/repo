@@ -64,6 +64,42 @@ const allowedOrigins = [
   'http://127.0.0.1:3000',
   'http://127.0.0.1:3001',
   
+  // Flutter web development
+  'http://localhost:8080',
+  'http://localhost:8081',
+  'http://localhost:8082',
+  'http://localhost:8083',
+  'http://localhost:8084',
+  'http://localhost:8085',
+  'http://localhost:8086',
+  'http://localhost:8087',
+  'http://localhost:8088',
+  'http://localhost:8090',
+  'http://127.0.0.1:8080',
+  'http://127.0.0.1:8081',
+  'http://127.0.0.1:8082',
+  'http://127.0.0.1:8083',
+  'http://127.0.0.1:8084',
+  'http://127.0.0.1:8085',
+  'http://127.0.0.1:8086',
+  'http://127.0.0.1:8087',
+  'http://127.0.0.1:8088',
+  'http://127.0.0.1:8089',
+  'http://127.0.0.1:8090',
+  
+  // Flutter mobile development (your computer's IP)
+  'http://192.168.31.60:8080',
+  'http://192.168.31.60:8081',
+  'http://192.168.31.60:8082',
+  'http://192.168.31.60:8083',
+  'http://192.168.31.60:8084',
+  'http://192.168.31.60:8085',
+  'http://192.168.31.60:8086',
+  'http://192.168.31.60:8087',
+  'http://192.168.31.60:8088',
+  'http://192.168.31.60:8089',
+  'http://192.168.31.60:8090',
+  
   // ngrok domains (wildcard)
   /^https:\/\/.*\.ngrok-free\.app$/,
   /^https:\/\/.*\.ngrok\.io$/,
@@ -78,6 +114,17 @@ app.use(cors({
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
+    
+    // In development, allow all localhost and local network origins
+    if (process.env.NODE_ENV === 'development') {
+      if (origin.startsWith('http://localhost:') || 
+          origin.startsWith('http://127.0.0.1:') ||
+          origin.startsWith('http://192.168.') ||
+          origin.startsWith('http://10.') ||
+          origin.startsWith('http://172.')) {
+        return callback(null, true);
+      }
+    }
     
     // Check if origin is in allowed list
     const isAllowed = allowedOrigins.some(allowedOrigin => {
@@ -99,7 +146,8 @@ app.use(cors({
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  optionsSuccessStatus: 200 // Some legacy browsers (IE11, various SmartTVs) choke on 204
 }));
 
 
@@ -186,10 +234,11 @@ const PORT = process.env.PORT || 5000;
 const startServer = async () => {
   try {
     await connectDB();
-    app.listen(PORT, () => {
+    app.listen(PORT, '0.0.0.0', () => {
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📊 Environment: ${process.env.NODE_ENV}`);
       console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+      console.log(`🌐 External access: http://192.168.31.60:${PORT}/health`);
     });
   } catch (error) {
     console.error('Server startup error:', error);

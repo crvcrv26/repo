@@ -56,13 +56,40 @@ const qrUpload = multer({
     fileSize: 5 * 1024 * 1024 // 5MB limit
   },
   fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    console.log('🔍 QR File filter checking:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      fieldname: file.fieldname
+    });
     
-    if (mimetype && extname) {
+    // Comprehensive image file type checking - accept all common image formats
+    const allowedExtensions = /\.(jpeg|jpg|png|gif|bmp|tiff|tif|webp|svg|ico|heic|heif)$/i;
+    const allowedMimeTypes = /^image\/(jpeg|jpg|png|gif|bmp|tiff|tif|webp|svg\+xml|ico|heic|heif)$/i;
+    
+    const hasValidExtension = allowedExtensions.test(file.originalname);
+    const hasValidMimeType = allowedMimeTypes.test(file.mimetype);
+    const isOctetStreamWithValidExtension = file.mimetype === 'application/octet-stream' && hasValidExtension;
+    const isGenericImageMimeType = file.mimetype.startsWith('image/');
+    
+    console.log('🔍 QR File filter results:', {
+      hasValidExtension: hasValidExtension,
+      hasValidMimeType: hasValidMimeType,
+      isOctetStreamWithValidExtension: isOctetStreamWithValidExtension,
+      isGenericImageMimeType: isGenericImageMimeType,
+      extension: path.extname(file.originalname).toLowerCase(),
+      mimetype: file.mimetype,
+      originalname: file.originalname
+    });
+    
+    // Accept if:
+    // 1. Valid MIME type (any image/* type)
+    // 2. OR octet-stream with valid image extension (common on mobile)
+    // 3. OR generic image MIME type (image/*)
+    if (hasValidMimeType || isOctetStreamWithValidExtension || isGenericImageMimeType) {
+      console.log('✅ QR File accepted');
       return cb(null, true);
     } else {
+      console.log('❌ QR File rejected');
       cb(new Error('Only image files are allowed!'));
     }
   }
@@ -74,13 +101,40 @@ const proofUpload = multer({
     fileSize: 5 * 1024 * 1024 // 5MB limit
   },
   fileFilter: function (req, file, cb) {
-    const allowedTypes = /jpeg|jpg|png|gif/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    console.log('🔍 Proof File filter checking:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      fieldname: file.fieldname
+    });
     
-    if (mimetype && extname) {
+    // Comprehensive image file type checking - accept all common image formats
+    const allowedExtensions = /\.(jpeg|jpg|png|gif|bmp|tiff|tif|webp|svg|ico|heic|heif)$/i;
+    const allowedMimeTypes = /^image\/(jpeg|jpg|png|gif|bmp|tiff|tif|webp|svg\+xml|ico|heic|heif)$/i;
+    
+    const hasValidExtension = allowedExtensions.test(file.originalname);
+    const hasValidMimeType = allowedMimeTypes.test(file.mimetype);
+    const isOctetStreamWithValidExtension = file.mimetype === 'application/octet-stream' && hasValidExtension;
+    const isGenericImageMimeType = file.mimetype.startsWith('image/');
+    
+    console.log('🔍 Proof File filter results:', {
+      hasValidExtension: hasValidExtension,
+      hasValidMimeType: hasValidMimeType,
+      isOctetStreamWithValidExtension: isOctetStreamWithValidExtension,
+      isGenericImageMimeType: isGenericImageMimeType,
+      extension: path.extname(file.originalname).toLowerCase(),
+      mimetype: file.mimetype,
+      originalname: file.originalname
+    });
+    
+    // Accept if:
+    // 1. Valid MIME type (any image/* type)
+    // 2. OR octet-stream with valid image extension (common on mobile)
+    // 3. OR generic image MIME type (image/*)
+    if (hasValidMimeType || isOctetStreamWithValidExtension || isGenericImageMimeType) {
+      console.log('✅ Proof File accepted');
       return cb(null, true);
     } else {
+      console.log('❌ Proof File rejected');
       cb(new Error('Only image files are allowed!'));
     }
   }
@@ -95,15 +149,47 @@ router.get('/qr', authenticateToken, async (req, res) => {
       userName: req.user.name
     });
     
-    const qrCode = await PaymentQR.findOne({ isActive: true })
-      .populate('adminId', 'name email phone');
+    // Check if user is field agent or auditor
+    if (!['fieldAgent', 'auditor'].includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Access denied. Only field agents and auditors can access payment QR codes.'
+      });
+    }
+    
+    // Find the user's pending payments to get the admin ID
+    const payment = await Payment.findOne({ 
+      userId: req.user._id, 
+      status: 'pending',
+      isActive: true 
+    }).populate('adminId', 'name email phone role');
+    
+    if (!payment) {
+      return res.status(404).json({
+        success: false,
+        message: 'No pending payments found. Please contact your admin to generate payments first.'
+      });
+    }
+    
+    console.log('Found payment for user:', {
+      paymentId: payment._id,
+      adminId: payment.adminId._id,
+      adminName: payment.adminId.name,
+      adminRole: payment.adminId.role
+    });
+    
+    // Get the QR code for the specific admin who created this payment
+    const qrCode = await PaymentQR.findOne({ 
+      adminId: payment.adminId._id,
+      isActive: true 
+    }).populate('adminId', 'name email phone role');
     
     console.log('QR code found:', qrCode);
     
     if (!qrCode) {
       return res.status(404).json({
         success: false,
-        message: 'No QR code found'
+        message: `No QR code found for ${payment.adminId.name}. Please ask them to upload a QR code.`
       });
     }
     
@@ -138,14 +224,33 @@ router.post('/qr', authenticateToken, (req, res, next) => {
   
   next();
 }, (req, res, next) => {
+  console.log('📤 Starting QR upload process...');
+  console.log('📤 Request headers:', req.headers);
+  console.log('📤 Request body keys:', Object.keys(req.body || {}));
+  console.log('📤 Content-Type header:', req.headers['content-type']);
+  
   qrUpload.single('qrImage')(req, res, (err) => {
     if (err) {
-      console.error('Multer error:', err);
+      console.error('❌ Multer error:', err);
+      console.error('❌ Error message:', err.message);
+      console.error('❌ Error stack:', err.stack);
+      console.error('❌ File info:', {
+        originalname: req.file?.originalname,
+        mimetype: req.file?.mimetype,
+        size: req.file?.size,
+        fieldname: req.file?.fieldname
+      });
       return res.status(400).json({
         success: false,
         message: err.message || 'File upload error'
       });
     }
+    console.log('✅ File uploaded successfully:', {
+      originalname: req.file?.originalname,
+      mimetype: req.file?.mimetype,
+      size: req.file?.size,
+      fieldname: req.file?.fieldname
+    });
     next();
   });
 }, async (req, res) => {
@@ -182,6 +287,43 @@ router.post('/qr', authenticateToken, (req, res, next) => {
     });
   } catch (error) {
     console.error('Error uploading QR code:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Get Super Admin QR code (for admin payments)
+router.get('/super-admin/qr-code', authenticateToken, async (req, res) => {
+  try {
+    console.log('Admin attempting to fetch Super Admin QR code:', {
+      userId: req.user._id,
+      userRole: req.user.role,
+      userName: req.user.name
+    });
+    
+    // Find the Super Admin's active QR code
+    const qrCode = await PaymentQR.findOne({ 
+      isActive: true 
+    }).populate('adminId', 'name email phone role');
+    
+    // Check if the QR code belongs to a Super Admin
+    if (!qrCode || qrCode.adminId.role !== 'superAdmin') {
+      return res.status(404).json({
+        success: false,
+        message: 'No active Super Admin QR code found'
+      });
+    }
+    
+    console.log('Super Admin QR code found:', qrCode);
+    
+    res.json({
+      success: true,
+      data: qrCode
+    });
+  } catch (error) {
+    console.error('Error fetching Super Admin QR code:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'
@@ -408,10 +550,19 @@ router.get('/admin/pending-proofs', authenticateToken, authorizeRole('superSuper
       console.log('   User Role:', req.user.role);
       console.log('   User Name:', req.user.name);
 
-      const proofs = await PaymentProof.find({ 
-        adminId: req.user._id,
-        status: 'pending'
-      })
+      console.log('🔍 Querying for proofs with adminId:', req.user._id);
+      console.log('🔍 User role:', req.user.role);
+      
+      // For Super Admin, show all pending proofs where they are the adminId
+      // For regular admin, show only their own pending proofs
+      const query = { status: 'pending' };
+      if (req.user.role === 'superAdmin' || req.user.role === 'superSuperAdmin') {
+        query.adminId = req.user._id;
+      } else {
+        query.adminId = req.user._id;
+      }
+      
+      const proofs = await PaymentProof.find(query)
         .populate('paymentId')
         .populate('userId', 'name email phone role')
         .sort({ createdAt: -1 })
@@ -430,10 +581,7 @@ router.get('/admin/pending-proofs', authenticateToken, authorizeRole('superSuper
         });
       });
     
-         const total = await PaymentProof.countDocuments({ 
-      adminId: req.user._id,
-      status: 'pending'
-    });
+         const total = await PaymentProof.countDocuments(query);
     
 
     

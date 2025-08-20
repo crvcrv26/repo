@@ -16,13 +16,13 @@ const createAdmins = async () => {
     });
     console.log('✅ Connected to MongoDB');
 
-    // Create Super Super Admin
-    const superSuperAdminData = {
-      name: 'Super Super Admin',
-      email: 'supersuperadmin@example.com',
-      phone: '1234567890',
-      password: 'SuperSuperAdmin123!',
-      role: 'superSuperAdmin',
+    // Create Admin (only role supported now)
+    const adminData = {
+      name: 'Admin',
+      email: 'admin@example.com',
+      phone: '9876543210',
+      password: 'Admin123!',
+      role: 'admin',
       location: {
         city: 'Mumbai',
         state: 'Maharashtra',
@@ -33,59 +33,25 @@ const createAdmins = async () => {
       isActive: true
     };
 
-    // Check if Super Super Admin already exists
-    let superSuperAdmin = await User.findOne({ email: superSuperAdminData.email });
-    if (superSuperAdmin) {
-      console.log('👑 Super Super Admin already exists!');
-      console.log('📧 Email:', superSuperAdminData.email);
-      console.log('📱 Phone:', superSuperAdminData.phone);
-      console.log('🔑 Password:', superSuperAdminData.password);
+    // Check if Admin already exists
+    let admin = await User.findOne({ email: adminData.email });
+    if (admin) {
+      console.log('👨‍💼 Admin already exists!');
+      console.log('📧 Email:', adminData.email);
+      console.log('📱 Phone:', adminData.phone);
+      console.log('🔑 Password:', adminData.password);
     } else {
-      superSuperAdmin = new User(superSuperAdminData);
-      await superSuperAdmin.save();
-      console.log('👑 Super Super Admin created successfully!');
-      console.log('📧 Email:', superSuperAdminData.email);
-      console.log('📱 Phone:', superSuperAdminData.phone);
-      console.log('🔑 Password:', superSuperAdminData.password);
+      admin = new User(adminData);
+      await admin.save();
+      console.log('👨‍💼 Admin created successfully!');
+      console.log('📧 Email:', adminData.email);
+      console.log('📱 Phone:', adminData.phone);
+      console.log('🔑 Password:', adminData.password);
     }
 
-    // Create Super Admin
-    const superAdminData = {
-      name: 'Super Admin',
-      email: 'superadmin@example.com',
-      phone: '9876543210',
-      password: 'SuperAdmin123!',
-      role: 'superAdmin',
-      location: {
-        city: 'Delhi',
-        state: 'Delhi',
-        coordinates: [77.2090, 28.6139]
-      },
-      emailVerified: true,
-      phoneVerified: true,
-      isActive: true
-    };
-
-    // Check if Super Admin already exists
-    let superAdmin = await User.findOne({ email: superAdminData.email });
-    if (superAdmin) {
-      console.log('👨‍💼 Super Admin already exists!');
-      console.log('📧 Email:', superAdminData.email);
-      console.log('📱 Phone:', superAdminData.phone);
-      console.log('🔑 Password:', superAdminData.password);
-    } else {
-      superAdmin = new User(superAdminData);
-      await superAdmin.save();
-      console.log('👨‍💼 Super Admin created successfully!');
-      console.log('📧 Email:', superAdminData.email);
-      console.log('📱 Phone:', superAdminData.phone);
-      console.log('🔑 Password:', superAdminData.password);
-    }
-
-    console.log('\n🎉 Both admin users created successfully!');
+    console.log('\n🎉 Admin user created successfully!');
     console.log('\n📋 Login Credentials:');
-    console.log('👑 Super Super Admin: supersuperadmin@example.com / SuperSuperAdmin123!');
-    console.log('👨‍💼 Super Admin: superadmin@example.com / SuperAdmin123!');
+    console.log('👨‍💼 Admin: admin@example.com / Admin123!');
 
   } catch (error) {
     console.error('❌ Error creating admin users:', error);

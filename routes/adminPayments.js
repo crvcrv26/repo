@@ -86,11 +86,42 @@ const superAdminQrUpload = multer({
 
 const adminProofUpload = multer({
   storage: adminProofStorage,
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
+  fileFilter: function (req, file, cb) {
+    console.log('🔍 Admin Proof File filter checking:', {
+      originalname: file.originalname,
+      mimetype: file.mimetype,
+      fieldname: file.fieldname
+    });
+
+    // Comprehensive image file type checking - accept all common image formats
+    const allowedExtensions = /\.(jpeg|jpg|png|gif|bmp|tiff|tif|webp|svg|ico|heic|heif)$/i;
+    const allowedMimeTypes = /^image\/(jpeg|jpg|png|gif|bmp|tiff|tif|webp|svg\+xml|ico|heic|heif)$/i;
+
+    const hasValidExtension = allowedExtensions.test(file.originalname);
+    const hasValidMimeType = allowedMimeTypes.test(file.mimetype);
+    const isOctetStreamWithValidExtension = file.mimetype === 'application/octet-stream' && hasValidExtension;
+    const isGenericImageMimeType = file.mimetype.startsWith('image/');
+
+    console.log('🔍 Admin Proof File filter results:', {
+      hasValidExtension: hasValidExtension,
+      hasValidMimeType: hasValidMimeType,
+      isOctetStreamWithValidExtension: isOctetStreamWithValidExtension,
+      isGenericImageMimeType: isGenericImageMimeType,
+      extension: path.extname(file.originalname).toLowerCase(),
+      mimetype: file.mimetype,
+      originalname: file.originalname
+    });
+
+    // Accept if:
+    // 1. Valid MIME type (any image/* type)
+    // 2. OR octet-stream with valid image extension (common on mobile)
+    // 3. OR generic image MIME type (image/*)
+    if (hasValidMimeType || isOctetStreamWithValidExtension || isGenericImageMimeType) {
+      console.log('✅ Admin Proof File accepted');
+      return cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed'));
+      console.log('❌ Admin Proof File rejected');
+      cb(new Error('Only image files are allowed!'));
     }
   },
   limits: {
@@ -504,15 +535,27 @@ router.get('/my-payments',
     try {
       const { month, status, page = 1, limit = 20 } = req.query;
 
+      console.log('🔍 My Payments Filter Debug:', {
+        month,
+        status,
+        page,
+        limit,
+        adminId: req.user._id
+      });
+
       let query = { adminId: req.user._id };
       
       if (month) {
         query.month = month;
+        console.log('🔍 Added month filter:', month);
       }
       
       if (status) {
         query.status = status;
+        console.log('🔍 Added status filter:', status);
       }
+
+      console.log('🔍 Final query:', JSON.stringify(query, null, 2));
 
       const pageNum = parseInt(page) || 1;
       const pageSize = parseInt(limit) || 20;
@@ -628,31 +671,73 @@ router.get('/qr',
   authorizeRole('admin'),
   async (req, res) => {
     try {
-      // Find Super Admin's QR code (the one who created the payment)
-      // First, find a payment for this admin to get the super admin ID
+      console.log('🔍 QR Code API called by user:', req.user._id, req.user.email);
+      
+      // Find a Super Admin (not Super Super Admin) who has payments for this admin
       const payment = await AdminPayment.findOne({ 
         adminId: req.user._id 
       }).populate('superAdminId');
       
       if (!payment) {
+        console.log('❌ No payment records found for user:', req.user._id);
         return res.status(404).json({
           success: false,
           message: 'No payment records found. Please contact super admin to generate payments first.'
         });
       }
 
+      console.log('✅ Found payment for user:', payment.month, 'Creator:', payment.superAdminId.name, 'Role:', payment.superAdminId.role);
+
+      // Look for a Super Admin specifically (not Super Super Admin)
+      let superAdminId = null;
+      
+      // If the payment creator is a Super Admin, use them
+      if (payment.superAdminId.role === 'superAdmin') {
+        superAdminId = payment.superAdminId._id;
+        console.log('✅ Using payment creator as Super Admin:', payment.superAdminId.name);
+      } else {
+        // Find a Super Admin user who has payments for this admin
+        const superAdminPayment = await AdminPayment.findOne({
+          adminId: req.user._id,
+          'superAdminId.role': 'superAdmin'
+        }).populate('superAdminId');
+        
+        if (superAdminPayment) {
+          superAdminId = superAdminPayment.superAdminId._id;
+          console.log('✅ Found Super Admin from different payment:', superAdminPayment.superAdminId.name);
+        } else {
+          // If no Super Admin payment found, find any Super Admin user
+          const User = require('../models/User');
+          const superAdmin = await User.findOne({ role: 'superAdmin' });
+          if (superAdmin) {
+            superAdminId = superAdmin._id;
+            console.log('✅ Using any available Super Admin:', superAdmin.name);
+          }
+        }
+      }
+
+      if (!superAdminId) {
+        console.log('❌ No Super Admin found');
+        return res.status(404).json({
+          success: false,
+          message: 'No Super Admin found for payments'
+        });
+      }
+
       const qrCode = await PaymentQR.findOne({ 
-        adminId: payment.superAdminId._id, // Super Admin's QR code
+        adminId: superAdminId,
         isActive: true 
       }).sort({ createdAt: -1 });
 
       if (!qrCode) {
+        console.log('❌ No active QR code found for Super Admin:', superAdminId);
         return res.status(404).json({
           success: false,
           message: 'No QR code found for super admin payments'
         });
       }
 
+      console.log('✅ Found active QR code:', qrCode.qrImageUrl);
       res.json({
         success: true,
         data: qrCode
@@ -786,6 +871,32 @@ router.post('/:paymentId/proof',
       // Clean and validate proofType
       const cleanProofType = proofType === 'screenshot' ? 'screenshot' : 'transaction_number';
       
+      // Parse payment date if provided
+      let parsedPaymentDate = null;
+      if (paymentDate) {
+        try {
+          parsedPaymentDate = new Date(paymentDate);
+          // Validate the parsed date
+          if (isNaN(parsedPaymentDate.getTime())) {
+            throw new Error('Invalid date format');
+          }
+        } catch (error) {
+          console.error('Error parsing payment date:', error);
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid payment date format'
+          });
+        }
+      }
+      
+      // Debug payment details
+      console.log('🔍 Payment proof submission debug:');
+      console.log('   Payment ID:', paymentId);
+      console.log('   Payment adminId:', payment.adminId);
+      console.log('   Payment superAdminId:', payment.superAdminId);
+      console.log('   Current user ID:', req.user._id);
+      console.log('   Current user role:', req.user.role);
+      
       // Create payment proof
       const proofData = {
         paymentId: paymentId,
@@ -793,11 +904,20 @@ router.post('/:paymentId/proof',
         adminId: payment.superAdminId,
         proofType: cleanProofType,
         transactionNumber: cleanProofType === 'transaction_number' ? transactionNumber : undefined,
-        paymentDate: paymentDate,
+        paymentDate: parsedPaymentDate,
         amount: amount,
         notes: notes,
         status: 'pending'
       };
+      
+      console.log('🔍 Proof data being created:', {
+        paymentId: proofData.paymentId,
+        userId: proofData.userId,
+        adminId: proofData.adminId,
+        proofType: proofData.proofType,
+        amount: proofData.amount,
+        status: proofData.status
+      });
       
       // Add image fields only if screenshot type and file exists
       if (cleanProofType === 'screenshot' && req.file) {

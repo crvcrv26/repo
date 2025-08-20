@@ -248,15 +248,19 @@ router.get('/admin-details',
     try {
       const { month, year, status, role, page = 1, limit = 20 } = req.query;
       const currentDate = new Date();
-      const currentMonth = month ? parseInt(month) : currentDate.getMonth() + 1;
-      const currentYear = year ? parseInt(year) : currentDate.getFullYear();
-
+      
       // Build match conditions
       const matchConditions = {
         adminId: req.user._id,
-        paymentMonth: currentMonth,
-        paymentYear: currentYear
       };
+      
+      // Only add month/year filters if month is not 'all'
+      if (month && month !== 'all') {
+        const currentMonth = parseInt(month);
+        const currentYear = year ? parseInt(year) : currentDate.getFullYear();
+        matchConditions.paymentMonth = currentMonth;
+        matchConditions.paymentYear = currentYear;
+      }
 
       // Only filter by isActive if it's explicitly set to false
       // This allows us to see all payments including active ones
@@ -303,6 +307,11 @@ router.get('/admin-details',
                 else: '$user.name'
               }
             }
+          }
+        },
+        {
+          $addFields: {
+            amount: '$monthlyAmount'
           }
         },
         {
@@ -396,6 +405,11 @@ router.get('/admin-details',
 
       const total = payments[0].metadata[0]?.total || 0;
       const data = payments[0].data;
+
+      console.log('🔍 Backend - Admin Details Response:');
+      console.log('   Total:', total);
+      console.log('   Data length:', data.length);
+      console.log('   Sample data:', data.slice(0, 2));
 
       res.json({
         success: true,

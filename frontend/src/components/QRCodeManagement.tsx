@@ -60,9 +60,7 @@ export default function QRCodeManagement() {
   // Upload QR code mutation
   const uploadQRMutation = useMutation({
     mutationFn: async (formData: FormData) => {
-  
-      
-      let endpoint = '/api/payment-qr/qr';
+      let endpoint = '/api/payment-qr/admin/qr';
       if (isSuperAdmin) {
         endpoint = '/api/admin-payments/super-admin/qr';
       }

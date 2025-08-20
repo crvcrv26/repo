@@ -779,6 +779,79 @@ router.get('/vehicles',
   }
 );
 
+// @desc    Get all vehicles for offline sync
+// @route   GET /api/excel/vehicles/sync
+// @access  Private (All roles)
+router.get('/vehicles/sync',
+  authenticateToken,
+  async (req, res) => {
+    try {
+      console.log('🔄 Offline sync request from user:', req.user._id, 'role:', req.user.role);
+
+      const page = parseInt(req.query.page) || 1;
+      const limit = Math.min(parseInt(req.query.limit) || 100, 500); // Limit to prevent memory issues
+
+      // Get accessible file IDs (cached per user)
+      let accessibleFileIds = [];
+      if (req.user.role === 'admin') {
+        accessibleFileIds = await getExcelFileIdsForAdmin(req.user._id);
+      } else if (req.user.role === 'fieldAgent') {
+        accessibleFileIds = await getExcelFileIdsForFieldAgent(req.user._id);
+      } else if (req.user.role === 'auditor') {
+        accessibleFileIds = await getExcelFileIdsForAuditor(req.user._id);
+      }
+
+      // Build query for all accessible vehicles
+      const baseQuery = {
+        isActive: true,
+        ...(accessibleFileIds.length > 0 && 
+           req.user.role !== 'superAdmin' && 
+           req.user.role !== 'superSuperAdmin' ? 
+           { excel_file: { $in: accessibleFileIds } } : {})
+      };
+
+      console.log('🔍 Query for offline sync:', JSON.stringify(baseQuery));
+
+      // Get total count for pagination
+      const totalCount = await ExcelVehicle.countDocuments(baseQuery);
+      console.log(`📊 Total vehicles available: ${totalCount}`);
+
+      // Get vehicles with pagination
+      const vehicles = await ExcelVehicle.find(baseQuery)
+        .populate('excel_file', 'filename originalName uploadedBy uploadedAt', null, { lean: true })
+        .select('registration_number chasis_number engine_number customer_name customer_phone customer_email address branch excel_file createdAt rowNumber loan_number make model emi pos bucket sec_17 seasoning allocation product_name first_confirmer_name first_confirmer_no second_confirmer_name second_confirmer_no third_confirmer_name third_confirmer_no assigned_to file_name')
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit)
+        .lean();
+
+      console.log(`✅ Found ${vehicles.length} vehicles for offline sync (page ${page}, limit ${limit})`);
+
+      res.json({
+        success: true,
+        data: vehicles,
+        pagination: {
+          page,
+          limit,
+          total: totalCount,
+          pages: Math.ceil(totalCount / limit)
+        },
+        message: `Successfully retrieved ${vehicles.length} vehicles for offline use (page ${page} of ${Math.ceil(totalCount / limit)})`,
+        count: vehicles.length,
+        totalCount
+      });
+
+    } catch (error) {
+      console.error('❌ Error in offline sync:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to retrieve vehicles for offline sync',
+        error: error.message
+      });
+    }
+  }
+);
+
 // CACHED HELPER FUNCTIONS (much faster with caching)
 async function getExcelFileIdsForAdmin(adminId) {
   const cacheKey = `admin_files_${adminId}`;

@@ -763,6 +763,14 @@ export default function MoneyManagement() {
                       <p className="text-lg font-semibold text-green-600">{formatCurrency(viewingRecord.repo_bill_amount)}</p>
                     </div>
                     <div>
+                      <label className="text-sm font-medium text-gray-600">Total Bill Amount</label>
+                      <p className="text-lg font-semibold text-green-600">{formatCurrency(viewingRecord.total_bill_amount)}</p>
+                    </div>
+                    <div>
+                      <label className="text-sm font-medium text-gray-600">Service Tax</label>
+                      <p className="text-lg font-semibold text-[var(--brand-navy)]">{formatCurrency(viewingRecord.service_tax)}</p>
+                    </div>
+                    <div>
                       <label className="text-sm font-medium text-gray-600">Payment to Repo Team</label>
                       <p className="text-lg font-semibold text-[var(--brand-navy)]">{formatCurrency(viewingRecord.payment_to_repo_team)}</p>
                     </div>
