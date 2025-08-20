@@ -342,7 +342,18 @@ const AdminMyPayments: React.FC = () => {
                           Submit Proof
                         </button>
                       )}
-                      {payment.paymentProof && (
+                      {payment.paymentProof && payment.paymentProof.status === 'rejected' && (
+                        <button
+                          onClick={() => {
+                            setSelectedPayment(payment);
+                            setShowProofModal(true);
+                          }}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Resubmit Proof
+                        </button>
+                      )}
+                      {payment.paymentProof && payment.paymentProof.status !== 'rejected' && (
                         <button
                           onClick={() => {
                             setSelectedPayment(payment);
@@ -376,10 +387,15 @@ const AdminMyPayments: React.FC = () => {
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                {selectedPayment.paymentProof ? 'View Payment Proof' : 'Submit Payment Proof'}
+                {selectedPayment.paymentProof && selectedPayment.paymentProof.status === 'rejected' 
+                  ? 'Resubmit Payment Proof' 
+                  : selectedPayment.paymentProof 
+                    ? 'View Payment Proof' 
+                    : 'Submit Payment Proof'
+                }
               </h3>
               
-              {selectedPayment.paymentProof ? (
+              {selectedPayment.paymentProof && selectedPayment.paymentProof.status !== 'rejected' ? (
                 // View existing proof
                 <div className="space-y-4">
                   <div>
@@ -425,6 +441,128 @@ const AdminMyPayments: React.FC = () => {
                       Close
                     </button>
                   </div>
+                </div>
+              ) : selectedPayment.paymentProof && selectedPayment.paymentProof.status === 'rejected' ? (
+                // Resubmit rejected proof
+                <div className="space-y-4">
+                  <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                    <div className="flex">
+                      <XCircleIcon className="w-5 h-5 text-red-400 mr-2" />
+                      <div>
+                        <h4 className="text-sm font-medium text-red-800">Previous Proof Rejected</h4>
+                        <p className="text-sm text-red-700 mt-1">
+                          Your previous payment proof was rejected. Please submit a new proof with correct information.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Previous Proof Image</label>
+                    <img
+                      src={getImageUrl(selectedPayment.paymentProof.proofImageUrl)}
+                      alt="Previous Payment Proof"
+                      className="mt-1 w-full h-32 object-contain border border-gray-300 rounded-md opacity-50"
+                      crossOrigin="anonymous"
+                    />
+                    <p className="mt-1 text-xs text-gray-500">Previous rejected proof (for reference)</p>
+                  </div>
+                  
+                  <form onSubmit={handleSubmitProof} className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Proof Type</label>
+                      <select
+                        value={proofForm.proofType}
+                        onChange={(e) => {
+                          setProofForm({ ...proofForm, proofType: e.target.value });
+                          setSelectedFile(null);
+                        }}
+                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        required
+                      >
+                        <option value="screenshot">Screenshot</option>
+                        <option value="transaction">Transaction Number</option>
+                      </select>
+                    </div>
+                    {proofForm.proofType === 'screenshot' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          New Proof Image <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                          required
+                        />
+                        <p className="mt-1 text-sm text-gray-500">Upload a new screenshot of your payment confirmation</p>
+                      </div>
+                    )}
+                    {proofForm.proofType === 'transaction' && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700">
+                          New Transaction Number <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={proofForm.transactionNumber}
+                          onChange={(e) => setProofForm({ ...proofForm, transactionNumber: e.target.value })}
+                          className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                          placeholder="Enter new transaction number"
+                          required
+                        />
+                        <p className="mt-1 text-sm text-gray-500">Enter the new transaction number from your payment receipt</p>
+                      </div>
+                    )}
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Payment Date</label>
+                      <input
+                        type="date"
+                        value={proofForm.paymentDate}
+                        onChange={(e) => setProofForm({ ...proofForm, paymentDate: e.target.value })}
+                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Amount Paid (₹)</label>
+                      <input
+                        type="number"
+                        value={proofForm.amount}
+                        onChange={(e) => setProofForm({ ...proofForm, amount: e.target.value })}
+                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder={selectedPayment.totalAmount.toString()}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700">Notes (Optional)</label>
+                      <textarea
+                        value={proofForm.notes}
+                        onChange={(e) => setProofForm({ ...proofForm, notes: e.target.value })}
+                        className="mt-1 block w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500"
+                        rows={3}
+                        placeholder="Any additional notes or explanation for the new proof..."
+                      />
+                    </div>
+                    <div className="flex justify-end space-x-3">
+                      <button
+                        type="button"
+                        onClick={() => setShowProofModal(false)}
+                        className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        disabled={submitProofMutation.isPending}
+                        className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 disabled:opacity-50"
+                      >
+                        {submitProofMutation.isPending ? 'Resubmitting...' : 'Resubmit Proof'}
+                      </button>
+                    </div>
+                  </form>
                 </div>
               ) : (
                 // Submit new proof

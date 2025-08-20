@@ -67,6 +67,9 @@ const paymentProofSchema = new mongoose.Schema({
   reviewedAt: {
     type: Date
   },
+  resubmittedAt: {
+    type: Date
+  },
   createdAt: {
     type: Date,
     default: Date.now

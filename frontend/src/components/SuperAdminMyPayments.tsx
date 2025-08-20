@@ -342,7 +342,18 @@ const SuperAdminMyPayments: React.FC = () => {
                           Submit Proof
                         </button>
                       )}
-                      {payment.paymentProof && (
+                      {payment.paymentProof && payment.paymentProof.status === 'rejected' && (
+                        <button
+                          onClick={() => {
+                            setSelectedPayment(payment);
+                            setShowProofModal(true);
+                          }}
+                          className="text-red-600 hover:text-red-900"
+                        >
+                          Resubmit Proof
+                        </button>
+                      )}
+                      {payment.paymentProof && payment.paymentProof.status !== 'rejected' && (
                         <button
                           onClick={() => {
                             setSelectedPayment(payment);
@@ -376,12 +387,17 @@ const SuperAdminMyPayments: React.FC = () => {
           <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <h3 className="text-lg font-medium text-gray-900 mb-4">
-                {selectedPayment.paymentProof ? 'View Payment Proof' : 'Submit Payment Proof'}
+                {selectedPayment.paymentProof && selectedPayment.paymentProof.status === 'rejected' 
+                  ? 'Resubmit Payment Proof' 
+                  : selectedPayment.paymentProof 
+                    ? 'View Payment Proof' 
+                    : 'Submit Payment Proof'
+                }
               </h3>
               
-              {selectedPayment.paymentProof ? (
-                // View existing proof
-                <div className="space-y-4">
+                             {selectedPayment.paymentProof && selectedPayment.paymentProof.status !== 'rejected' ? (
+                 // View existing proof (only for approved/pending proofs)
+                 <div className="space-y-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Proof Image</label>
                     <img
@@ -426,9 +442,59 @@ const SuperAdminMyPayments: React.FC = () => {
                     </button>
                   </div>
                 </div>
-              ) : (
-                // Submit new proof
-                <form onSubmit={handleSubmitProof} className="space-y-4">
+                             ) : (
+                 // Submit new proof or resubmit rejected proof
+                 <form onSubmit={handleSubmitProof} className="space-y-4">
+                   {/* Show rejected proof details at the top for resubmission */}
+                   {selectedPayment.paymentProof && selectedPayment.paymentProof.status === 'rejected' && (
+                     <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+                       <div className="flex">
+                         <div className="flex-shrink-0">
+                           <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                           </svg>
+                         </div>
+                         <div className="ml-3">
+                           <h3 className="text-sm font-medium text-red-800">
+                             Previous Payment Proof Rejected
+                           </h3>
+                           <div className="mt-2 text-sm text-red-700">
+                             <p>Your previous payment proof was rejected. Please submit new proof with correct information.</p>
+                           </div>
+                         </div>
+                       </div>
+                     </div>
+                   )}
+                   
+                   {/* Show previous rejected proof details */}
+                   {selectedPayment.paymentProof && selectedPayment.paymentProof.status === 'rejected' && (
+                     <div className="bg-gray-50 border border-gray-200 rounded-md p-4 mb-4">
+                       <h4 className="text-sm font-medium text-gray-800 mb-2">Previous Proof Details:</h4>
+                       <div className="grid grid-cols-2 gap-2 text-sm">
+                         <div>
+                           <span className="text-gray-600">Payment Date:</span>
+                           <span className="ml-1 text-gray-900">{formatDate(selectedPayment.paymentProof.paymentDate)}</span>
+                         </div>
+                         <div>
+                           <span className="text-gray-600">Amount:</span>
+                           <span className="ml-1 text-gray-900">₹{selectedPayment.paymentProof.amount}</span>
+                         </div>
+                         {selectedPayment.paymentProof.transactionNumber && (
+                           <div className="col-span-2">
+                             <span className="text-gray-600">Transaction Number:</span>
+                             <span className="ml-1 text-gray-900">{selectedPayment.paymentProof.transactionNumber}</span>
+                           </div>
+                         )}
+                         {selectedPayment.paymentProof.notes && (
+                           <div className="col-span-2">
+                             <span className="text-gray-600">Notes:</span>
+                             <span className="ml-1 text-gray-900">{selectedPayment.paymentProof.notes}</span>
+                           </div>
+                         )}
+                       </div>
+                     </div>
+                   )}
+                  
                   <div>
                     <label className="block text-sm font-medium text-gray-700">Proof Type</label>
                     <select
@@ -520,7 +586,12 @@ const SuperAdminMyPayments: React.FC = () => {
                       disabled={submitProofMutation.isPending}
                       className="px-4 py-2 text-sm font-medium text-white bg-indigo-600 border border-transparent rounded-md hover:bg-indigo-700 disabled:opacity-50"
                     >
-                      {submitProofMutation.isPending ? 'Submitting...' : 'Submit Proof'}
+                      {submitProofMutation.isPending 
+                        ? 'Submitting...' 
+                        : selectedPayment.paymentProof && (selectedPayment.paymentProof as any).status === 'rejected'
+                          ? 'Resubmit Proof'
+                          : 'Submit Proof'
+                      }
                     </button>
                   </div>
                 </form>

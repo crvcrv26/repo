@@ -853,7 +853,7 @@ router.post('/:paymentId/proof',
       }
 
       // Validate payment exists and belongs to this admin
-      const payment = await AdminPayment.findById(paymentId);
+      const payment = await AdminPayment.findById(paymentId).populate('paymentProof');
       if (!payment) {
         return res.status(404).json({
           success: false,
@@ -867,6 +867,10 @@ router.post('/:paymentId/proof',
           message: 'Access denied to this payment'
         });
       }
+
+      // Check if there's an existing rejected proof for resubmission
+      const existingProof = payment.paymentProof;
+      const isResubmission = existingProof && existingProof.status === 'rejected';
 
       // Clean and validate proofType
       const cleanProofType = proofType === 'screenshot' ? 'screenshot' : 'transaction_number';
@@ -897,7 +901,7 @@ router.post('/:paymentId/proof',
       console.log('   Current user ID:', req.user._id);
       console.log('   Current user role:', req.user.role);
       
-      // Create payment proof
+      // Prepare proof data
       const proofData = {
         paymentId: paymentId,
         userId: req.user._id,
@@ -910,32 +914,66 @@ router.post('/:paymentId/proof',
         status: 'pending'
       };
       
-      console.log('🔍 Proof data being created:', {
-        paymentId: proofData.paymentId,
-        userId: proofData.userId,
-        adminId: proofData.adminId,
-        proofType: proofData.proofType,
-        amount: proofData.amount,
-        status: proofData.status
-      });
-      
       // Add image fields only if screenshot type and file exists
       if (cleanProofType === 'screenshot' && req.file) {
         proofData.proofImageUrl = `/uploads/admin-payment-proofs/${req.file.filename}`;
         proofData.proofImageName = req.file.originalname;
       }
       
-      const proof = new PaymentProof(proofData);
+      let proof;
+      
+      if (isResubmission) {
+        // Update existing rejected proof
+        console.log('🔄 Resubmitting rejected proof:', existingProof._id);
+        
+        // Update the existing proof with new data
+        const updateData = {
+          proofType: cleanProofType,
+          transactionNumber: cleanProofType === 'transaction_number' ? transactionNumber : undefined,
+          paymentDate: parsedPaymentDate,
+          amount: amount,
+          notes: notes,
+          status: 'pending',
+          resubmittedAt: new Date()
+        };
+        
+        // Add image fields only if screenshot type and file exists
+        if (cleanProofType === 'screenshot' && req.file) {
+          updateData.proofImageUrl = `/uploads/admin-payment-proofs/${req.file.filename}`;
+          updateData.proofImageName = req.file.originalname;
+        }
+        
+        proof = await PaymentProof.findByIdAndUpdate(
+          existingProof._id,
+          updateData,
+          { new: true }
+        );
+        
+        console.log('✅ Proof resubmitted successfully');
+      } else {
+        // Create new proof
+        console.log('🆕 Creating new payment proof');
+        
+        console.log('🔍 Proof data being created:', {
+          paymentId: proofData.paymentId,
+          userId: proofData.userId,
+          adminId: proofData.adminId,
+          proofType: proofData.proofType,
+          amount: proofData.amount,
+          status: proofData.status
+        });
+        
+        proof = new PaymentProof(proofData);
+        await proof.save();
 
-      await proof.save();
-
-      // Update payment with proof reference
-      payment.paymentProof = proof._id;
-      await payment.save();
+        // Update payment with proof reference
+        payment.paymentProof = proof._id;
+        await payment.save();
+      }
 
       res.status(201).json({
         success: true,
-        message: 'Payment proof submitted successfully',
+        message: isResubmission ? 'Payment proof resubmitted successfully' : 'Payment proof submitted successfully',
         data: proof
       });
 

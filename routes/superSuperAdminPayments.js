@@ -703,7 +703,7 @@ router.post('/:paymentId/proof',
       }
 
       // Validate payment exists and belongs to this super admin
-      const payment = await SuperSuperAdminPayment.findById(paymentId);
+      const payment = await SuperSuperAdminPayment.findById(paymentId).populate('paymentProof');
       if (!payment) {
         return res.status(404).json({
           success: false,
@@ -721,36 +721,60 @@ router.post('/:paymentId/proof',
       // Clean and validate proofType
       const cleanProofType = proofType === 'screenshot' ? 'screenshot' : 'transaction_number';
       
-      // Create payment proof
-      const proofData = {
-        paymentId: paymentId,
-        userId: req.user._id,
-        adminId: payment.superSuperAdminId,
-        proofType: cleanProofType,
-        transactionNumber: cleanProofType === 'transaction_number' ? transactionNumber : undefined,
-        paymentDate: paymentDate,
-        amount: amount,
-        notes: notes,
-        status: 'pending'
-      };
-      
-      // Add image fields only if screenshot type and file exists
-      if (cleanProofType === 'screenshot' && req.file) {
-        proofData.proofImageUrl = `/uploads/super-admin-payment-proofs/${req.file.filename}`;
-        proofData.proofImageName = req.file.originalname;
+      let proof;
+      let isResubmission = false;
+
+      // Check if there's already a rejected proof for this payment
+      if (payment.paymentProof && payment.paymentProof.status === 'rejected') {
+        // Update existing rejected proof
+        proof = payment.paymentProof;
+        proof.proofType = cleanProofType;
+        proof.transactionNumber = cleanProofType === 'transaction_number' ? transactionNumber : undefined;
+        proof.paymentDate = paymentDate;
+        proof.amount = amount;
+        proof.notes = notes;
+        proof.status = 'pending';
+        proof.resubmittedAt = new Date();
+        
+        // Update image fields if screenshot type and file exists
+        if (cleanProofType === 'screenshot' && req.file) {
+          proof.proofImageUrl = `/uploads/super-admin-payment-proofs/${req.file.filename}`;
+          proof.proofImageName = req.file.originalname;
+        }
+        
+        await proof.save();
+        isResubmission = true;
+      } else {
+        // Create new payment proof
+        const proofData = {
+          paymentId: paymentId,
+          userId: req.user._id,
+          adminId: payment.superSuperAdminId,
+          proofType: cleanProofType,
+          transactionNumber: cleanProofType === 'transaction_number' ? transactionNumber : undefined,
+          paymentDate: paymentDate,
+          amount: amount,
+          notes: notes,
+          status: 'pending'
+        };
+        
+        // Add image fields only if screenshot type and file exists
+        if (cleanProofType === 'screenshot' && req.file) {
+          proofData.proofImageUrl = `/uploads/super-admin-payment-proofs/${req.file.filename}`;
+          proofData.proofImageName = req.file.originalname;
+        }
+        
+        proof = new PaymentProof(proofData);
+        await proof.save();
+
+        // Update payment with proof reference
+        payment.paymentProof = proof._id;
+        await payment.save();
       }
-      
-      const proof = new PaymentProof(proofData);
-
-      await proof.save();
-
-      // Update payment with proof reference
-      payment.paymentProof = proof._id;
-      await payment.save();
 
       res.status(201).json({
         success: true,
-        message: 'Payment proof submitted successfully',
+        message: isResubmission ? 'Payment proof resubmitted successfully' : 'Payment proof submitted successfully',
         data: proof
       });
 
