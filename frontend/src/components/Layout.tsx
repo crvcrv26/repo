@@ -55,6 +55,11 @@ const getNavigation = (userRole?: string) => {
       href: '/app-management', 
       icon: Cog6ToothIcon
     });
+    baseNavigation.push({ 
+      name: 'File Storage Handling', 
+      href: '/file-storage-handling', 
+      icon: DocumentArrowUpIcon
+    });
   }
 
   // Add admin-specific features (non-payment related)

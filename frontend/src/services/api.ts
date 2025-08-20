@@ -189,4 +189,12 @@ export const moneyAPI = {
     api.get(`/excel/vehicles/by-reg/${registrationNumber}`)
 }
 
+// File Storage API
+export const fileStorageAPI = {
+  getSettings: () => api.get('/file-storage/settings'),
+  getSettingByRole: (role: string) => api.get(`/file-storage/settings/${role}`),
+  updateSetting: (role: string, data: any) => api.put(`/file-storage/settings/${role}`, data),
+  getMyLimits: () => api.get('/file-storage/my-limits'),
+}
+
 export default api 

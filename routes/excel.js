@@ -7,6 +7,7 @@ const { body, validationResult, query } = require('express-validator');
 const ExcelFile = require('../models/ExcelFile');
 const ExcelVehicle = require('../models/ExcelVehicle');
 const User = require('../models/User');
+const FileStorageSettings = require('../models/FileStorageSettings');
 const { authenticateToken, authorizeRole } = require('../middleware/auth');
 
 const router = express.Router();
@@ -154,6 +155,53 @@ router.post('/upload',
           message: 'Invalid Excel headers',
           missingHeaders: missingHeaders,
           expectedHeaders: EXPECTED_HEADERS
+        });
+      }
+
+      // Check total cumulative record limit for the user's role
+      const recordCount = jsonData.length - 1; // Exclude header row
+      const userRole = req.user.role;
+      
+      // Get file storage settings for the user's role
+      const storageSettings = await FileStorageSettings.findOne({ 
+        role: userRole, 
+        isActive: true 
+      });
+
+      if (!storageSettings) {
+        return res.status(400).json({
+          success: false,
+          message: 'File storage settings not found for your role. Please contact administrator.'
+        });
+      }
+
+      // Calculate current usage for this user
+      const currentUsage = await ExcelFile.aggregate([
+        {
+          $match: {
+            uploadedBy: req.user._id,
+            status: { $in: ['completed', 'partial'] }
+          }
+        },
+        {
+          $group: {
+            _id: null,
+            totalRecords: { $sum: '$totalRows' }
+          }
+        }
+      ]);
+
+      const usedRecords = currentUsage.length > 0 ? currentUsage[0].totalRecords : 0;
+      const remainingRecords = Math.max(0, storageSettings.totalRecordLimit - usedRecords);
+
+      if (recordCount > remainingRecords) {
+        return res.status(400).json({
+          success: false,
+          message: `Total record limit exceeded. Your role (${userRole}) has a total limit of ${storageSettings.totalRecordLimit.toLocaleString()} records. You have used ${usedRecords.toLocaleString()} records and can upload maximum ${remainingRecords.toLocaleString()} more records. File contains ${recordCount.toLocaleString()} records.`,
+          totalLimit: storageSettings.totalRecordLimit,
+          usedRecords: usedRecords,
+          remainingRecords: remainingRecords,
+          fileRecords: recordCount
         });
       }
 

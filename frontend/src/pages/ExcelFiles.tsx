@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'react-hot-toast'
-import { excelAPI, usersAPI } from '../services/api'
+import { excelAPI, usersAPI, fileStorageAPI } from '../services/api'
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -87,6 +87,15 @@ export default function ExcelFiles() {
       console.error('Failed to fetch admins:', error)
     }
   })
+
+  // Fetch user's file storage limits
+  const { data: storageLimitsData } = useQuery({
+    queryKey: ['file-storage-my-limits'],
+    queryFn: () => fileStorageAPI.getMyLimits(),
+    enabled: !!currentUser?.role,
+  })
+
+  const storageLimits = storageLimitsData?.data?.data
 
   // Mutations
   const uploadMutation = useMutation({
@@ -540,6 +549,22 @@ export default function ExcelFiles() {
                   <p className="text-xs text-gray-500 mt-1">
                     Only .xlsx and .xls files up to 50MB are allowed
                   </p>
+                  
+                  {/* Storage Limits Info */}
+                  {storageLimits && (
+                    <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <DocumentArrowUpIcon className="h-4 w-4 text-blue-600" />
+                        <span className="text-sm font-medium text-blue-900">Your Total Storage Limits</span>
+                      </div>
+                      <div className="text-xs text-blue-700 space-y-1">
+                        <div>Total Limit: {storageLimits.totalRecordLimit.toLocaleString()} records</div>
+                        <div>Used: {storageLimits.usedRecords.toLocaleString()} records</div>
+                        <div>Remaining: {storageLimits.remainingRecords.toLocaleString()} records</div>
+                        <div className="text-blue-600 font-medium">{storageLimits.description}</div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                                  {(currentUser?.role === 'superSuperAdmin' || currentUser?.role === 'superAdmin') && (

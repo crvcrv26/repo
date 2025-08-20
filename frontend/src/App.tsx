@@ -21,6 +21,7 @@ import AdminMyPayments from './components/AdminMyPayments'
 import SuperSuperAdminPaymentManagement from './components/SuperSuperAdminPaymentManagement'
 import SuperAdminMyPayments from './components/SuperAdminMyPayments'
 import AppManagement from './components/AppManagement'
+import FileStorageHandling from './components/FileStorageHandling'
 import Landing from './pages/Landing'
 
 function AppContent() {
@@ -64,6 +65,7 @@ function AppContent() {
         <Route path="/super-super-admin-payments" element={<SuperSuperAdminPaymentManagement />} />
         <Route path="/super-admin-my-payments" element={<SuperAdminMyPayments />} />
         <Route path="/app-management" element={<AppManagement />} />
+        <Route path="/file-storage-handling" element={<FileStorageHandling />} />
         <Route path="/otp-management" element={<OTPManagement />} />
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/profile" element={<Profile />} />
