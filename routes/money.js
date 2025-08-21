@@ -693,26 +693,41 @@ router.post('/import',
       });
       await excelFile.save();
 
-      // Process Excel file
-      const workbook = XLSX.readFile(req.file.path);
+      // Process Excel file with streaming approach
+      const workbook = XLSX.readFile(req.file.path, { 
+        cellDates: true,
+        cellNF: false,
+        cellText: false,
+        cellStyles: false
+      });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet);
-
-      if (jsonData.length === 0) {
+      
+      // Get the range of data
+      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+      const totalRows = range.e.r + 1; // +1 because range is 0-based
+      
+      if (totalRows < 2) {
         await MoneyExcelFile.findByIdAndUpdate(excelFile._id, {
           status: 'failed',
-          errorMessage: 'Excel file is empty'
+          errorMessage: 'Excel file is empty or has no data rows'
         });
         return res.status(400).json({
           success: false,
-          message: 'Excel file is empty'
+          message: 'Excel file is empty or has no data rows'
         });
       }
 
+      // Read headers first
+      const headers = [];
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+        const cell = worksheet[cellAddress];
+        headers[col] = cell ? cell.v : null;
+      }
+
       // Validate headers
-      const actualHeaders = Object.keys(jsonData[0]);
-      const missingHeaders = REQUIRED_HEADERS.filter(header => !actualHeaders.includes(header));
+      const missingHeaders = REQUIRED_HEADERS.filter(header => !headers.includes(header));
       
       if (missingHeaders.length > 0) {
         await MoneyExcelFile.findByIdAndUpdate(excelFile._id, {
@@ -727,14 +742,42 @@ router.post('/import',
         });
       }
 
-      // Process rows
+      // Process rows in streaming chunks
       let insertedCount = 0;
       let updatedCount = 0;
       let skippedCount = 0;
       const errors = [];
+      const chunkSize = 1000; // Process 1000 rows at a time
 
-      for (let i = 0; i < jsonData.length; i++) {
-        const rowData = jsonData[i];
+      // Create header mapping
+      const headerMap = {};
+      headers.forEach((header, index) => {
+        headerMap[index] = header;
+      });
+
+      // Process rows in chunks to prevent memory issues
+      for (let startRow = 1; startRow < totalRows; startRow += chunkSize) {
+        const endRow = Math.min(startRow + chunkSize - 1, totalRows - 1);
+        
+        // Read chunk of rows
+        const chunkData = [];
+        for (let row = startRow; row <= endRow; row++) {
+          const rowData = {};
+          for (let col = range.s.c; col <= range.e.c; col++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+            const cell = worksheet[cellAddress];
+            const headerName = headers[col];
+            if (headerName) {
+              rowData[headerName] = cell ? cell.v : null;
+            }
+          }
+          chunkData.push(rowData);
+        }
+
+        // Process this chunk
+        for (let i = 0; i < chunkData.length; i++) {
+          const rowData = chunkData[i];
+          const rowNumber = startRow + i + 1; // +1 because we start from row 2 (after header)
         
         try {
           // Parse and validate data
@@ -815,30 +858,53 @@ router.post('/import',
           }
 
         } catch (error) {
-          console.error(`Row ${i + 2} error:`, error.message);
+          console.error(`Row ${rowNumber} error:`, error.message);
           errors.push({
-            row: i + 2,
+            row: rowNumber,
             reason: error.message
           });
           skippedCount++;
         }
       }
 
-      // Update file status
-      const status = errors.length === 0 ? 'completed' : 
-                   (insertedCount + updatedCount === 0 ? 'failed' : 'partial');
+      // Update progress every 5 chunks
+      if ((Math.floor(startRow / chunkSize) + 1) % 5 === 0 || endRow >= totalRows - 1) {
+        await MoneyExcelFile.findByIdAndUpdate(excelFile._id, {
+          totalRows: totalRows - 1, // Exclude header row
+          processedRows: insertedCount + updatedCount,
+          insertedRows: insertedCount,
+          updatedRows: updatedCount,
+          skippedRows: skippedCount,
+          failedRows: errors.length,
+          status: 'processing',
+          errors: errors.slice(0, 100), // Limit errors array
+          errorMessage: errors.length > 0 ? `${errors.length} rows failed processing` : null
+        });
+      }
 
-      await MoneyExcelFile.findByIdAndUpdate(excelFile._id, {
-        totalRows: jsonData.length,
-        processedRows: insertedCount + updatedCount,
-        insertedRows: insertedCount,
-        updatedRows: updatedCount,
-        skippedRows: skippedCount,
-        failedRows: errors.length,
-        status,
-        errors: errors.slice(0, 100), // Limit errors array
-        errorMessage: errors.length > 0 ? `${errors.length} rows failed processing` : null
-      });
+      // Force garbage collection every 10 chunks to free memory
+      if ((Math.floor(startRow / chunkSize) + 1) % 10 === 0) {
+        if (global.gc) {
+          global.gc();
+        }
+      }
+    }
+
+    // Update file status with final results
+    const status = errors.length === 0 ? 'completed' : 
+                 (insertedCount + updatedCount === 0 ? 'failed' : 'partial');
+
+    await MoneyExcelFile.findByIdAndUpdate(excelFile._id, {
+      totalRows: totalRows - 1, // Exclude header row
+      processedRows: insertedCount + updatedCount,
+      insertedRows: insertedCount,
+      updatedRows: updatedCount,
+      skippedRows: skippedCount,
+      failedRows: errors.length,
+      status,
+      errors: errors.slice(0, 100), // Limit errors array
+      errorMessage: errors.length > 0 ? `${errors.length} rows failed processing` : null
+    });
 
       // Cleanup uploaded file
       fs.unlinkSync(req.file.path);
@@ -849,7 +915,7 @@ router.post('/import',
         data: {
           fileId: excelFile._id,
           filename: req.file.originalname,
-          totalRows: jsonData.length,
+          totalRows: totalRows - 1, // Exclude header row
           insertedCount,
           updatedCount,
           skippedCount,

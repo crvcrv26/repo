@@ -130,23 +130,36 @@ router.post('/upload',
         assignedTo = req.body.assignedTo;
       }
 
-      // Read Excel file
-      const workbook = XLSX.readFile(req.file.path);
+      // Read Excel file with streaming approach
+      const workbook = XLSX.readFile(req.file.path, { 
+        cellDates: true,
+        cellNF: false,
+        cellText: false,
+        cellStyles: false
+      });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
       
-      // Convert to JSON
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 });
+      // Get the range of data
+      const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+      const totalRows = range.e.r + 1; // +1 because range is 0-based
       
-      if (jsonData.length < 2) {
+      if (totalRows < 2) {
         return res.status(400).json({
           success: false,
           message: 'Excel file must contain at least headers and one data row'
         });
       }
 
+      // Read headers first
+      const headers = [];
+      for (let col = range.s.c; col <= range.e.c; col++) {
+        const cellAddress = XLSX.utils.encode_cell({ r: 0, c: col });
+        const cell = worksheet[cellAddress];
+        headers[col] = cell ? cell.v : null;
+      }
+
       // Validate headers
-      const headers = jsonData[0];
       const missingHeaders = EXPECTED_HEADERS.filter(header => !headers.includes(header));
       
       if (missingHeaders.length > 0) {
@@ -159,7 +172,7 @@ router.post('/upload',
       }
 
       // Check total cumulative record limit for the user's role
-      const recordCount = jsonData.length - 1; // Exclude header row
+      const recordCount = totalRows - 1; // Exclude header row
       const userRole = req.user.role;
       
       // Get file storage settings for the user's role
@@ -213,13 +226,15 @@ router.post('/upload',
         mimeType: req.file.mimetype,
         uploadedBy: req.user._id,
         assignedTo: assignedTo,
-        totalRows: jsonData.length - 1, // Exclude header row
+        totalRows: recordCount,
         filePath: req.file.path
       });
 
-      // Process data rows in batches for better performance
-      const batchSize = 5000; // Increased batch size for better performance
-      const dataRows = jsonData.slice(1); // Exclude header row
+      // Process data rows in streaming chunks
+      const chunkSize = 1000; // Process 1000 rows at a time
+      let processedRows = 0;
+      let failedRows = 0;
+      let skippedRows = 0;
 
       // Create header mapping
       const headerMap = {};
@@ -227,73 +242,86 @@ router.post('/upload',
         headerMap[index] = header;
       });
 
-      // Create a progress update function
-      const updateProgress = async (processed, failed, skipped) => {
-        await ExcelFile.findByIdAndUpdate(excelFile._id, {
-          processedRows: processed,
-          failedRows: failed,
-          skippedRows: skipped,
-          status: 'processing'
-        });
-      };
-
-      // Use bulk operations for better performance
-      const bulkOps = [];
-      let processedRows = 0;
-      let failedRows = 0;
-      let skippedRows = 0;
-
-      // Process all rows and prepare bulk operations
-      dataRows.forEach((row, index) => {
-        const rowNumber = index + 2; // +2 because we start from row 2 (after header)
+      // Process rows in chunks to prevent memory issues
+      for (let startRow = 1; startRow < totalRows; startRow += chunkSize) {
+        const endRow = Math.min(startRow + chunkSize - 1, totalRows - 1);
         
-        // Skip empty rows
-        if (!row || row.every(cell => !cell || cell.toString().trim() === '')) {
-          skippedRows++;
-          return;
+        // Read chunk of rows
+        const chunkData = [];
+        for (let row = startRow; row <= endRow; row++) {
+          const rowData = [];
+          for (let col = range.s.c; col <= range.e.c; col++) {
+            const cellAddress = XLSX.utils.encode_cell({ r: row, c: col });
+            const cell = worksheet[cellAddress];
+            rowData[col] = cell ? cell.v : null;
+          }
+          chunkData.push(rowData);
         }
 
-        const vehicleRecord = {
-          insertOne: {
-            document: {
-              excel_file: excelFile._id,
-              rowNumber: rowNumber
-            }
+        // Process this chunk
+        const bulkOps = [];
+        
+        chunkData.forEach((row, chunkIndex) => {
+          const rowNumber = startRow + chunkIndex + 1; // +1 because we start from row 2 (after header)
+          
+          // Skip empty rows
+          if (!row || row.every(cell => !cell || cell.toString().trim() === '')) {
+            skippedRows++;
+            return;
           }
-        };
 
-        // Map data to fields
-        Object.keys(headerMap).forEach(columnIndex => {
-          const fieldName = headerMap[columnIndex];
-          const value = row[columnIndex];
-          vehicleRecord.insertOne.document[fieldName] = value ? value.toString().trim() : null;
+          const vehicleRecord = {
+            insertOne: {
+              document: {
+                excel_file: excelFile._id,
+                rowNumber: rowNumber
+              }
+            }
+          };
+
+          // Map data to fields
+          Object.keys(headerMap).forEach(columnIndex => {
+            const fieldName = headerMap[columnIndex];
+            const value = row[columnIndex];
+            vehicleRecord.insertOne.document[fieldName] = value ? value.toString().trim() : null;
+          });
+
+          bulkOps.push(vehicleRecord);
         });
 
-        bulkOps.push(vehicleRecord);
-      });
-
-      // Execute bulk operations in chunks for better memory management
-      const chunkSize = 10000;
-      for (let i = 0; i < bulkOps.length; i += chunkSize) {
-        const chunk = bulkOps.slice(i, i + chunkSize);
-        try {
-          const result = await ExcelVehicle.bulkWrite(chunk, { 
-            ordered: false,
-            w: 1 // Write concern
-          });
-          processedRows += result.insertedCount;
-        } catch (error) {
-          console.error(`Chunk ${Math.floor(i / chunkSize) + 1} error:`, error.message);
-          failedRows += chunk.length;
+        // Execute bulk operations for this chunk
+        if (bulkOps.length > 0) {
+          try {
+            const result = await ExcelVehicle.bulkWrite(bulkOps, { 
+              ordered: false,
+              w: 1 // Write concern
+            });
+            processedRows += result.insertedCount;
+          } catch (error) {
+            console.error(`Chunk ${Math.floor(startRow / chunkSize) + 1} error:`, error.message);
+            failedRows += bulkOps.length;
+          }
         }
 
         // Update progress every 5 chunks
-        if ((i / chunkSize + 1) % 5 === 0 || i + chunkSize >= bulkOps.length) {
-          await updateProgress(processedRows, failedRows, skippedRows);
+        if ((Math.floor(startRow / chunkSize) + 1) % 5 === 0 || endRow >= totalRows - 1) {
+          await ExcelFile.findByIdAndUpdate(excelFile._id, {
+            processedRows: processedRows,
+            failedRows: failedRows,
+            skippedRows: skippedRows,
+            status: 'processing'
+          });
+        }
+
+        // Force garbage collection every 10 chunks to free memory
+        if ((Math.floor(startRow / chunkSize) + 1) % 10 === 0) {
+          if (global.gc) {
+            global.gc();
+          }
         }
       }
 
-      // Update ExcelFile with results
+      // Update ExcelFile with final results
       const status = failedRows === 0 ? 'completed' : 
                     processedRows === 0 ? 'failed' : 'partial';
       
@@ -314,7 +342,7 @@ router.post('/upload',
         data: {
           fileId: excelFile._id,
           filename: req.file.originalname,
-          totalRows: jsonData.length - 1,
+          totalRows: recordCount,
           processedRows,
           failedRows,
           skippedRows,
