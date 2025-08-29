@@ -12,7 +12,12 @@ const getApiBaseUrl = () => {
     return `${window.location.protocol}//${currentHost}/api`;
   }
   
-  // Use environment variable or default
+  // In production, use the same host as the frontend
+  if (process.env.NODE_ENV === 'production' || window.location.hostname !== 'localhost') {
+    return `${window.location.protocol}//${window.location.host}/api`;
+  }
+  
+  // Use environment variable or default for development
   return (import.meta as any).env?.VITE_API_URL || 'http://localhost:5000/api';
 };
 
@@ -61,10 +66,12 @@ api.interceptors.response.use(
           window.location.href = '/login'
         }
       } else {
-        // Regular 401 - just redirect to login
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        if (typeof window !== 'undefined') {
+        // For login errors, don't redirect - let the component handle the error
+        // Only redirect for authenticated requests that fail
+        const isLoginRequest = error.config?.url?.includes('/auth/login')
+        if (!isLoginRequest && typeof window !== 'undefined') {
+          localStorage.removeItem('token')
+          localStorage.removeItem('user')
           window.location.href = '/login'
         }
       }
@@ -75,7 +82,7 @@ api.interceptors.response.use(
 
 // Auth API
 export const authAPI = {
-  login: (data: { email: string; password: string }) =>
+  login: (data: { emailOrPhone: string; password: string }) =>
     api.post('/auth/login', data),
   register: (data: any) => api.post('/auth/register', data),
   getProfile: () => api.get('/auth/me'),
@@ -125,6 +132,7 @@ export const excelAPI = {
   getFileById: (id: string) => api.get(`/excel/files/${id}`),
   deleteFile: (id: string) => api.delete(`/excel/files/${id}`),
   reassignFile: (id: string, data: { assignedTo: string }) => api.put(`/excel/files/${id}/reassign`, data),
+  updateAssignments: (id: string, data: { assignedAdmins: string[] }) => api.put(`/excel/files/${id}/update-assignments`, data),
   downloadTemplate: () => api.get('/excel/template', { responseType: 'blob' }),
   searchVehicles: (params?: any) => api.get('/excel/vehicles', { params }),
 }
@@ -132,7 +140,7 @@ export const excelAPI = {
 // OTP API
 export const otpAPI = {
   generate: (userId: string) => api.post('/otp/generate', { userId }),
-  verify: (email: string, otp: string) => api.post('/otp/verify', { email, otp }),
+  verify: (emailOrPhone: string, otp: string) => api.post('/otp/verify', { emailOrPhone, otp }),
   view: (userId: string) => api.get(`/otp/view/${userId}`),
   list: () => api.get('/otp/list'),
   invalidate: (userId: string) => api.delete(`/otp/invalidate/${userId}`),
@@ -195,6 +203,55 @@ export const fileStorageAPI = {
   getSettingByRole: (role: string) => api.get(`/file-storage/settings/${role}`),
   updateSetting: (role: string, data: any) => api.put(`/file-storage/settings/${role}`, data),
   getMyLimits: () => api.get('/file-storage/my-limits'),
+}
+
+// Payment QR API
+export const paymentQRAPI = {
+  // Get QR codes
+  getQR: () => api.get('/payment-qr/qr'),
+  getAdminQR: () => api.get('/payment-qr/admin/qr'),
+  getSuperAdminQR: () => api.get('/payment-qr/super-admin/qr'),
+  
+  // Upload QR codes
+  uploadQR: (formData: FormData) => api.post('/payment-qr/qr', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  uploadAdminQR: (formData: FormData) => api.post('/payment-qr/admin/qr', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  uploadSuperAdminQR: (formData: FormData) => api.post('/payment-qr/super-admin/qr', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  
+  // Toggle QR status
+  toggleActive: (qrId: string) => api.put(`/payment-qr/admin/qr/${qrId}/toggle-active`),
+  toggleSuperAdminActive: (qrId: string) => api.put(`/payment-qr/super-admin/qr/${qrId}/toggle-active`),
+  
+  // Delete QR codes
+  deleteQR: (qrId: string) => api.delete(`/payment-qr/admin/qr/${qrId}`),
+  deleteSuperAdminQR: (qrId: string) => api.delete(`/payment-qr/super-admin/qr/${qrId}`),
+  
+  // Payment proof management
+  uploadProof: (formData: FormData) => api.post('/payment-qr/proof', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
+  getPendingProofs: () => api.get('/payment-qr/admin/pending-proofs'),
+  reviewProof: (proofId: string, data: { status: string; notes?: string }) => 
+    api.put(`/payment-qr/proof/${proofId}/review`, data),
+}
+
+// Admin Payments API
+export const adminPaymentsAPI = {
+  getMyPayments: (params?: any) => api.get('/admin-payments/my-payments', { params }),
+  getPaymentDetails: (paymentId: string) => api.get(`/admin-payments/payment-details/${paymentId}`),
+  getPaymentStats: () => api.get('/admin-payments/stats'),
+}
+
+// Super Super Admin Payments API
+export const superSuperAdminPaymentsAPI = {
+  getMyPayments: (params?: any) => api.get('/super-super-admin-payments/my-payments', { params }),
+  getPaymentDetails: (paymentId: string) => api.get(`/super-super-admin-payments/payment-details/${paymentId}`),
+  getPaymentStats: () => api.get('/super-super-admin-payments/stats'),
 }
 
 export default api 

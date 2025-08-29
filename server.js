@@ -185,6 +185,9 @@ app.use('/uploads', (req, res, next) => {
   next();
 }, express.static(path.join(__dirname, 'uploads')));
 
+// Serve React app static files
+app.use(express.static(path.join(__dirname, 'frontend', 'dist')));
+
 // Health check endpoint
 app.get('/health', (req, res) => {
   res.status(200).json({
@@ -318,12 +321,18 @@ app.post('/api/cleanup/payment-proofs', async (req, res) => {
   }
 });
 
-// 404 handler
+// Serve React app for all non-API routes
 app.use('*', (req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found'
-  });
+  // Don't serve React app for API routes
+  if (req.path.startsWith('/api/')) {
+    return res.status(404).json({
+      success: false,
+      message: 'Route not found'
+    });
+  }
+  
+  // Serve the React app's index.html for all other routes
+  res.sendFile(path.join(__dirname, 'frontend', 'dist', 'index.html'));
 });
 
 // Error handling middleware

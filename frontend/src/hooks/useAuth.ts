@@ -25,7 +25,7 @@ interface User {
 interface AuthContextType {
   user: User | null
   loading: boolean
-  login: (email: string, password: string) => Promise<void>
+  login: (emailOrPhone: string, password: string) => Promise<void>
   loginWithOTP: (token: string, user: User) => void
   logout: () => Promise<void>
   forceLogout: () => Promise<void>
@@ -90,8 +90,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     initAuth()
   }, [])
 
-  const login = async (email: string, password: string) => {
-    const response = await authAPI.login({ email, password })
+  const login = async (emailOrPhone: string, password: string) => {
+    const response = await authAPI.login({ emailOrPhone, password })
     const { token, user } = response.data.data
     
     localStorage.setItem('token', token)

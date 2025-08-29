@@ -25,11 +25,18 @@ const excelFileSchema = new mongoose.Schema({
     ref: 'User',
     required: [true, 'Uploader is required']
   },
+  // Keep assignedTo for backward compatibility (will store the primary admin)
   assignedTo: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
-    required: [true, 'Assigned admin is required']
+    required: [true, 'Primary assigned admin is required']
   },
+  // New field for multiple admin assignments
+  assignedAdmins: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  }],
   totalRows: {
     type: Number,
     default: 0
@@ -70,6 +77,21 @@ const excelFileSchema = new mongoose.Schema({
 // Index for better query performance
 excelFileSchema.index({ uploadedBy: 1, createdAt: -1 });
 excelFileSchema.index({ assignedTo: 1, createdAt: -1 });
+excelFileSchema.index({ assignedAdmins: 1, createdAt: -1 });
 excelFileSchema.index({ status: 1 });
+
+// Pre-save middleware to ensure assignedTo is always the first admin in assignedAdmins
+excelFileSchema.pre('save', function(next) {
+  if (this.assignedAdmins && this.assignedAdmins.length > 0) {
+    // Ensure assignedTo is always the first admin in the array
+    if (!this.assignedAdmins.includes(this.assignedTo)) {
+      this.assignedAdmins.unshift(this.assignedTo);
+    }
+  } else if (this.assignedTo) {
+    // If assignedAdmins is empty but assignedTo exists, initialize it
+    this.assignedAdmins = [this.assignedTo];
+  }
+  next();
+});
 
 module.exports = mongoose.model('ExcelFile', excelFileSchema); 

@@ -249,17 +249,22 @@ router.delete('/invalidate/:userId', authenticateToken, authorizeRole('admin'), 
 // @access  Public
 router.post('/verify', async (req, res) => {
   try {
-    const { email, otp } = req.body
+    const { emailOrPhone, otp } = req.body
 
-    if (!email || !otp) {
+    if (!emailOrPhone || !otp) {
       return res.status(400).json({
         success: false,
-        message: 'Email and OTP are required'
+        message: 'Email/Phone and OTP are required'
       })
     }
 
-    // Find user by email
-    const user = await User.findOne({ email })
+    // Find user by email or phone
+    const user = await User.findOne({
+      $or: [
+        { email: emailOrPhone },
+        { phone: emailOrPhone }
+      ]
+    })
     if (!user) {
       return res.status(404).json({
         success: false,
@@ -333,6 +338,7 @@ router.post('/verify', async (req, res) => {
           _id: user._id,
           name: user.name,
           email: user.email,
+          phone: user.phone,
           role: user.role
         }
       }

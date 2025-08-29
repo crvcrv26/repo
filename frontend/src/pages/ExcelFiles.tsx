@@ -19,6 +19,7 @@ import {
   ArrowPathIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../hooks/useAuth'
+import AdminAssignmentModal from '../components/AdminAssignmentModal'
 
 interface ExcelFile {
   _id: string
@@ -35,6 +36,11 @@ interface ExcelFile {
     name: string
     email: string
   }
+  assignedAdmins?: Array<{
+    _id: string
+    name: string
+    email: string
+  }>
   totalRows: number
   processedRows: number
   failedRows: number
@@ -48,6 +54,7 @@ interface ExcelFile {
 interface UploadForm {
   file: File | null
   assignedTo: string
+  assignedAdmins: string[]
 }
 
 export default function ExcelFiles() {
@@ -64,11 +71,16 @@ export default function ExcelFiles() {
   const [showUploadModal, setShowUploadModal] = useState(false)
   const [uploadForm, setUploadForm] = useState<UploadForm>({
     file: null,
-    assignedTo: ''
+    assignedTo: '',
+    assignedAdmins: []
   })
   const [isUploading, setIsUploading] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
   const [uploadStatus, setUploadStatus] = useState('')
+
+  // State for assignment modal
+  const [showAssignmentModal, setShowAssignmentModal] = useState(false)
+  const [selectedFile, setSelectedFile] = useState<ExcelFile | null>(null)
 
   // Fetch Excel files
   const { data, isLoading, error } = useQuery({
@@ -207,6 +219,9 @@ export default function ExcelFiles() {
       
       if ((currentUser?.role === 'superSuperAdmin' || currentUser?.role === 'superAdmin') && uploadForm.assignedTo) {
         formData.append('assignedTo', uploadForm.assignedTo)
+        if (uploadForm.assignedAdmins.length > 0) {
+          formData.append('assignedAdmins', JSON.stringify(uploadForm.assignedAdmins))
+        }
       }
 
       await uploadMutation.mutateAsync(formData)
@@ -239,7 +254,8 @@ export default function ExcelFiles() {
   const resetUploadForm = () => {
     setUploadForm({
       file: null,
-      assignedTo: ''
+      assignedTo: '',
+      assignedAdmins: []
     })
   }
 
@@ -456,16 +472,46 @@ export default function ExcelFiles() {
                           </span>
                           <span className="flex items-center">
                             <UserIcon className="h-3 w-3 mr-1" />
-                            Assigned to {file.assignedTo.name}
+                            Primary: {file.assignedTo.name}
                           </span>
                           <span className="flex items-center">
                             <CalendarIcon className="h-3 w-3 mr-1" />
                             {new Date(file.createdAt).toLocaleDateString()}
                           </span>
                         </div>
+                        
+                        {/* Assigned Admins Display */}
+                        {file.assignedAdmins && file.assignedAdmins.length > 1 && (
+                          <div className="mt-2">
+                            <div className="flex items-center space-x-2 text-xs text-gray-500">
+                              <UserIcon className="h-3 w-3" />
+                              <span>Also assigned to:</span>
+                              <div className="flex flex-wrap gap-1">
+                                {file.assignedAdmins.slice(1).map((admin, index) => (
+                                  <span key={admin._id} className="bg-gray-100 px-2 py-1 rounded text-xs">
+                                    {admin.name}
+                                    {index < file.assignedAdmins!.length - 2 && ','}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
+                      {(currentUser?.role === 'superSuperAdmin' || currentUser?.role === 'superAdmin') && (
+                        <button
+                          onClick={() => {
+                            setSelectedFile(file);
+                            setShowAssignmentModal(true);
+                          }}
+                          className="text-blue-600 hover:text-blue-800 p-2"
+                          title="Manage admin assignments"
+                        >
+                          <UserIcon className="h-5 w-5" />
+                        </button>
+                      )}
                       <button
                         onClick={() => handleDelete(file._id)}
                         className="text-red-600 hover:text-red-800 p-2"
@@ -570,7 +616,7 @@ export default function ExcelFiles() {
                                  {(currentUser?.role === 'superSuperAdmin' || currentUser?.role === 'superAdmin') && (
                    <div>
                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                       Assign to Admin
+                       Assign to Admin(s)
                      </label>
                      {adminsLoading ? (
                        <div className="text-blue-600 text-sm mb-2">
@@ -581,19 +627,75 @@ export default function ExcelFiles() {
                          Failed to load admins. Please try again.
                        </div>
                      ) : (
-                       <select
-                         value={uploadForm.assignedTo}
-                         onChange={(e) => setUploadForm(prev => ({ ...prev, assignedTo: e.target.value }))}
-                         className="input"
-                         required
-                       >
-                         <option value="">Select an admin</option>
-                         {admins.map((admin: any) => (
-                           <option key={admin._id} value={admin._id}>
-                             {admin.name} ({admin.email})
-                           </option>
-                         ))}
-                       </select>
+                       <div className="space-y-3">
+                         {/* Primary Admin Selection */}
+                         <div>
+                           <label className="block text-xs font-medium text-gray-600 mb-1">
+                             Primary Admin (Required)
+                           </label>
+                           <select
+                             value={uploadForm.assignedTo}
+                             onChange={(e) => {
+                               const selectedAdmin = e.target.value;
+                               setUploadForm(prev => ({
+                                 ...prev,
+                                 assignedTo: selectedAdmin,
+                                 assignedAdmins: selectedAdmin ? [selectedAdmin] : []
+                               }));
+                             }}
+                             className="input"
+                             required
+                           >
+                             <option value="">Select primary admin</option>
+                             {admins.map((admin: any) => (
+                               <option key={admin._id} value={admin._id}>
+                                 {admin.name} ({admin.email})
+                               </option>
+                             ))}
+                           </select>
+                         </div>
+
+                         {/* Additional Admins Selection */}
+                         <div>
+                           <label className="block text-xs font-medium text-gray-600 mb-1">
+                             Additional Admins (Optional)
+                           </label>
+                           <div className="max-h-32 overflow-y-auto border border-gray-300 rounded-md p-2">
+                             {admins.map((admin: any) => (
+                               <label key={admin._id} className="flex items-center space-x-2 py-1">
+                                 <input
+                                   type="checkbox"
+                                   checked={uploadForm.assignedAdmins.includes(admin._id)}
+                                   onChange={(e) => {
+                                     if (e.target.checked) {
+                                       setUploadForm(prev => ({
+                                         ...prev,
+                                         assignedAdmins: [...prev.assignedAdmins, admin._id]
+                                       }));
+                                     } else {
+                                       setUploadForm(prev => ({
+                                         ...prev,
+                                         assignedAdmins: prev.assignedAdmins.filter(id => id !== admin._id)
+                                       }));
+                                     }
+                                   }}
+                                   disabled={admin._id === uploadForm.assignedTo}
+                                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                                 />
+                                 <span className="text-sm text-gray-700">
+                                   {admin.name} ({admin.email})
+                                   {admin._id === uploadForm.assignedTo && (
+                                     <span className="text-blue-600 text-xs ml-1">(Primary)</span>
+                                   )}
+                                 </span>
+                               </label>
+                             ))}
+                           </div>
+                           <p className="text-xs text-gray-500 mt-1">
+                             Selected: {uploadForm.assignedAdmins.length} admin(s)
+                           </p>
+                         </div>
+                       </div>
                      )}
                      {admins.length === 0 && !adminsError && !adminsLoading && (
                        <p className="text-sm text-gray-500 mt-1">
@@ -659,6 +761,17 @@ export default function ExcelFiles() {
           </div>
         </div>
       )}
+
+      {/* Admin Assignment Modal */}
+      <AdminAssignmentModal
+        isOpen={showAssignmentModal}
+        onClose={() => {
+          setShowAssignmentModal(false);
+          setSelectedFile(null);
+        }}
+        file={selectedFile}
+        currentUser={currentUser}
+      />
     </div>
   )
 } 

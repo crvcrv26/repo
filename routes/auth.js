@@ -107,7 +107,7 @@ router.post('/register', [
 // @route   POST /api/auth/login
 // @access  Public
 router.post('/login', [
-  body('email').isEmail().normalizeEmail().withMessage('Please provide a valid email'),
+  body('emailOrPhone').notEmpty().withMessage('Email or phone number is required'),
   body('password').notEmpty().withMessage('Password is required')
 ], async (req, res) => {
   try {
@@ -121,10 +121,15 @@ router.post('/login', [
       });
     }
 
-    const { email, password } = req.body;
+    const { emailOrPhone, password } = req.body;
 
-    // Check if user exists
-    const user = await User.findOne({ email }).select('+password');
+    // Check if user exists by email or phone
+    const user = await User.findOne({
+      $or: [
+        { email: emailOrPhone },
+        { phone: emailOrPhone }
+      ]
+    }).select('+password');
 
     if (!user) {
       return res.status(401).json({
@@ -162,6 +167,7 @@ router.post('/login', [
             _id: user._id,
             name: user.name,
             email: user.email,
+            phone: user.phone,
             role: user.role
           }
         }

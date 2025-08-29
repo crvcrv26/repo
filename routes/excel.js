@@ -84,9 +84,27 @@ router.post('/upload',
   upload.single('excelFile'),
   [
     body('assignedTo').optional().custom((value, { req }) => {
-      // SuperSuperAdmin and SuperAdmin must assign to an admin
+      // SuperSuperAdmin and SuperAdmin must assign to at least one admin
       if ((req.user.role === 'superSuperAdmin' || req.user.role === 'superAdmin') && !value) {
         throw new Error('Admin assignment is required for super admin uploads');
+      }
+      return true;
+    }),
+    body('assignedAdmins').optional().custom((value, { req }) => {
+      if (value) {
+        // Handle both string and array formats
+        if (typeof value === 'string') {
+          try {
+            const parsed = JSON.parse(value);
+            if (!Array.isArray(parsed)) {
+              throw new Error('assignedAdmins must be an array');
+            }
+          } catch (error) {
+            throw new Error('assignedAdmins must be a valid JSON array');
+          }
+        } else if (!Array.isArray(value)) {
+          throw new Error('assignedAdmins must be an array');
+        }
       }
       return true;
     })
@@ -109,8 +127,10 @@ router.post('/upload',
         });
       }
 
-      // Determine assigned admin
+      // Determine assigned admins
       let assignedTo = req.user._id;
+      let assignedAdmins = [req.user._id];
+      
       if (req.user.role === 'superSuperAdmin' || req.user.role === 'superAdmin') {
         if (!req.body.assignedTo) {
           return res.status(400).json({
@@ -119,15 +139,41 @@ router.post('/upload',
           });
         }
         
-        // Verify the assigned admin exists and is active
-        const assignedAdmin = await User.findById(req.body.assignedTo);
-        if (!assignedAdmin || assignedAdmin.role !== 'admin' || !assignedAdmin.isActive) {
+        // Handle multiple admin assignments
+        let adminIds = [req.body.assignedTo];
+        
+        if (req.body.assignedAdmins) {
+          try {
+            // Parse JSON string if it's sent as string
+            const assignedAdmins = typeof req.body.assignedAdmins === 'string' 
+              ? JSON.parse(req.body.assignedAdmins) 
+              : req.body.assignedAdmins;
+            
+            if (Array.isArray(assignedAdmins)) {
+              adminIds = assignedAdmins;
+            }
+          } catch (error) {
+            console.error('Error parsing assignedAdmins:', error);
+            adminIds = [req.body.assignedTo];
+          }
+        }
+        
+        // Verify all assigned admins exist and are active
+        const assignedAdminUsers = await User.find({
+          _id: { $in: adminIds },
+          role: 'admin',
+          isActive: true
+        });
+        
+        if (assignedAdminUsers.length !== adminIds.length) {
           return res.status(400).json({
             success: false,
-            message: 'Invalid admin assignment'
+            message: 'One or more assigned admins are invalid or inactive'
           });
         }
-        assignedTo = req.body.assignedTo;
+        
+        assignedTo = req.body.assignedTo; // Primary admin (first in the list)
+        assignedAdmins = adminIds;
       }
 
       // Read Excel file with streaming approach
@@ -226,6 +272,7 @@ router.post('/upload',
         mimeType: req.file.mimetype,
         uploadedBy: req.user._id,
         assignedTo: assignedTo,
+        assignedAdmins: assignedAdmins,
         totalRows: recordCount,
         filePath: req.file.path
       });
@@ -335,6 +382,13 @@ router.post('/upload',
 
       // Clear search cache after new data upload
       clearSearchCache();
+      clearUserCache(req.user._id.toString());
+      // Clear cache for all assigned admins
+      if (assignedAdmins && assignedAdmins.length > 0) {
+        assignedAdmins.forEach(adminId => {
+          clearUserCache(adminId.toString());
+        });
+      }
 
       res.status(201).json({
         success: true,
@@ -392,7 +446,8 @@ router.get('/files',
             ...(req.user.role === 'admin' && {
               $or: [
                 { uploadedBy: req.user._id },
-                { assignedTo: req.user._id }
+                { assignedTo: req.user._id },
+                { assignedAdmins: req.user._id }
               ]
             })
           }
@@ -444,6 +499,24 @@ router.get('/files',
           }
         },
 
+        // Lookup assignedAdmins user details
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'assignedAdmins',
+            foreignField: '_id',
+            as: 'assignedAdminsUsers',
+            pipeline: [
+              {
+                $project: {
+                  name: 1,
+                  email: 1
+                }
+              }
+            ]
+          }
+        },
+
         // Unwind the lookups
         {
           $unwind: {
@@ -484,7 +557,8 @@ router.get('/files',
               _id: '$assignedToUser._id',
               name: '$assignedToUser.name',
               email: '$assignedToUser.email'
-            }
+            },
+            assignedAdmins: '$assignedAdminsUsers'
           }
         },
 
@@ -606,7 +680,8 @@ router.delete('/files/:id',
       }
 
       // Delete all related vehicle data
-      await ExcelVehicle.deleteMany({ excel_file: excelFile._id });
+      const deleteResult = await ExcelVehicle.deleteMany({ excel_file: excelFile._id });
+      console.log(`🗑️ Deleted ${deleteResult.deletedCount} vehicle records for file ${excelFile._id}`);
 
       // Delete physical file
       try {
@@ -617,6 +692,16 @@ router.delete('/files/:id',
 
       // Delete ExcelFile record
       await ExcelFile.findByIdAndDelete(excelFile._id);
+
+      // Clear search cache to ensure deleted data is not cached
+      clearSearchCache();
+      clearUserCache(excelFile.uploadedBy.toString());
+      // Clear cache for all assigned admins
+      if (excelFile.assignedAdmins && excelFile.assignedAdmins.length > 0) {
+        excelFile.assignedAdmins.forEach(adminId => {
+          clearUserCache(adminId.toString());
+        });
+      }
 
       res.json({
         success: true,
@@ -672,6 +757,7 @@ router.put('/files/:id/reassign',
 
       // Update assignment
       excelFile.assignedTo = req.body.assignedTo;
+      excelFile.assignedAdmins = [req.body.assignedTo]; // Keep backward compatibility
       await excelFile.save();
 
       res.json({
@@ -690,15 +776,368 @@ router.put('/files/:id/reassign',
   }
 );
 
-// In-memory cache for search results (30 second TTL for fresh data)
+// @desc    Update multiple admin assignments for Excel file
+// @route   PUT /api/excel/files/:id/update-assignments
+// @access  Private (SuperSuperAdmin, SuperAdmin)
+router.put('/files/:id/update-assignments',
+  authenticateToken,
+  authorizeRole('superSuperAdmin', 'superAdmin'),
+  [
+    body('assignedAdmins').custom((value, { req }) => {
+      if (!value) {
+        throw new Error('assignedAdmins is required');
+      }
+      
+      // Handle both string and array formats
+      let adminArray;
+      if (typeof value === 'string') {
+        try {
+          adminArray = JSON.parse(value);
+        } catch (error) {
+          throw new Error('assignedAdmins must be a valid JSON array');
+        }
+      } else {
+        adminArray = value;
+      }
+      
+      if (!Array.isArray(adminArray)) {
+        throw new Error('assignedAdmins must be an array');
+      }
+      
+      // Validate each admin ID
+      const mongoIdRegex = /^[0-9a-fA-F]{24}$/;
+      for (let i = 0; i < adminArray.length; i++) {
+        if (!mongoIdRegex.test(adminArray[i])) {
+          throw new Error(`assignedAdmins[${i}] must be a valid MongoDB ID`);
+        }
+      }
+      
+      return true;
+    })
+  ],
+  async (req, res) => {
+    try {
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          message: 'Validation error',
+          errors: errors.array()
+        });
+      }
+
+      const excelFile = await ExcelFile.findById(req.params.id);
+      if (!excelFile) {
+        return res.status(404).json({
+          success: false,
+          message: 'Excel file not found'
+        });
+      }
+
+      let { assignedAdmins } = req.body;
+
+      // Parse assignedAdmins if it's a string
+      if (typeof assignedAdmins === 'string') {
+        try {
+          assignedAdmins = JSON.parse(assignedAdmins);
+        } catch (error) {
+          return res.status(400).json({
+            success: false,
+            message: 'Invalid assignedAdmins format'
+          });
+        }
+      }
+
+      // Verify all assigned admins exist and are active
+      const assignedAdminUsers = await User.find({
+        _id: { $in: assignedAdmins },
+        role: 'admin',
+        isActive: true
+      });
+
+      if (assignedAdminUsers.length !== assignedAdmins.length) {
+        return res.status(400).json({
+          success: false,
+          message: 'One or more assigned admins are invalid or inactive'
+        });
+      }
+
+      // Store previous assignments for cache clearing
+      const previousAssignments = [...excelFile.assignedAdmins];
+
+      // Update assignments
+      excelFile.assignedAdmins = assignedAdmins;
+      excelFile.assignedTo = assignedAdmins[0]; // Keep first admin as primary
+      await excelFile.save();
+
+      // Populate the updated file for response
+      await excelFile.populate('assignedAdmins', 'name email');
+
+      // Clear all relevant caches
+      clearSearchCache(); // Clear all search cache
+      clearFileAccessCache(); // Clear file access cache
+      clearUserCache(excelFile.uploadedBy.toString()); // Clear uploader cache
+      
+      // Clear cache for all current assigned admins
+      if (excelFile.assignedAdmins && excelFile.assignedAdmins.length > 0) {
+        excelFile.assignedAdmins.forEach(admin => {
+          clearUserCache(admin._id.toString());
+        });
+      }
+      
+      // Clear cache for previous admins who no longer have access
+      previousAssignments.forEach(adminId => {
+        if (!assignedAdmins.includes(adminId.toString())) {
+          clearUserCache(adminId.toString());
+          console.log(`🗑️ Cleared cache for removed admin: ${adminId}`);
+        }
+      });
+
+      res.json({
+        success: true,
+        message: 'Admin assignments updated successfully',
+        data: excelFile
+      });
+
+    } catch (error) {
+      console.error('Update admin assignments error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  }
+);
+
+// In-memory cache for search results (short TTL for fresh data)
 const searchCache = new Map();
-const CACHE_TTL = 5 * 60 * 1000; // 30 seconds (much shorter for fresh uploads)
+const CACHE_TTL = 2 * 60 * 1000; // 2 minutes (shorter for better responsiveness)
 
 // Function to clear search cache when new data is uploaded
 function clearSearchCache() {
   searchCache.clear();
   console.log('🗑️ Search cache cleared due to new data upload');
 }
+
+// Function to clear cache for specific user
+function clearUserCache(userId) {
+  const keysToDelete = [];
+  for (const [key, value] of searchCache.entries()) {
+    if (key.includes(userId)) {
+      keysToDelete.push(key);
+    }
+  }
+  keysToDelete.forEach(key => searchCache.delete(key));
+  console.log(`🗑️ Cleared cache for user ${userId}: ${keysToDelete.length} entries`);
+}
+
+// Function to clear all cache entries related to file access
+function clearFileAccessCache() {
+  const keysToDelete = [];
+  for (const [key, value] of searchCache.entries()) {
+    if (key.includes('admin_files_') || key.includes('field_files_') || key.includes('auditor_files_')) {
+      keysToDelete.push(key);
+    }
+  }
+  keysToDelete.forEach(key => searchCache.delete(key));
+  console.log(`🗑️ Cleared file access cache: ${keysToDelete.length} entries`);
+}
+
+// @desc    Debug endpoint to check file access (remove in production)
+// @route   GET /api/excel/debug-access
+// @access  Private (All roles)
+router.get('/debug-access',
+  authenticateToken,
+  async (req, res) => {
+    try {
+      console.log(`🔍 Debug access for user ${req.user._id} (${req.user.role})`);
+      
+      // Get all files
+      const allFiles = await ExcelFile.find({ isActive: true }).select('_id filename originalName assignedTo assignedAdmins uploadedBy').lean();
+      console.log(`📁 Total active files: ${allFiles.length}`);
+      
+      // Get accessible file IDs
+      let accessibleFileIds = [];
+      if (req.user.role === 'admin') {
+        accessibleFileIds = await getExcelFileIdsForAdmin(req.user._id);
+      } else if (req.user.role === 'fieldAgent') {
+        accessibleFileIds = await getExcelFileIdsForFieldAgent(req.user._id);
+      } else if (req.user.role === 'auditor') {
+        accessibleFileIds = await getExcelFileIdsForAuditor(req.user._id);
+      } else if (req.user.role === 'superAdmin' || req.user.role === 'superSuperAdmin') {
+        accessibleFileIds = allFiles.map(file => file._id);
+      }
+      
+      // Get total vehicle count
+      const totalVehicles = await ExcelVehicle.countDocuments({ isActive: true });
+      
+      // Get vehicles for accessible files
+      const accessibleVehicles = await ExcelVehicle.countDocuments({
+        isActive: true,
+        excel_file: { $in: accessibleFileIds }
+      });
+
+      // Check for orphaned vehicle records
+      const orphanedVehicles = await ExcelVehicle.aggregate([
+        { $match: { isActive: true } },
+        {
+          $lookup: {
+            from: 'excelfiles',
+            localField: 'excel_file',
+            foreignField: '_id',
+            as: 'fileCheck'
+          }
+        },
+        { $match: { 'fileCheck.0': { $exists: false } } },
+        { $count: 'total' }
+      ]).then(result => result[0]?.total || 0);
+      
+      res.json({
+        success: true,
+        user: {
+          id: req.user._id,
+          role: req.user.role
+        },
+        files: {
+          total: allFiles.length,
+          accessible: accessibleFileIds.length,
+          accessibleIds: accessibleFileIds,
+          allFiles: allFiles.map(f => ({
+            id: f._id,
+            name: f.originalName,
+            assignedTo: f.assignedTo,
+            assignedAdmins: f.assignedAdmins,
+            uploadedBy: f.uploadedBy
+          }))
+        },
+        vehicles: {
+          total: totalVehicles,
+          accessible: accessibleVehicles,
+          orphaned: orphanedVehicles
+        }
+      });
+      
+    } catch (error) {
+      console.error('Debug access error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  }
+);
+
+// @desc    Clean up orphaned vehicle records (remove in production)
+// @route   POST /api/excel/cleanup-orphaned-vehicles
+// @access  Private (SuperAdmin, Admin)
+router.post('/cleanup-orphaned-vehicles',
+  authenticateToken,
+  authorizeRole('superSuperAdmin', 'superAdmin', 'admin'),
+  async (req, res) => {
+    try {
+      console.log('🧹 Starting orphaned vehicle cleanup...');
+      
+      // Find orphaned vehicle records
+      const orphanedVehicles = await ExcelVehicle.aggregate([
+        { $match: { isActive: true } },
+        {
+          $lookup: {
+            from: 'excelfiles',
+            localField: 'excel_file',
+            foreignField: '_id',
+            as: 'fileCheck'
+          }
+        },
+        { $match: { 'fileCheck.0': { $exists: false } } },
+        { $project: { _id: 1, excel_file: 1 } }
+      ]);
+
+      console.log(`🔍 Found ${orphanedVehicles.length} orphaned vehicle records`);
+
+      if (orphanedVehicles.length > 0) {
+        const orphanedIds = orphanedVehicles.map(v => v._id);
+        const deleteResult = await ExcelVehicle.deleteMany({ _id: { $in: orphanedIds } });
+        console.log(`🗑️ Deleted ${deleteResult.deletedCount} orphaned vehicle records`);
+      }
+
+      res.json({
+        success: true,
+        message: `Cleaned up ${orphanedVehicles.length} orphaned vehicle records`,
+        deletedCount: orphanedVehicles.length
+      });
+      
+    } catch (error) {
+      console.error('Orphaned vehicle cleanup error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  }
+);
+
+// @desc    Get cache status (for testing)
+// @route   GET /api/excel/cache-status
+// @access  Private (SuperAdmin, Admin)
+router.get('/cache-status',
+  authenticateToken,
+  authorizeRole('superSuperAdmin', 'superAdmin', 'admin'),
+  async (req, res) => {
+    try {
+      const cacheEntries = [];
+      for (const [key, value] of searchCache.entries()) {
+        cacheEntries.push({
+          key,
+          timestamp: value.timestamp,
+          age: Date.now() - value.timestamp,
+          dataLength: Array.isArray(value.data) ? value.data.length : 'N/A'
+        });
+      }
+      
+      res.json({
+        success: true,
+        cacheSize: searchCache.size,
+        cacheTTL: CACHE_TTL,
+        entries: cacheEntries
+      });
+      
+    } catch (error) {
+      console.error('Cache status error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  }
+);
+
+// @desc    Force clear all caches (for testing)
+// @route   POST /api/excel/clear-cache
+// @access  Private (SuperAdmin, Admin)
+router.post('/clear-cache',
+  authenticateToken,
+  authorizeRole('superSuperAdmin', 'superAdmin', 'admin'),
+  async (req, res) => {
+    try {
+      const cacheSize = searchCache.size;
+      clearSearchCache();
+      clearFileAccessCache();
+      
+      res.json({
+        success: true,
+        message: `Cleared all caches (${cacheSize} entries)`,
+        clearedEntries: cacheSize
+      });
+      
+    } catch (error) {
+      console.error('Clear cache error:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Server error'
+      });
+    }
+  }
+);
 
 // @desc    Test endpoint to check Excel file cleanup (remove in production)
 // @route   GET /api/excel/cleanup-test
@@ -842,16 +1281,32 @@ router.get('/vehicles',
         accessibleFileIds = await getExcelFileIdsForFieldAgent(req.user._id);
       } else if (req.user.role === 'auditor') {
         accessibleFileIds = await getExcelFileIdsForAuditor(req.user._id);
+      } else if (req.user.role === 'superAdmin' || req.user.role === 'superSuperAdmin') {
+        // SuperAdmin and SuperSuperAdmin can access all active files
+        const allFiles = await ExcelFile.find({ isActive: true }).select('_id').lean();
+        accessibleFileIds = allFiles.map(file => file._id);
       }
 
-      // Build FAST query (no aggregation pipeline!)
+      console.log(`🔍 User ${req.user._id} (${req.user.role}) has ${accessibleFileIds.length} accessible files:`, accessibleFileIds);
+
+      // Build base query with file existence check
       const baseQuery = {
-        isActive: true,
-        ...(accessibleFileIds.length > 0 && 
-           req.user.role !== 'superAdmin' && 
-           req.user.role !== 'superSuperAdmin' ? 
-           { excel_file: { $in: accessibleFileIds } } : {})
+        isActive: true
       };
+
+      // Add role-based file access restrictions for all roles
+      if (accessibleFileIds.length > 0) {
+        baseQuery.excel_file = { $in: accessibleFileIds };
+      } else {
+        // If no accessible files, return empty results
+        console.log(`❌ No accessible files found for user ${req.user._id} (${req.user.role})`);
+        return res.json({
+          success: true,
+          data: [],
+          pagination: { page, limit, total: 0, pages: 0 },
+          message: 'No accessible files found'
+        });
+      }
 
       // SMART SEARCH STRATEGY - ANYWHERE IN STRING (supports partial matches)
       let searchQuery;
@@ -892,19 +1347,69 @@ router.get('/vehicles',
       // PERFORMANCE MONITORING
       const startTime = Date.now();
       
-      // Execute LIGHTNING-FAST queries (parallel execution)
+      // Execute queries with file existence verification using aggregation
       const [total, vehicles] = await Promise.all([
-        // Count total (fast with our new indexes)
-        ExcelVehicle.countDocuments(searchQuery),
+        // Count total with file existence check
+        ExcelVehicle.aggregate([
+          { $match: searchQuery },
+          {
+            $lookup: {
+              from: 'excelfiles',
+              localField: 'excel_file',
+              foreignField: '_id',
+              as: 'fileCheck'
+            }
+          },
+          { $match: { 'fileCheck.0': { $exists: true } } },
+          { $count: 'total' }
+        ]).then(result => result[0]?.total || 0),
         
-        // Get vehicles with ALL REQUIRED FIELDS populated
-        ExcelVehicle.find(searchQuery)
-          .populate('excel_file', 'filename originalName uploadedBy uploadedAt', null, { lean: true })
-          .select('registration_number chasis_number engine_number customer_name branch excel_file createdAt rowNumber loan_number make model emi pos bucket address sec_17 seasoning allocation product_name first_confirmer_name first_confirmer_no second_confirmer_name second_confirmer_no third_confirmer_name third_confirmer_no')
-          .sort({ createdAt: -1 })
-          .skip((page - 1) * limit)
-          .limit(limit)
-          .lean() // Massive performance boost
+        // Get vehicles with file existence check
+        ExcelVehicle.aggregate([
+          { $match: searchQuery },
+          {
+            $lookup: {
+              from: 'excelfiles',
+              localField: 'excel_file',
+              foreignField: '_id',
+              as: 'excel_file'
+            }
+          },
+          { $match: { 'excel_file.0': { $exists: true } } },
+          { $unwind: '$excel_file' },
+          {
+            $project: {
+              registration_number: 1,
+              chasis_number: 1,
+              engine_number: 1,
+              customer_name: 1,
+              branch: 1,
+              excel_file: 1,
+              createdAt: 1,
+              rowNumber: 1,
+              loan_number: 1,
+              make: 1,
+              model: 1,
+              emi: 1,
+              pos: 1,
+              bucket: 1,
+              address: 1,
+              sec_17: 1,
+              seasoning: 1,
+              allocation: 1,
+              product_name: 1,
+              first_confirmer_name: 1,
+              first_confirmer_no: 1,
+              second_confirmer_name: 1,
+              second_confirmer_no: 1,
+              third_confirmer_name: 1,
+              third_confirmer_no: 1
+            }
+          },
+          { $sort: { createdAt: -1 } },
+          { $skip: (page - 1) * limit },
+          { $limit: limit }
+        ])
       ]);
 
       const queryTime = Date.now() - startTime;
@@ -978,31 +1483,99 @@ router.get('/vehicles/sync',
         accessibleFileIds = await getExcelFileIdsForFieldAgent(req.user._id);
       } else if (req.user.role === 'auditor') {
         accessibleFileIds = await getExcelFileIdsForAuditor(req.user._id);
+      } else if (req.user.role === 'superAdmin' || req.user.role === 'superSuperAdmin') {
+        // SuperAdmin and SuperSuperAdmin can access all active files
+        const allFiles = await ExcelFile.find({ isActive: true }).select('_id').lean();
+        accessibleFileIds = allFiles.map(file => file._id);
       }
 
       // Build query for all accessible vehicles
       const baseQuery = {
-        isActive: true,
-        ...(accessibleFileIds.length > 0 && 
-           req.user.role !== 'superAdmin' && 
-           req.user.role !== 'superSuperAdmin' ? 
-           { excel_file: { $in: accessibleFileIds } } : {})
+        isActive: true
       };
+
+      // Add role-based file access restrictions for all roles
+      if (accessibleFileIds.length > 0) {
+        baseQuery.excel_file = { $in: accessibleFileIds };
+      } else {
+        // If no accessible files, return empty results
+        return res.json({
+          success: true,
+          data: [],
+          pagination: { page, limit, total: 0, pages: 0 },
+          message: 'No accessible files found'
+        });
+      }
 
       console.log('🔍 Query for offline sync:', JSON.stringify(baseQuery));
 
-      // Get total count for pagination
-      const totalCount = await ExcelVehicle.countDocuments(baseQuery);
+      // Get total count for pagination with file existence check
+      const totalCount = await ExcelVehicle.aggregate([
+        { $match: baseQuery },
+        {
+          $lookup: {
+            from: 'excelfiles',
+            localField: 'excel_file',
+            foreignField: '_id',
+            as: 'fileCheck'
+          }
+        },
+        { $match: { 'fileCheck.0': { $exists: true } } },
+        { $count: 'total' }
+      ]).then(result => result[0]?.total || 0);
+      
       console.log(`📊 Total vehicles available: ${totalCount}`);
 
-      // Get vehicles with pagination
-      const vehicles = await ExcelVehicle.find(baseQuery)
-        .populate('excel_file', 'filename originalName uploadedBy uploadedAt', null, { lean: true })
-        .select('registration_number chasis_number engine_number customer_name customer_phone customer_email address branch excel_file createdAt rowNumber loan_number make model emi pos bucket sec_17 seasoning allocation product_name first_confirmer_name first_confirmer_no second_confirmer_name second_confirmer_no third_confirmer_name third_confirmer_no assigned_to file_name')
-        .sort({ createdAt: -1 })
-        .skip((page - 1) * limit)
-        .limit(limit)
-        .lean();
+      // Get vehicles with pagination and file existence check
+      const vehicles = await ExcelVehicle.aggregate([
+        { $match: baseQuery },
+        {
+          $lookup: {
+            from: 'excelfiles',
+            localField: 'excel_file',
+            foreignField: '_id',
+            as: 'excel_file'
+          }
+        },
+        { $match: { 'excel_file.0': { $exists: true } } },
+        { $unwind: '$excel_file' },
+        {
+          $project: {
+            registration_number: 1,
+            chasis_number: 1,
+            engine_number: 1,
+            customer_name: 1,
+            customer_phone: 1,
+            customer_email: 1,
+            address: 1,
+            branch: 1,
+            excel_file: 1,
+            createdAt: 1,
+            rowNumber: 1,
+            loan_number: 1,
+            make: 1,
+            model: 1,
+            emi: 1,
+            pos: 1,
+            bucket: 1,
+            sec_17: 1,
+            seasoning: 1,
+            allocation: 1,
+            product_name: 1,
+            first_confirmer_name: 1,
+            first_confirmer_no: 1,
+            second_confirmer_name: 1,
+            second_confirmer_no: 1,
+            third_confirmer_name: 1,
+            third_confirmer_no: 1,
+            assigned_to: 1,
+            file_name: 1
+          }
+        },
+        { $sort: { createdAt: -1 } },
+        { $skip: (page - 1) * limit },
+        { $limit: limit }
+      ]);
 
       console.log(`✅ Found ${vehicles.length} vehicles for offline sync (page ${page}, limit ${limit})`);
 
@@ -1036,11 +1609,22 @@ async function getExcelFileIdsForAdmin(adminId) {
   const cacheKey = `admin_files_${adminId}`;
   const cached = searchCache.get(cacheKey);
   if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+    console.log(`⚡ Cache hit for admin ${adminId}: ${cached.data.length} files`);
     return cached.data;
   }
 
-  const files = await ExcelFile.find({ uploadedBy: adminId }).select('_id').lean();
+  console.log(`🔍 Fetching files for admin ${adminId}...`);
+  const files = await ExcelFile.find({
+    isActive: true,
+    $or: [
+      { uploadedBy: adminId },
+      { assignedTo: adminId },
+      { assignedAdmins: adminId }
+    ]
+  }).select('_id').lean();
+  
   const fileIds = files.map(file => file._id);
+  console.log(`📁 Admin ${adminId} has access to ${fileIds.length} files:`, fileIds);
   
   searchCache.set(cacheKey, {
     data: fileIds,
@@ -1060,7 +1644,14 @@ async function getExcelFileIdsForFieldAgent(fieldAgentId) {
   const fieldAgent = await User.findById(fieldAgentId).select('createdBy').lean();
   if (!fieldAgent || !fieldAgent.createdBy) return [];
   
-  const files = await ExcelFile.find({ uploadedBy: fieldAgent.createdBy }).select('_id').lean();
+  const files = await ExcelFile.find({
+    isActive: true,
+    $or: [
+      { uploadedBy: fieldAgent.createdBy },
+      { assignedTo: fieldAgent.createdBy },
+      { assignedAdmins: fieldAgent.createdBy }
+    ]
+  }).select('_id').lean();
   const fileIds = files.map(file => file._id);
   
   searchCache.set(cacheKey, {
@@ -1081,7 +1672,14 @@ async function getExcelFileIdsForAuditor(auditorId) {
   const auditor = await User.findById(auditorId).select('createdBy').lean();
   if (!auditor || !auditor.createdBy) return [];
   
-  const files = await ExcelFile.find({ uploadedBy: auditor.createdBy }).select('_id').lean();
+  const files = await ExcelFile.find({
+    isActive: true,
+    $or: [
+      { uploadedBy: auditor.createdBy },
+      { assignedTo: auditor.createdBy },
+      { assignedAdmins: auditor.createdBy }
+    ]
+  }).select('_id').lean();
   const fileIds = files.map(file => file._id);
   
   searchCache.set(cacheKey, {

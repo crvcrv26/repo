@@ -4,7 +4,7 @@ import { useForm } from 'react-hook-form';
 import { useAuth } from '../hooks/useAuth';
 import { authAPI, otpAPI } from '../services/api';
 import api from '../services/api';
-import toast from 'react-hot-toast';
+import { toast } from 'react-hot-toast';
 import { getAppDownloadUrl } from '../utils/config';
 import { 
   EnvelopeIcon,
@@ -24,7 +24,7 @@ import {
 } from '@heroicons/react/24/solid';
 
 interface LoginForm {
-  email: string;
+  emailOrPhone: string;
   password: string;
 }
 
@@ -48,6 +48,8 @@ export default function Login() {
   const [showOTPForm, setShowOTPForm] = useState(false);
   const [userData, setUserData] = useState<any>(null);
   const [otpTimer, setOtpTimer] = useState(300); // 5 minutes
+  const [loginError, setLoginError] = useState<string>('');
+  const [originalEmailOrPhone, setOriginalEmailOrPhone] = useState<string>('');
 
   // NEW: App versions state
   const [appsLoading, setAppsLoading] = useState(true);
@@ -59,15 +61,20 @@ export default function Login() {
   const {
     register,
     handleSubmit,
+    trigger,
     formState: { errors }
-  } = useForm<LoginForm>();
+  } = useForm<LoginForm>({
+    mode: 'onBlur'
+  });
 
   const {
     register: registerOTP,
     handleSubmit: handleSubmitOTP,
     formState: { errors: otpErrors },
     reset: resetOTP
-  } = useForm<OTPForm>();
+  } = useForm<OTPForm>({
+    mode: 'onSubmit'
+  });
 
   // OTP Timer countdown
   useEffect(() => {
@@ -99,28 +106,66 @@ export default function Login() {
   const mainApp = appVersions.find(a => a.appType === 'main');
   const emergencyApp = appVersions.find(a => a.appType === 'emergency');
 
+  const validateEmailOrPhone = (value: string): boolean => {
+    const emailRegex = /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i;
+    const phoneRegex = /^[0-9]{10}$/;
+    return emailRegex.test(value) || phoneRegex.test(value);
+  };
+
   const handleDownload = (appId: string) => {
     const downloadUrl = getAppDownloadUrl(appId);
     window.open(downloadUrl, '_blank');
   };
 
   const onSubmit = async (data: LoginForm) => {
+    console.log('Form data received:', data);
+    
+    // Validate that we have both emailOrPhone and password
+    if (!data.emailOrPhone || !data.password) {
+      console.error('Missing required fields:', { emailOrPhone: !!data.emailOrPhone, password: !!data.password });
+      setLoginError('Please fill in all required fields');
+      return;
+    }
+
+    // Validate email/phone format
+    if (!validateEmailOrPhone(data.emailOrPhone)) {
+      setLoginError('Please enter a valid email address or 10-digit phone number');
+      return;
+    }
+    
     setLoading(true);
+    setLoginError(''); // Clear any previous errors
+    console.log('Attempting login with:', { emailOrPhone: data.emailOrPhone });
+    
     try {
       const response = await authAPI.login(data);
+      console.log('Login response:', response.data);
       
       if (response.data.requiresOTP) {
         setUserData(response.data.data.user);
+        setOriginalEmailOrPhone(data.emailOrPhone); // Store the original email/phone used for login
         setShowOTPForm(true);
         setOtpTimer(300); // Reset timer
         toast.success('Please enter the OTP provided by your admin');
       } else {
-        await login(data.email, data.password);
+        await login(data.emailOrPhone, data.password);
         toast.success('Login successful!');
         navigate('/dashboard');
       }
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Login failed');
+      console.error('Login error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText
+      });
+      
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'Login failed. Please check your credentials and try again.';
+      
+      setLoginError(errorMessage);
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -131,12 +176,17 @@ export default function Login() {
     
     setOtpLoading(true);
     try {
-      const response = await otpAPI.verify(userData.email, data.otp);
+      // Use the original emailOrPhone that was used for login
+      const response = await otpAPI.verify(originalEmailOrPhone, data.otp);
       loginWithOTP(response.data.data.token, response.data.data.user);
       toast.success('OTP verified successfully!');
       navigate('/dashboard');
     } catch (error: any) {
-      toast.error(error.response?.data?.message || 'OTP verification failed');
+      console.error('OTP verification error:', error);
+      const errorMessage = error.response?.data?.message || 
+                          error.message || 
+                          'OTP verification failed. Please check the code and try again.';
+      toast.error(errorMessage);
     } finally {
       setOtpLoading(false);
     }
@@ -146,6 +196,8 @@ export default function Login() {
     setShowOTPForm(false);
     setUserData(null);
     setOtpTimer(300);
+    setLoginError(''); // Clear any login errors
+    setOriginalEmailOrPhone(''); // Clear the original email/phone
     resetOTP();
   };
 
@@ -171,11 +223,14 @@ export default function Login() {
                     <div className="h-10 w-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
                       <UserIcon className="h-5 w-5 text-white" />
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{userData.name}</p>
-                      <p className="text-sm text-gray-600">{userData.email}</p>
-                      <p className="text-xs text-gray-500 capitalize">{userData.role}</p>
-                    </div>
+                                         <div>
+                       <p className="font-medium text-gray-900">{userData.name}</p>
+                       <p className="text-sm text-gray-600">{userData.email}</p>
+                       {userData.phone && (
+                         <p className="text-sm text-gray-600">{userData.phone}</p>
+                       )}
+                       <p className="text-xs text-gray-500 capitalize">{userData.role}</p>
+                     </div>
                   </div>
                 </div>
               )}
@@ -322,46 +377,57 @@ export default function Login() {
               </div>
 
               <div className="card-body">
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6" noValidate>
+                                 <form onSubmit={(e) => {
+                   e.preventDefault();
+                   const formData = new FormData(e.currentTarget);
+                   const emailOrPhone = formData.get('emailOrPhone') as string;
+                   const password = formData.get('password') as string;
+                   
+                   onSubmit({ emailOrPhone, password });
+                 }} className="space-y-6">
                   <div className="form-group">
-                    <label className="form-label">Email Address</label>
+                    <label className="form-label">Email or Phone Number</label>
                     <div className="relative">
-                      <input
-                        {...register('email', {
-                          required: 'Email is required',
-                          pattern: {
-                            value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
-                            message: 'Please enter a valid email address',
-                          },
-                        })}
-                        type="email"
-                        className="form-input pl-12"
-                        placeholder="Enter your email"
-                        autoComplete="email"
-                      />
+                                             <input
+                         {...register('emailOrPhone', {
+                           required: 'Email or phone number is required',
+                         })}
+                         name="emailOrPhone"
+                         type="text"
+                         className="form-input pl-12"
+                         placeholder="Enter your email or phone number"
+                         autoComplete="email"
+                         onChange={(e) => {
+                           if (loginError) setLoginError('');
+                         }}
+                       />
                       <EnvelopeIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                     </div>
-                    {errors.email && (
-                      <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>
+                    {errors.emailOrPhone && (
+                      <p className="text-red-600 text-sm mt-1">{errors.emailOrPhone.message}</p>
                     )}
                   </div>
 
                   <div className="form-group">
                     <label className="form-label">Password</label>
                     <div className="relative">
-                      <input
-                        {...register('password', {
-                          required: 'Password is required',
-                          minLength: {
-                            value: 6,
-                            message: 'Password must be at least 6 characters',
-                          },
-                        })}
-                        type={showPassword ? 'text' : 'password'}
-                        className="form-input pl-12 pr-12"
-                        placeholder="Enter your password"
-                        autoComplete="current-password"
-                      />
+                                             <input
+                         {...register('password', {
+                           required: 'Password is required',
+                           minLength: {
+                             value: 6,
+                             message: 'Password must be at least 6 characters',
+                           },
+                         })}
+                         name="password"
+                         type={showPassword ? 'text' : 'password'}
+                         className="form-input pl-12 pr-12"
+                         placeholder="Enter your password"
+                         autoComplete="current-password"
+                         onChange={(e) => {
+                           if (loginError) setLoginError('');
+                         }}
+                       />
                       <LockClosedIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
                       <button
                         type="button"
@@ -379,6 +445,24 @@ export default function Login() {
                       <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>
                     )}
                   </div>
+
+                  {/* Login Error Display */}
+                  {loginError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <div className="flex items-center">
+                        <div className="flex-shrink-0">
+                          <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                        <div className="ml-3">
+                          <p className="text-sm text-red-800 font-medium">
+                            {loginError}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                   <button
                     type="submit"
