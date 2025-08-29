@@ -157,30 +157,25 @@ router.get('/qr', authenticateToken, async (req, res) => {
       });
     }
     
-    // Find the user's pending payments to get the admin ID
-    const payment = await Payment.findOne({ 
-      userId: req.user._id, 
-      status: 'pending',
-      isActive: true 
-    }).populate('adminId', 'name email phone role');
+    // Get the user's admin ID from their profile
+    const user = await User.findById(req.user._id).populate('createdBy', 'name email phone role');
     
-    if (!payment) {
+    if (!user || !user.createdBy) {
       return res.status(404).json({
         success: false,
-        message: 'No pending payments found. Please contact your admin to generate payments first.'
+        message: 'User not associated with any admin. Please contact your administrator.'
       });
     }
     
-    console.log('Found payment for user:', {
-      paymentId: payment._id,
-      adminId: payment.adminId._id,
-      adminName: payment.adminId.name,
-      adminRole: payment.adminId.role
+    console.log('Found user admin:', {
+      adminId: user.createdBy._id,
+      adminName: user.createdBy.name,
+      adminRole: user.createdBy.role
     });
     
-    // Get the QR code for the specific admin who created this payment
+    // Get the QR code for the user's admin
     const qrCode = await PaymentQR.findOne({ 
-      adminId: payment.adminId._id,
+      adminId: user.createdBy._id,
       isActive: true 
     }).populate('adminId', 'name email phone role');
     
@@ -189,7 +184,7 @@ router.get('/qr', authenticateToken, async (req, res) => {
     if (!qrCode) {
       return res.status(404).json({
         success: false,
-        message: `No QR code found for ${payment.adminId.name}. Please ask them to upload a QR code.`
+        message: `No QR code found for ${user.createdBy.name}. Please ask them to upload a QR code.`
       });
     }
     
@@ -359,6 +354,94 @@ router.get('/admin/qr', authenticateToken, (req, res, next) => {
     });
   } catch (error) {
     console.error('Error fetching admin QR codes:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+});
+
+// Upload/Update QR code for admin (same as /qr but with /admin/qr endpoint)
+router.post('/admin/qr', authenticateToken, (req, res, next) => {
+  console.log('User attempting QR upload via admin endpoint:', {
+    userId: req.user._id,
+    userRole: req.user.role,
+    userName: req.user.name
+  });
+  
+  // Check if user has admin-level role
+  if (!['superSuperAdmin', 'superAdmin', 'admin'].includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      message: `Access denied. Insufficient permissions. User role: ${req.user.role}, Required roles: superSuperAdmin, superAdmin, or admin`
+    });
+  }
+  
+  next();
+}, (req, res, next) => {
+  console.log('📤 Starting QR upload process via admin endpoint...');
+  console.log('📤 Request headers:', req.headers);
+  console.log('📤 Request body keys:', Object.keys(req.body || {}));
+  console.log('📤 Content-Type header:', req.headers['content-type']);
+  
+  qrUpload.single('qrImage')(req, res, (err) => {
+    if (err) {
+      console.error('❌ Multer error:', err);
+      console.error('❌ Error message:', err.message);
+      console.error('❌ Error stack:', err.stack);
+      console.error('❌ File info:', {
+        originalname: req.file?.originalname,
+        mimetype: req.file?.mimetype,
+        size: req.file?.size,
+        fieldname: req.file?.fieldname
+      });
+      return res.status(400).json({
+        success: false,
+        message: err.message || 'File upload error'
+      });
+    }
+    console.log('✅ File uploaded successfully via admin endpoint:', {
+      originalname: req.file?.originalname,
+      mimetype: req.file?.mimetype,
+      size: req.file?.size,
+      fieldname: req.file?.fieldname
+    });
+    next();
+  });
+}, async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'QR image is required'
+      });
+    }
+
+    const { description } = req.body;
+    
+    // Deactivate existing QR codes
+    await PaymentQR.updateMany(
+      { adminId: req.user._id }, // Use _id instead of id
+      { isActive: false }
+    );
+    
+    // Create new QR code
+    const qrCode = new PaymentQR({
+      adminId: req.user._id, // Use _id instead of id
+      qrImageUrl: `/uploads/payment-qr/${req.file.filename}`,
+      qrImageName: req.file.filename,
+      description: description || ''
+    });
+    
+    await qrCode.save();
+    
+    res.json({
+      success: true,
+      message: 'QR code uploaded successfully',
+      data: qrCode
+    });
+  } catch (error) {
+    console.error('Error uploading QR code via admin endpoint:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error'

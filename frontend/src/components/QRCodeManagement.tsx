@@ -29,6 +29,8 @@ export default function QRCodeManagement() {
   const [showPreviewModal, setShowPreviewModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [qrToDelete, setQrToDelete] = useState<QRCode | null>(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   // Determine if user is Super Admin
   const isSuperAdmin = user?.role === 'superAdmin' || user?.role === 'superSuperAdmin';
@@ -82,6 +84,8 @@ export default function QRCodeManagement() {
       toast.success('QR code uploaded successfully');
       queryClient.invalidateQueries({ queryKey: ['qr-codes', user?.role] });
       setShowUploadModal(false);
+      setSelectedImagePreview(null);
+      setSelectedFile(null);
     },
     onError: (error: any) => {
       console.error('Mutation error:', error);
@@ -147,7 +151,67 @@ export default function QRCodeManagement() {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
 
+    // Use the selected file from state instead of relying on DOM
+    if (selectedFile) {
+      formData.set('qrImage', selectedFile);
+      console.log('File found and added to form data:', selectedFile.name);
+    } else {
+      console.error('No file selected');
+      toast.error('Please select a QR code image');
+      return;
+    }
+
     uploadQRMutation.mutate(formData);
+  };
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setSelectedImagePreview(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+      console.log('File selected via input:', file.name);
+    }
+  };
+
+  const handleCloseUploadModal = () => {
+    setShowUploadModal(false);
+    setSelectedImagePreview(null);
+    setSelectedFile(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      const file = files[0];
+      if (file.type.startsWith('image/')) {
+        setSelectedFile(file);
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setSelectedImagePreview(event.target?.result as string);
+        };
+        reader.readAsDataURL(file);
+        
+        // Update the file input for form compatibility
+        const fileInput = document.getElementById('qrImage') as HTMLInputElement;
+        if (fileInput) {
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+          fileInput.files = dataTransfer.files;
+          console.log('File dropped and added to input:', file.name);
+        }
+      } else {
+        toast.error('Please select an image file');
+      }
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -319,26 +383,57 @@ export default function QRCodeManagement() {
                     <label htmlFor="qrImage" className="block text-sm font-medium text-gray-700 mb-2">
                       QR Code Image
                     </label>
-                    <div className="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-400 border-dashed rounded-md">
-                      <div className="space-y-1 text-center">
-                        <PhotoIcon className="mx-auto h-12 w-12 text-gray-400" />
-                        <div className="flex text-sm text-gray-600">
-                          <label htmlFor="qrImage" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
-                            <span>Upload a file</span>
-                            <input
-                              id="qrImage"
-                              name="qrImage"
-                              type="file"
-                              accept="image/*"
-                              className="sr-only"
-                              required
-                            />
-                          </label>
-                          <p className="pl-1">or drag and drop</p>
+                    {selectedImagePreview ? (
+                      <div className="space-y-3">
+                        <div className="flex justify-center">
+                          <img
+                            src={selectedImagePreview}
+                            alt="Selected QR Code Preview"
+                            className="w-48 h-48 object-contain border rounded-lg shadow-sm"
+                          />
                         </div>
-                        <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                                                 <div className="flex justify-center">
+                           <button
+                             type="button"
+                             onClick={() => {
+                               setSelectedImagePreview(null);
+                               setSelectedFile(null);
+                               const fileInput = document.getElementById('qrImage') as HTMLInputElement;
+                               if (fileInput) fileInput.value = '';
+                             }}
+                             className="text-sm text-red-600 hover:text-red-800"
+                           >
+                             Remove Image
+                           </button>
+                         </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div 
+                        className="flex justify-center px-6 pt-5 pb-6 border-2 border-gray-400 border-dashed rounded-md hover:border-blue-400 transition-colors"
+                        onDragOver={handleDragOver}
+                        onDrop={handleDrop}
+                      >
+                        <div className="space-y-1 text-center">
+                          <PhotoIcon className="mx-auto h-12 w-12 text-gray-400" />
+                          <div className="flex text-sm text-gray-600">
+                            <label htmlFor="qrImage" className="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
+                              <span>Upload a file</span>
+                              <input
+                                id="qrImage"
+                                name="qrImage"
+                                type="file"
+                                accept="image/*"
+                                className="sr-only"
+                                required
+                                onChange={handleImageSelect}
+                              />
+                            </label>
+                            <p className="pl-1">or drag and drop</p>
+                          </div>
+                          <p className="text-xs text-gray-500">PNG, JPG, GIF up to 5MB</p>
+                        </div>
+                      </div>
+                    )}
                   </div>
                   
                   <div>
@@ -362,18 +457,19 @@ export default function QRCodeManagement() {
                 <div className="flex justify-end space-x-3 mt-6">
                   <button
                     type="button"
-                    onClick={() => setShowUploadModal(false)}
+                    onClick={handleCloseUploadModal}
                     className="btn btn-outline"
                   >
                     Cancel
                   </button>
-                  <button
-                    type="submit"
-                    disabled={uploadQRMutation.isPending}
-                    className="btn btn-primary"
-                  >
-                    {uploadQRMutation.isPending ? 'Uploading...' : 'Upload QR Code'}
-                  </button>
+                                     <button
+                     type="submit"
+                     disabled={uploadQRMutation.isPending || !selectedFile}
+                     className={`btn ${!selectedFile ? 'btn-disabled' : 'btn-primary'}`}
+                     title={!selectedFile ? 'Please select a QR code image first' : ''}
+                   >
+                     {uploadQRMutation.isPending ? 'Uploading...' : 'Upload QR Code'}
+                   </button>
                 </div>
               </form>
             </div>

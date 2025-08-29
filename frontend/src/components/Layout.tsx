@@ -82,11 +82,11 @@ const getNavigation = (userRole?: string) => {
   }
 
   if (userRole === 'auditor') {
-    baseNavigation.push({ 
-      name: 'Money Management', 
-      href: '/money', 
-      icon: CurrencyDollarIcon
-    });
+    // baseNavigation.push({ 
+    //   name: 'Money Management', 
+    //   href: '/money', 
+    //   icon: CurrencyDollarIcon
+    // });
     baseNavigation.push({ 
       name: 'Field Agents', 
       href: '/users', 

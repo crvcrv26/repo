@@ -159,22 +159,22 @@ export default function PaymentSubmission() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                         <div className="flex justify-center">
-               <img
-                 src={getImageUrl(qrCode.qrImageUrl)}
-                 alt="Payment QR Code"
-                 className="w-64 h-64 object-contain border rounded-lg shadow-lg"
-                 onLoad={(e) => {
-                   console.log('✅ QR image loaded successfully:', getImageUrl(qrCode.qrImageUrl));
-                 }}
-                 onError={(e) => {
-                   console.error('❌ QR image failed to load:', getImageUrl(qrCode.qrImageUrl), e);
-                   console.error('Error details:', e);
-                   e.currentTarget.style.display = 'none';
-                 }}
-                 crossOrigin="anonymous"
-               />
-             </div>
+            <div className="flex justify-center">
+              <img
+                src={getImageUrl(qrCode.qrImageUrl)}
+                alt="Payment QR Code"
+                className="w-64 h-64 object-contain border rounded-lg shadow-lg"
+                onLoad={(e) => {
+                  console.log('✅ QR image loaded successfully:', getImageUrl(qrCode.qrImageUrl));
+                }}
+                onError={(e) => {
+                  console.error('❌ QR image failed to load:', getImageUrl(qrCode.qrImageUrl), e);
+                  console.error('Error details:', e);
+                  e.currentTarget.style.display = 'none';
+                }}
+                crossOrigin="anonymous"
+              />
+            </div>
             
             <div className="space-y-4">
               <div>
