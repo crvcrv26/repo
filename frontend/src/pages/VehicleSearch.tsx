@@ -7,6 +7,10 @@ import {
   XMarkIcon,
   ClockIcon,
   BoltIcon,
+  DocumentTextIcon,
+  UserIcon,
+  CogIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../hooks/useAuth'
 
@@ -33,7 +37,7 @@ export default function VehicleSearch() {
   
   // State for ULTRA-FAST vehicle search (simplified)
   const [vehicleSearch, setVehicleSearch] = useState('')
-  const [searchType, setSearchType] = useState('all') // Only: 'all', 'registration_number', 'chasis_number', 'engine_number'
+  const [searchType, setSearchType] = useState('registration_number') // Default to registration number
   const [vehiclePage, setVehiclePage] = useState(1)
   const [selectedVehicle, setSelectedVehicle] = useState<any>(null)
   const [showDetailsModal, setShowDetailsModal] = useState(false)
@@ -61,8 +65,6 @@ export default function VehicleSearch() {
   const vehicles = vehiclesData?.data?.data || []
   const vehiclePagination = vehiclesData?.data?.pagination
 
-
-
   const handleViewDetails = async (vehicle: any) => {
     setSelectedVehicle(vehicle)
     setShowDetailsModal(true)
@@ -82,239 +84,342 @@ export default function VehicleSearch() {
     }
   }
 
-  // Export functionality removed
-
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Vehicle Search</h1>
-          <p className="text-gray-600">Search through Excel-uploaded vehicle data</p>
-        </div>
-        <div className="flex space-x-3">
-          {/* Export functionality removed */}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+      {/* Header Section */}
+      <div className="bg-white shadow-sm border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl shadow-lg">
+                <DocumentTextIcon className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900">Vehicle Search</h1>
+                <p className="text-gray-600 mt-1">Search through Excel-uploaded vehicle data with advanced filtering</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-3">
+              <div className="flex items-center space-x-2 text-sm text-gray-500">
+                <SparklesIcon className="w-4 h-4" />
+                <span>Powered by AI</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      {/* LIGHTNING-FAST Search Form */}
-      <div className="card">
-        <div className="card-body">
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center space-x-2">
-              <BoltIcon className="h-5 w-5 text-yellow-500" />
-              <h3 className="text-lg font-semibold text-gray-900">Ultra-Fast Vehicle Search</h3>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Search Section */}
+        <div className="bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden">
+          <div className="bg-gradient-to-r from-blue-600 to-purple-600 px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center justify-center w-10 h-10 bg-white/20 rounded-lg">
+                  <BoltIcon className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-white">Smart Vehicle Search</h2>
+                  <p className="text-blue-100 text-sm">Find vehicles instantly with intelligent search</p>
+                </div>
+              </div>
               {vehiclesData?.data?.performance && (
-                <span className="badge badge-success text-xs">
-                  {vehiclesData.data.performance.queryTime} 
-                  {vehiclesData.data.performance.cached && ' (cached)'}
-                </span>
+                <div className="flex items-center space-x-2">
+                  <div className="bg-white/20 rounded-lg px-3 py-1">
+                    <span className="text-white text-sm font-medium">
+                      {vehiclesData.data.performance.queryTime} 
+                      {vehiclesData.data.performance.cached && ' (cached)'}
+                    </span>
+                  </div>
+                </div>
               )}
             </div>
-            {(isFetching && !isPreviousData) && (
-              <div className="flex items-center text-blue-600">
-                <ClockIcon className="h-4 w-4 mr-1 animate-spin" />
-                <span className="text-sm">Searching...</span>
-              </div>
-            )}
-            {(isFetching && isPreviousData) && (
-              <div className="flex items-center text-orange-600">
-                <ClockIcon className="h-4 w-4 mr-1 animate-spin" />
-                <span className="text-sm">Updating...</span>
-              </div>
-            )}
           </div>
 
-          <div className="space-y-4">
-            {/* Search Type Selector */}
-            <div className="flex space-x-3">
-              <div className="w-48">
-                <label className="block text-sm font-medium text-gray-700 mb-1">Search In</label>
+          <div className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Search Type Selector */}
+              <div className="lg:col-span-1">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Search Field
+                </label>
                 <select
                   value={searchType}
                   onChange={(e) => setSearchType(e.target.value)}
-                  className="form-select"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 bg-white shadow-sm"
                 >
-                  <option value="all">All Fields</option>
-                  <option value="registration_number">Registration Number</option>
-                  <option value="chasis_number">Chassis Number</option>
-                  <option value="engine_number">Engine Number</option>
+                  <option value="all">🔍 All Fields</option>
+                  <option value="registration_number">🚗 Registration Number</option>
+                  <option value="chasis_number">🔧 Chassis Number</option>
+                  <option value="engine_number">⚙️ Engine Number</option>
                 </select>
               </div>
               
-              {/* Clear and Refresh buttons */}
-              <div className="flex items-end space-x-2">
+              {/* Search Input */}
+              <div className="lg:col-span-2">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Search Term {debouncedSearch !== vehicleSearch && '(typing...)'}
+                </label>
+                <div className="relative">
+                  <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder={
+                      searchType === 'all' 
+                        ? "🔍 Search anywhere in registration, chassis, or engine number..."
+                        : `🔍 Search anywhere in ${searchType.replace('_', ' ')}...`
+                    }
+                    value={vehicleSearch}
+                    onChange={(e) => setVehicleSearch(e.target.value)}
+                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 text-base shadow-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex items-center justify-between mt-6">
+              <div className="flex items-center space-x-3">
                 {vehicleSearch && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setVehicleSearch('');
-                      setVehiclePage(1);
-                      setSearchType('all');
-                    }}
-                    className="btn btn-outline btn-sm"
+                                  <button
+                  type="button"
+                  onClick={() => {
+                    setVehicleSearch('');
+                    setVehiclePage(1);
+                    setSearchType('registration_number');
+                  }}
+                    className="flex items-center space-x-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-all duration-200"
                   >
-                    <XMarkIcon className="h-4 w-4 mr-1" />
-                    Clear
+                    <XMarkIcon className="h-4 w-4" />
+                    <span>Clear</span>
                   </button>
                 )}
                 <button
                   type="button"
                   onClick={() => {
-                    // Force refresh by invalidating cache
                     queryClient.invalidateQueries({ queryKey: ['excel-vehicles-fast'] });
                   }}
-                  className="btn btn-outline btn-sm"
+                  className="flex items-center space-x-2 px-4 py-2 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-lg transition-all duration-200"
                   title="Refresh search results to get latest data"
                 >
-                  🔄 Refresh
+                  <CogIcon className="h-4 w-4" />
+                  <span>Refresh</span>
                 </button>
               </div>
-            </div>
-            
-            {/* Search Input */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Search Term {debouncedSearch !== vehicleSearch && '(typing...)'}
-              </label>
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder={
-                    searchType === 'all' 
-                      ? "Search anywhere in registration, chassis, or engine number..."
-                      : `Search anywhere in ${searchType.replace('_', ' ')}...`
-                  }
-                  value={vehicleSearch}
-                  onChange={(e) => setVehicleSearch(e.target.value)}
-                  className="form-input pl-10 text-base"
-                />
-                {vehicleSearch && vehicleSearch.trim().length < 3 && (
-                  <p className="text-sm text-orange-600 mt-1 flex items-center">
-                    <BoltIcon className="h-4 w-4 mr-1" />
-                    Enter at least 3 characters to search anywhere in the field
-                  </p>
+
+              {/* Status Indicators */}
+              <div className="flex items-center space-x-4">
+                {(isFetching && !isPreviousData) && (
+                  <div className="flex items-center space-x-2 text-blue-600">
+                    <ClockIcon className="h-4 w-4 animate-spin" />
+                    <span className="text-sm font-medium">Searching...</span>
+                  </div>
                 )}
-                {vehicleSearch.trim().length >= 3 && debouncedSearch === vehicleSearch && !isFetching && (
-                  <p className="text-sm text-green-600 mt-1 flex items-center">
-                    <BoltIcon className="h-4 w-4 mr-1" />
-                    Found {vehicles.length} results (supports partial matching)
-                  </p>
-                )}
-                {vehicleSearch.trim().length >= 3 && (isFetching && !isPreviousData) && (
-                  <p className="text-sm text-blue-600 mt-1 flex items-center">
-                    <ClockIcon className="h-4 w-4 mr-1 animate-spin" />
-                    Searching for "{debouncedSearch}"...
-                  </p>
-                )}
-                {vehicleSearch.trim().length >= 3 && (isFetching && isPreviousData) && (
-                  <p className="text-sm text-orange-600 mt-1 flex items-center">
-                    <ClockIcon className="h-4 w-4 mr-1 animate-spin" />
-                    Updating results for "{debouncedSearch}"...
-                  </p>
+                {(isFetching && isPreviousData) && (
+                  <div className="flex items-center space-x-2 text-orange-600">
+                    <ClockIcon className="h-4 w-4 animate-spin" />
+                    <span className="text-sm font-medium">Updating...</span>
+                  </div>
                 )}
               </div>
             </div>
+
+            {/* Search Feedback */}
+            <div className="mt-4">
+              {vehicleSearch && vehicleSearch.trim().length < 3 && (
+                <div className="flex items-center space-x-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <BoltIcon className="h-4 w-4 text-orange-500" />
+                  <p className="text-sm text-orange-700">
+                    Enter at least 3 characters to search anywhere in the field
+                  </p>
+                </div>
+              )}
+              {vehicleSearch.trim().length >= 3 && debouncedSearch === vehicleSearch && !isFetching && vehicles.length > 0 && (
+                <div className="flex items-center space-x-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                  <BoltIcon className="h-4 w-4 text-green-500" />
+                  <p className="text-sm text-green-700">
+                    Found {vehicles.length} results (supports partial matching)
+                  </p>
+                </div>
+              )}
+              {vehicleSearch.trim().length >= 3 && (isFetching && !isPreviousData) && (
+                <div className="flex items-center space-x-2 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <ClockIcon className="h-4 w-4 text-blue-500 animate-spin" />
+                  <p className="text-sm text-blue-700">
+                    Searching for "{debouncedSearch}"...
+                  </p>
+                </div>
+              )}
+              {vehicleSearch.trim().length >= 3 && (isFetching && isPreviousData) && (
+                <div className="flex items-center space-x-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                  <ClockIcon className="h-4 w-4 text-orange-500 animate-spin" />
+                  <p className="text-sm text-orange-700">
+                    Updating results for "{debouncedSearch}"...
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-      </div>
 
+        {/* Results Summary */}
+        {vehicleSearch.trim().length >= 3 && vehicles.length > 0 && (
+          <div className="mt-6 bg-white rounded-xl shadow-lg border border-gray-200 p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-lg">
+                  <DocumentTextIcon className="w-5 h-5 text-blue-600" />
+                </div>
+                               <div>
+                 <p className="text-lg font-semibold text-gray-900">
+                   Found <span className="text-blue-600">{vehiclePagination?.total || vehicles.length}</span> vehicles
+                 </p>
+                 <div className="flex items-center space-x-2 mt-1">
+                   <span className="text-xs text-gray-500">Sorted alphabetically by registration number</span>
+                   <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">A-Z</span>
+                 </div>
+                 {vehiclePagination && vehiclePagination.pages > 1 && (
+                   <p className="text-sm text-gray-600">
+                     Page {vehiclePage} of {vehiclePagination.pages}
+                   </p>
+                 )}
+               </div>
+              </div>
+              <div className="text-sm text-gray-500">
+                Showing {((vehiclePage - 1) * 20) + 1} - {Math.min(vehiclePage * 20, vehiclePagination?.total || vehicles.length)} of {vehiclePagination?.total || vehicles.length}
+              </div>
+            </div>
+          </div>
+        )}
 
-
-       {/* Results Summary */}
-       {vehicleSearch.trim().length >= 3 && vehicles.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-blue-800">
-                Found <span className="font-semibold">{vehiclePagination?.total || vehicles.length}</span> vehicles
-                {vehiclePagination && vehiclePagination.pages > 1 && (
-                  <span className="ml-2">(Page {vehiclePage} of {vehiclePagination.pages})</span>
-                )}
+        {/* Vehicles List */}
+        <div className="mt-6">
+          {vehicleSearch.trim().length < 3 ? (
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-12 text-center">
+              <div className="flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full mx-auto mb-6">
+                <MagnifyingGlassIcon className="w-10 h-10 text-blue-600" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Ready to Search</h3>
+              <p className="text-gray-600 max-w-md mx-auto">
+                Enter at least 3 characters to start searching through vehicle data. Our smart search will find matches anywhere in the specified fields.
               </p>
             </div>
-            <div className="text-sm text-blue-600">
-              Showing {((vehiclePage - 1) * 20) + 1} - {Math.min(vehiclePage * 20, vehiclePagination?.total || vehicles.length)} of {vehiclePagination?.total || vehicles.length}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Vehicles List */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6">
-           {vehicleSearch.trim().length < 3 ? (
-             <div className="text-center py-12">
-               <MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-400" />
-               <h3 className="mt-2 text-sm font-medium text-gray-900">Ready to search</h3>
-               <p className="mt-1 text-sm text-gray-500">
-                 Enter at least 3 characters to search automatically.
-               </p>
-             </div>
-           ) : (vehiclesLoading || (isFetching && !isPreviousData)) ? (
-            <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-              <p className="mt-4 text-sm text-gray-500">
+          ) : (vehiclesLoading || (isFetching && !isPreviousData)) ? (
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-12 text-center">
+              <div className="flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-100 to-purple-100 rounded-full mx-auto mb-6">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Searching...</h3>
+              <p className="text-gray-600">
                 Searching for "{debouncedSearch}" anywhere in vehicle data...
               </p>
             </div>
           ) : vehicles.length === 0 ? (
-            <div className="text-center py-12">
-              <MagnifyingGlassIcon className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">No vehicles found</h3>
-              <p className="mt-1 text-sm text-gray-500">
-                Try adjusting your search criteria or filters.
+            <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-12 text-center">
+              <div className="flex items-center justify-center w-20 h-20 bg-gradient-to-r from-gray-100 to-gray-200 rounded-full mx-auto mb-6">
+                <MagnifyingGlassIcon className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">No Vehicles Found</h3>
+              <p className="text-gray-600 max-w-md mx-auto">
+                Try adjusting your search criteria or try a different search term. Our search supports partial matching for better results.
               </p>
             </div>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {(isFetching && isPreviousData) && (
-                <div className="bg-orange-50 border-l-4 border-orange-400 p-3 mb-4">
+                <div className="bg-orange-50 border-l-4 border-orange-400 p-4 rounded-lg">
                   <div className="flex items-center">
-                    <ClockIcon className="h-4 w-4 text-orange-400 mr-2 animate-spin" />
-                    <p className="text-sm text-orange-700">
+                    <ClockIcon className="h-5 w-5 text-orange-400 mr-3 animate-spin" />
+                    <p className="text-orange-700 font-medium">
                       Updating results for "{debouncedSearch}"... Showing previous results below.
                     </p>
                   </div>
                 </div>
               )}
+              
               {vehicles.map((vehicle: any) => (
-                <div key={vehicle._id} className="border-2 border-gray-400 rounded-lg p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      {currentUser?.role === 'fieldAgent' ? (
-                        // For field agents: Show only registration number
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">Registration Number</p>
-                          <p className="text-sm text-gray-600 font-mono">{vehicle.registration_number || 'N/A'}</p>
-                        </div>
-                      ) : (
-                        // For other roles: Show all three fields
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">Registration Number</p>
-                            <p className="text-sm text-gray-600 font-mono">{vehicle.registration_number || 'N/A'}</p>
+                <div key={vehicle._id} className="bg-white rounded-xl shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 overflow-hidden">
+                  <div className="p-6">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        {/* Data Type Label */}
+                        {vehicle.dataType && (
+                          <div className="mb-4">
+                                                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                               vehicle.dataType === 'SUPER ADMIN DATA' 
+                                 ? 'bg-purple-100 text-purple-800 border border-purple-200' 
+                                 : vehicle.dataType.includes(' DATA') && vehicle.dataType !== 'SELF DATA'
+                                 ? 'bg-orange-100 text-orange-800 border border-orange-200'
+                                 : 'bg-blue-100 text-blue-800 border border-blue-200'
+                             }`}>
+                              <SparklesIcon className="w-3 h-3 mr-1" />
+                              {vehicle.dataType}
+                            </span>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">Chassis Number</p>
-                            <p className="text-sm text-gray-600 font-mono">{vehicle.chasis_number || 'N/A'}</p>
+                        )}
+                        
+                        {currentUser?.role === 'fieldAgent' ? (
+                          // For field agents: Show only registration number
+                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4">
+                            <div className="flex items-center space-x-3">
+                              <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-lg">
+                                <DocumentTextIcon className="w-5 h-5 text-blue-600" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-600">Registration Number</p>
+                                <p className="text-lg font-bold text-gray-900 font-mono">{vehicle.registration_number || 'N/A'}</p>
+                              </div>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">Engine Number</p>
-                            <p className="text-sm text-gray-600 font-mono">{vehicle.engine_number || 'N/A'}</p>
+                        ) : (
+                          // For other roles: Show all three fields
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4">
+                              <div className="flex items-center space-x-3">
+                                <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-lg">
+                                  <DocumentTextIcon className="w-5 h-5 text-blue-600" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-600">Registration</p>
+                                  <p className="text-lg font-bold text-gray-900 font-mono">{vehicle.registration_number || 'N/A'}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4">
+                              <div className="flex items-center space-x-3">
+                                <div className="flex items-center justify-center w-10 h-10 bg-green-100 rounded-lg">
+                                  <CogIcon className="w-5 h-5 text-green-600" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-600">Chassis</p>
+                                  <p className="text-lg font-bold text-gray-900 font-mono">{vehicle.chasis_number || 'N/A'}</p>
+                                </div>
+                              </div>
+                            </div>
+                            <div className="bg-gradient-to-r from-purple-50 to-pink-50 rounded-lg p-4">
+                              <div className="flex items-center space-x-3">
+                                <div className="flex items-center justify-center w-10 h-10 bg-purple-100 rounded-lg">
+                                  <BoltIcon className="w-5 h-5 text-purple-600" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-600">Engine</p>
+                                  <p className="text-lg font-bold text-gray-900 font-mono">{vehicle.engine_number || 'N/A'}</p>
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      )}
-                    </div>
-                    <div className="ml-4">
-                      <button
-                        onClick={() => handleViewDetails(vehicle)}
-                        className="btn btn-secondary"
-                        title="View Details"
-                      >
-                        <EyeIcon className="h-4 w-4" />
-                        View
-                      </button>
+                        )}
+                      </div>
+                      <div className="ml-6">
+                        <button
+                          onClick={() => handleViewDetails(vehicle)}
+                          className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                          title="View Details"
+                        >
+                          <EyeIcon className="h-4 w-4" />
+                          <span>View Details</span>
+                        </button>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -322,267 +427,380 @@ export default function VehicleSearch() {
             </div>
           )}
         </div>
-      </div>
 
-       {/* Vehicle Pagination */}
-       {vehicleSearch.trim().length >= 3 && vehiclePagination && vehiclePagination.pages > 1 && (
-         <div className="flex justify-center">
-           <nav className="flex items-center space-x-1 max-w-full overflow-x-auto">
-             {/* Previous Page */}
-             {vehiclePage > 1 && (
-               <button
-                 onClick={() => setVehiclePage(vehiclePage - 1)}
-                 className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-400 whitespace-nowrap"
-               >
-                 Previous
-               </button>
-             )}
-             
-             {/* First Page */}
-             {vehiclePage > 3 && (
-               <>
-                 <button
-                   onClick={() => setVehiclePage(1)}
-                   className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-400"
-                 >
-                   1
-                 </button>
-                 {vehiclePage > 4 && (
-                   <span className="px-2 text-gray-500">...</span>
-                 )}
-               </>
-             )}
-             
-             {/* Page Numbers around current page */}
-             {Array.from({ length: vehiclePagination.pages }, (_, i) => i + 1)
-               .filter(pageNum => 
-                 pageNum === 1 || 
-                 pageNum === vehiclePagination.pages || 
-                 (pageNum >= vehiclePage - 1 && pageNum <= vehiclePage + 1)
-               )
-               .map((pageNum, index, array) => (
-                 <React.Fragment key={pageNum}>
-                   {index > 0 && array[index - 1] !== pageNum - 1 && (
-                     <span className="px-2 text-gray-500">...</span>
-                   )}
-                   <button
-                     onClick={() => setVehiclePage(pageNum)}
-                     className={`px-3 py-2 text-sm font-medium rounded-md ${
-                       pageNum === vehiclePage
-                         ? 'bg-blue-600 text-white'
-                         : 'bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-400'
-                     }`}
-                   >
-                     {pageNum}
-                   </button>
-                 </React.Fragment>
-               ))}
-             
-             {/* Last Page */}
-             {vehiclePage < vehiclePagination.pages - 2 && (
-               <>
-                 {vehiclePage < vehiclePagination.pages - 3 && (
-                   <span className="px-2 text-gray-500">...</span>
-                 )}
-                 <button
-                   onClick={() => setVehiclePage(vehiclePagination.pages)}
-                   className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-400"
-                 >
-                   {vehiclePagination.pages}
-                 </button>
-               </>
-             )}
-             
-             {/* Next Page */}
-             {vehiclePage < vehiclePagination.pages && (
-               <button
-                 onClick={() => setVehiclePage(vehiclePage + 1)}
-                 className="px-3 py-2 text-sm font-medium rounded-md bg-white text-gray-700 hover:bg-gray-50 border-2 border-gray-400 whitespace-nowrap"
-               >
-                 Next
-               </button>
-             )}
-           </nav>
-         </div>
-       )}
+        {/* Vehicle Pagination */}
+        {vehicleSearch.trim().length >= 3 && vehiclePagination && vehiclePagination.pages > 1 && (
+          <div className="mt-8 flex justify-center">
+            <nav className="flex items-center space-x-2 bg-white rounded-xl shadow-lg border border-gray-200 p-2">
+              {/* Previous Page */}
+              {vehiclePage > 1 && (
+                <button
+                  onClick={() => setVehiclePage(vehiclePage - 1)}
+                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all duration-200"
+                >
+                  <span>←</span>
+                  <span>Previous</span>
+                </button>
+              )}
+              
+              {/* First Page */}
+              {vehiclePage > 3 && (
+                <>
+                  <button
+                    onClick={() => setVehiclePage(1)}
+                    className="px-3 py-2 text-sm font-medium rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all duration-200"
+                  >
+                    1
+                  </button>
+                  {vehiclePage > 4 && (
+                    <span className="px-2 text-gray-500">...</span>
+                  )}
+                </>
+              )}
+              
+              {/* Page Numbers around current page */}
+              {Array.from({ length: vehiclePagination.pages }, (_, i) => i + 1)
+                .filter(pageNum => 
+                  pageNum === 1 || 
+                  pageNum === vehiclePagination.pages || 
+                  (pageNum >= vehiclePage - 1 && pageNum <= vehiclePage + 1)
+                )
+                .map((pageNum, index, array) => (
+                  <React.Fragment key={pageNum}>
+                    {index > 0 && array[index - 1] !== pageNum - 1 && (
+                      <span className="px-2 text-gray-500">...</span>
+                    )}
+                    <button
+                      onClick={() => setVehiclePage(pageNum)}
+                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-all duration-200 ${
+                        pageNum === vehiclePage
+                          ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
+                          : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  </React.Fragment>
+                ))}
+              
+              {/* Last Page */}
+              {vehiclePage < vehiclePagination.pages - 2 && (
+                <>
+                  {vehiclePage < vehiclePagination.pages - 3 && (
+                    <span className="px-2 text-gray-500">...</span>
+                  )}
+                  <button
+                    onClick={() => setVehiclePage(vehiclePagination.pages)}
+                    className="px-3 py-2 text-sm font-medium rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all duration-200"
+                  >
+                    {vehiclePagination.pages}
+                  </button>
+                </>
+              )}
+              
+              {/* Next Page */}
+              {vehiclePage < vehiclePagination.pages && (
+                <button
+                  onClick={() => setVehiclePage(vehiclePage + 1)}
+                  className="flex items-center space-x-2 px-4 py-2 text-sm font-medium rounded-lg bg-gray-100 hover:bg-gray-200 text-gray-700 transition-all duration-200"
+                >
+                  <span>Next</span>
+                  <span>→</span>
+                </button>
+              )}
+            </nav>
+          </div>
+        )}
 
-      {/* Vehicle Details Modal */}
-      {showDetailsModal && selectedVehicle && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-2xl shadow-lg rounded-md bg-white">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium text-gray-900">
-                {currentUser?.role === 'fieldAgent' ? 'Vehicle Information' : 'Vehicle Details'}
-              </h3>
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="text-gray-400 hover:text-gray-600"
-              >
-                <XMarkIcon className="h-6 w-6" />
-              </button>
-            </div>
-            
-            <div className="max-h-96 overflow-y-auto">
-              {currentUser?.role === 'fieldAgent' ? (
-                // Simplified view for field agents - only 4 specific fields
-                <div className="space-y-6">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-medium text-blue-900 mb-4 text-center">Vehicle Details</h4>
-                    <div className="grid grid-cols-1 gap-4">
-                      <div className="flex justify-between items-center py-2 border-b border-blue-200">
-                        <span className="text-sm font-medium text-blue-800">Customer Name:</span>
-                        <span className="text-sm text-blue-900 font-semibold">{selectedVehicle.customer_name || 'N/A'}</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-blue-200">
-                        <span className="text-sm font-medium text-blue-800">Registration No:</span>
-                        <span className="text-sm text-blue-900 font-mono font-semibold">{selectedVehicle.registration_number || 'N/A'}</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2 border-b border-blue-200">
-                        <span className="text-sm font-medium text-blue-800">Chassis No:</span>
-                        <span className="text-sm text-blue-900 font-mono font-semibold">{selectedVehicle.chasis_number || 'N/A'}</span>
-                      </div>
-                      <div className="flex justify-between items-center py-2">
-                        <span className="text-sm font-medium text-blue-800">Engine Number:</span>
-                        <span className="text-sm text-blue-900 font-mono font-semibold">{selectedVehicle.engine_number || 'N/A'}</span>
-                      </div>
-                    </div>
+        {/* Vehicle Details Modal */}
+        {showDetailsModal && selectedVehicle && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div className="relative top-10 mx-auto p-5 border w-11/12 max-w-4xl shadow-2xl rounded-2xl bg-white">
+              <div className="flex justify-between items-center mb-6">
+                <div className="flex items-center space-x-3">
+                  <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl">
+                    <DocumentTextIcon className="w-6 h-6 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-2xl font-bold text-gray-900">
+                      {currentUser?.role === 'fieldAgent' ? 'Vehicle Information' : 'Vehicle Details'}
+                    </h3>
+                    <p className="text-gray-600">Complete vehicle information and specifications</p>
                   </div>
                 </div>
-              ) : (
-                // Full view for other roles
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                   {/* Primary Info */}
-                   <div className="space-y-3">
-                     <h4 className="font-medium text-gray-900 border-b pb-2">Primary Information</h4>
-                     <div>
-                       <p className="text-sm font-medium text-gray-700">Excel File</p>
-                       <p className="text-sm text-gray-900 font-mono">{selectedVehicle.excel_file?.originalName || selectedVehicle.excel_file?.filename || 'N/A'}</p>
-                     </div>
-                     <div>
-                       <p className="text-sm font-medium text-gray-700">Registration Number</p>
-                       <p className="text-sm text-gray-900 font-mono">{selectedVehicle.registration_number || 'N/A'}</p>
-                     </div>
-                     <div>
-                       <p className="text-sm font-medium text-gray-700">Customer Name</p>
-                       <p className="text-sm text-gray-900">{selectedVehicle.customer_name || 'N/A'}</p>
-                     </div>
-                     <div>
-                       <p className="text-sm font-medium text-gray-700">Loan Number</p>
-                       <p className="text-sm text-gray-900 font-mono">{selectedVehicle.loan_number || 'N/A'}</p>
-                     </div>
-                     <div>
-                       <p className="text-sm font-medium text-gray-700">Branch</p>
-                       <p className="text-sm text-gray-900">{selectedVehicle.branch || 'N/A'}</p>
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="flex items-center justify-center w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-lg transition-all duration-200"
+                >
+                  <XMarkIcon className="h-6 w-6 text-gray-600" />
+                </button>
+              </div>
+              
+              <div className="max-h-96 overflow-y-auto">
+                {/* Data Type Label */}
+                {selectedVehicle.dataType && (
+                  <div className="mb-6 text-center">
+                                         <span className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-semibold ${
+                       selectedVehicle.dataType === 'SUPER ADMIN DATA' 
+                         ? 'bg-purple-100 text-purple-800 border border-purple-200' 
+                         : selectedVehicle.dataType.includes(' DATA') && selectedVehicle.dataType !== 'SELF DATA'
+                         ? 'bg-orange-100 text-orange-800 border border-orange-200'
+                         : 'bg-blue-100 text-blue-800 border border-blue-200'
+                     }`}>
+                      <SparklesIcon className="w-4 h-4 mr-2" />
+                      {selectedVehicle.dataType}
+                    </span>
+                  </div>
+                )}
+                
+                                 {currentUser?.role === 'fieldAgent' ? (
+                   // Simplified view for field agents - including make field
+                   <div className="space-y-6">
+                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+                       <h4 className="font-bold text-blue-900 mb-6 text-center text-lg">Vehicle Details</h4>
+                       <div className="grid grid-cols-1 gap-4">
+                         <div className="flex justify-between items-center py-3 border-b border-blue-200">
+                           <span className="text-sm font-semibold text-blue-800">Customer Name:</span>
+                           <span className="text-sm text-blue-900 font-bold">{selectedVehicle.customer_name || 'N/A'}</span>
+                         </div>
+                         <div className="flex justify-between items-center py-3 border-b border-blue-200">
+                           <span className="text-sm font-semibold text-blue-800">Registration No:</span>
+                           <span className="text-sm text-blue-900 font-bold font-mono">{selectedVehicle.registration_number || 'N/A'}</span>
+                         </div>
+                         <div className="flex justify-between items-center py-3 border-b border-blue-200">
+                           <span className="text-sm font-semibold text-blue-800">Make:</span>
+                           <span className="text-sm text-blue-900 font-bold">{selectedVehicle.make || 'N/A'}</span>
+                         </div>
+                         <div className="flex justify-between items-center py-3 border-b border-blue-200">
+                           <span className="text-sm font-semibold text-blue-800">Chassis No:</span>
+                           <span className="text-sm text-blue-900 font-bold font-mono">{selectedVehicle.chasis_number || 'N/A'}</span>
+                         </div>
+                         <div className="flex justify-between items-center py-3">
+                           <span className="text-sm font-semibold text-blue-800">Engine Number:</span>
+                           <span className="text-sm text-blue-900 font-bold font-mono">{selectedVehicle.engine_number || 'N/A'}</span>
+                         </div>
+                       </div>
                      </div>
                    </div>
+                ) : (
+                  // Full view for other roles - conditionally show fields based on access
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    {/* Primary Info */}
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-lg">
+                          <DocumentTextIcon className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <h4 className="font-bold text-gray-900">Primary Information</h4>
+                      </div>
+                      
+                                             {/* Show Excel File name only when it's available and user has access */}
+                       {selectedVehicle.excel_file?.originalName && (
+                         <div className="bg-blue-50 rounded-lg p-4">
+                           <p className="text-sm font-semibold text-gray-700 mb-1">Excel File</p>
+                           <p className="text-sm text-gray-900 font-mono">{selectedVehicle.excel_file.originalName}</p>
+                         </div>
+                       )}
+                      
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <p className="text-sm font-semibold text-gray-700 mb-1">Registration Number</p>
+                        <p className="text-sm text-gray-900 font-mono font-bold">{selectedVehicle.registration_number || 'N/A'}</p>
+                      </div>
+                      
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <p className="text-sm font-semibold text-gray-700 mb-1">Customer Name</p>
+                        <p className="text-sm text-gray-900 font-bold">{selectedVehicle.customer_name || 'N/A'}</p>
+                      </div>
+                      
+                      {/* Only show loan_number if it exists in the vehicle data */}
+                      {selectedVehicle.hasOwnProperty('loan_number') && (
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                          <p className="text-sm font-semibold text-gray-700 mb-1">Loan Number</p>
+                          <p className="text-sm text-gray-900 font-mono font-bold">{selectedVehicle.loan_number || 'N/A'}</p>
+                        </div>
+                      )}
+                      
+                      {/* Only show branch if it exists in the vehicle data */}
+                      {selectedVehicle.hasOwnProperty('branch') && (
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                          <p className="text-sm font-semibold text-gray-700 mb-1">Branch</p>
+                          <p className="text-sm text-gray-900 font-bold">{selectedVehicle.branch || 'N/A'}</p>
+                        </div>
+                      )}
+                    </div>
 
-                  {/* Vehicle Details */}
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-gray-900 border-b pb-2">Vehicle Information</h4>
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Make</p>
-                      <p className="text-sm text-gray-900">{selectedVehicle.make || 'N/A'}</p>
+                    {/* Vehicle Details */}
+                    <div className="space-y-4">
+                      <div className="flex items-center space-x-2 mb-4">
+                        <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-lg">
+                          <CogIcon className="w-4 h-4 text-green-600" />
+                        </div>
+                        <h4 className="font-bold text-gray-900">Vehicle Information</h4>
+                      </div>
+                      
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <p className="text-sm font-semibold text-gray-700 mb-1">Make</p>
+                        <p className="text-sm text-gray-900 font-bold">{selectedVehicle.make || 'N/A'}</p>
+                      </div>
+                      
+                      {/* Only show model if it exists in the vehicle data */}
+                      {selectedVehicle.hasOwnProperty('model') && (
+                        <div className="bg-white border border-gray-200 rounded-lg p-4">
+                          <p className="text-sm font-semibold text-gray-700 mb-1">Model</p>
+                          <p className="text-sm text-gray-900 font-bold">{selectedVehicle.model || 'N/A'}</p>
+                        </div>
+                      )}
+                      
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <p className="text-sm font-semibold text-gray-700 mb-1">Chassis Number</p>
+                        <p className="text-sm text-gray-900 font-mono font-bold">{selectedVehicle.chasis_number || 'N/A'}</p>
+                      </div>
+                      
+                      <div className="bg-white border border-gray-200 rounded-lg p-4">
+                        <p className="text-sm font-semibold text-gray-700 mb-1">Engine Number</p>
+                        <p className="text-sm text-gray-900 font-mono font-bold">{selectedVehicle.engine_number || 'N/A'}</p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Model</p>
-                      <p className="text-sm text-gray-900">{selectedVehicle.model || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Chassis Number</p>
-                      <p className="text-sm text-gray-900 font-mono">{selectedVehicle.chasis_number || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Engine Number</p>
-                      <p className="text-sm text-gray-900 font-mono">{selectedVehicle.engine_number || 'N/A'}</p>
-                    </div>
-                  </div>
 
-                  {/* Financial Details */}
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-gray-900 border-b pb-2">Financial Information</h4>
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">EMI</p>
-                      <p className="text-sm text-gray-900">{selectedVehicle.emi || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">POS</p>
-                      <p className="text-sm text-gray-900">{selectedVehicle.pos || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Bucket</p>
-                      <p className="text-sm text-gray-900">{selectedVehicle.bucket || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Product Name</p>
-                      <p className="text-sm text-gray-900">{selectedVehicle.product_name || 'N/A'}</p>
-                    </div>
-                  </div>
-
-                  {/* Additional Details */}
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-gray-900 border-b pb-2">Additional Information</h4>
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Address</p>
-                      <p className="text-sm text-gray-900">{selectedVehicle.address || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Sec 17</p>
-                      <p className="text-sm text-gray-900">{selectedVehicle.sec_17 || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">Seasoning</p>
-                      <p className="text-sm text-gray-900">{selectedVehicle.seasoning || 'N/A'}</p>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">TBR</p>
-                      <p className="text-sm text-gray-900">{selectedVehicle.tbr || 'N/A'}</p>
-                    </div>
-                  </div>
-
-                  {/* Confirmer Details */}
-                  {(selectedVehicle.first_confirmer_name || selectedVehicle.second_confirmer_name || selectedVehicle.third_confirmer_name) && (
-                    <div className="space-y-3 md:col-span-2 lg:col-span-3">
-                      <h4 className="font-medium text-gray-900 border-b pb-2">Confirmer Details</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        {selectedVehicle.first_confirmer_name && (
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">1st Confirmer</p>
-                            <p className="text-sm text-gray-900">{selectedVehicle.first_confirmer_name}</p>
-                            <p className="text-sm text-gray-600">{selectedVehicle.first_confirmer_no}</p>
+                    {/* Financial Details - only show if user has access */}
+                    {(selectedVehicle.hasOwnProperty('emi') || selectedVehicle.hasOwnProperty('pos') || selectedVehicle.hasOwnProperty('bucket') || selectedVehicle.hasOwnProperty('product_name')) && (
+                      <div className="space-y-4">
+                        <div className="flex items-center space-x-2 mb-4">
+                          <div className="flex items-center justify-center w-8 h-8 bg-purple-100 rounded-lg">
+                            <BoltIcon className="w-4 h-4 text-purple-600" />
+                          </div>
+                          <h4 className="font-bold text-gray-900">Financial Information</h4>
+                        </div>
+                        
+                        {selectedVehicle.hasOwnProperty('emi') && (
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <p className="text-sm font-semibold text-gray-700 mb-1">EMI</p>
+                            <p className="text-sm text-gray-900 font-bold">{selectedVehicle.emi || 'N/A'}</p>
                           </div>
                         )}
-                        {selectedVehicle.second_confirmer_name && (
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">2nd Confirmer</p>
-                            <p className="text-sm text-gray-900">{selectedVehicle.second_confirmer_name}</p>
-                            <p className="text-sm text-gray-600">{selectedVehicle.second_confirmer_no}</p>
+                        
+                        {selectedVehicle.hasOwnProperty('pos') && (
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <p className="text-sm font-semibold text-gray-700 mb-1">POS</p>
+                            <p className="text-sm text-gray-900 font-bold">{selectedVehicle.pos || 'N/A'}</p>
                           </div>
                         )}
-                        {selectedVehicle.third_confirmer_name && (
-                          <div>
-                            <p className="text-sm font-medium text-gray-700">3rd Confirmer</p>
-                            <p className="text-sm text-gray-900">{selectedVehicle.third_confirmer_name}</p>
-                            <p className="text-sm text-gray-600">{selectedVehicle.third_confirmer_no}</p>
+                        
+                        {selectedVehicle.hasOwnProperty('bucket') && (
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <p className="text-sm font-semibold text-gray-700 mb-1">Bucket</p>
+                            <p className="text-sm text-gray-900 font-bold">{selectedVehicle.bucket || 'N/A'}</p>
+                          </div>
+                        )}
+                        
+                        {selectedVehicle.hasOwnProperty('product_name') && (
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <p className="text-sm font-semibold text-gray-700 mb-1">Product Name</p>
+                            <p className="text-sm text-gray-900 font-bold">{selectedVehicle.product_name || 'N/A'}</p>
                           </div>
                         )}
                       </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
+                    )}
 
-            <div className="flex justify-end mt-6">
-              <button
-                onClick={() => setShowDetailsModal(false)}
-                className="btn-secondary"
-              >
-                Close
-              </button>
+                    {/* Additional Details - only show if user has access */}
+                    {(selectedVehicle.hasOwnProperty('address') || selectedVehicle.hasOwnProperty('sec_17') || selectedVehicle.hasOwnProperty('seasoning') || selectedVehicle.hasOwnProperty('allocation')) && (
+                      <div className="space-y-4">
+                        <div className="flex items-center space-x-2 mb-4">
+                          <div className="flex items-center justify-center w-8 h-8 bg-orange-100 rounded-lg">
+                            <UserIcon className="w-4 h-4 text-orange-600" />
+                          </div>
+                          <h4 className="font-bold text-gray-900">Additional Information</h4>
+                        </div>
+                        
+                        {selectedVehicle.hasOwnProperty('address') && (
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <p className="text-sm font-semibold text-gray-700 mb-1">Address</p>
+                            <p className="text-sm text-gray-900 font-bold">{selectedVehicle.address || 'N/A'}</p>
+                          </div>
+                        )}
+                        
+                        {selectedVehicle.hasOwnProperty('sec_17') && (
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <p className="text-sm font-semibold text-gray-700 mb-1">Sec 17</p>
+                            <p className="text-sm text-gray-900 font-bold">{selectedVehicle.sec_17 || 'N/A'}</p>
+                          </div>
+                        )}
+                        
+                        {selectedVehicle.hasOwnProperty('seasoning') && (
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <p className="text-sm font-semibold text-gray-700 mb-1">Seasoning</p>
+                            <p className="text-sm text-gray-900 font-bold">{selectedVehicle.seasoning || 'N/A'}</p>
+                          </div>
+                        )}
+                        
+                        {selectedVehicle.hasOwnProperty('allocation') && (
+                          <div className="bg-white border border-gray-200 rounded-lg p-4">
+                            <p className="text-sm font-semibold text-gray-700 mb-1">Allocation</p>
+                            <p className="text-sm text-gray-900 font-bold">{selectedVehicle.allocation || 'N/A'}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Confirmer Details - only show if user has access */}
+                    {(selectedVehicle.hasOwnProperty('first_confirmer_name') || selectedVehicle.hasOwnProperty('second_confirmer_name') || selectedVehicle.hasOwnProperty('third_confirmer_name')) && (
+                      <div className="space-y-4 md:col-span-2 lg:col-span-3">
+                        <div className="flex items-center space-x-2 mb-4">
+                          <div className="flex items-center justify-center w-8 h-8 bg-indigo-100 rounded-lg">
+                            <UserIcon className="w-4 h-4 text-indigo-600" />
+                          </div>
+                          <h4 className="font-bold text-gray-900">Confirmer Details</h4>
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {selectedVehicle.hasOwnProperty('first_confirmer_name') && (
+                            <div className="bg-white border border-gray-200 rounded-lg p-4">
+                              <p className="text-sm font-semibold text-gray-700 mb-1">1st Confirmer</p>
+                              <p className="text-sm text-gray-900 font-bold">{selectedVehicle.first_confirmer_name || 'N/A'}</p>
+                              {selectedVehicle.hasOwnProperty('first_confirmer_no') && (
+                                <p className="text-sm text-gray-600">{selectedVehicle.first_confirmer_no || 'N/A'}</p>
+                              )}
+                            </div>
+                          )}
+                          
+                          {selectedVehicle.hasOwnProperty('second_confirmer_name') && (
+                            <div className="bg-white border border-gray-200 rounded-lg p-4">
+                              <p className="text-sm font-semibold text-gray-700 mb-1">2nd Confirmer</p>
+                              <p className="text-sm text-gray-900 font-bold">{selectedVehicle.second_confirmer_name || 'N/A'}</p>
+                              {selectedVehicle.hasOwnProperty('second_confirmer_no') && (
+                                <p className="text-sm text-gray-600">{selectedVehicle.second_confirmer_no || 'N/A'}</p>
+                              )}
+                            </div>
+                          )}
+                          
+                          {selectedVehicle.hasOwnProperty('third_confirmer_name') && (
+                            <div className="bg-white border border-gray-200 rounded-lg p-4">
+                              <p className="text-sm font-semibold text-gray-700 mb-1">3rd Confirmer</p>
+                              <p className="text-sm text-gray-900 font-bold">{selectedVehicle.third_confirmer_name || 'N/A'}</p>
+                              {selectedVehicle.hasOwnProperty('third_confirmer_no') && (
+                                <p className="text-sm text-gray-600">{selectedVehicle.third_confirmer_no || 'N/A'}</p>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end mt-8 pt-6 border-t border-gray-200">
+                <button
+                  onClick={() => setShowDetailsModal(false)}
+                  className="px-6 py-3 bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 text-white rounded-lg transition-all duration-200 shadow-lg hover:shadow-xl"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 } 

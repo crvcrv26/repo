@@ -52,6 +52,12 @@ export default function AdminAssignmentModal({ isOpen, onClose, file, currentUse
       return;
     }
 
+    // For admin-uploaded files, ensure the primary admin is the uploader
+    if (file.uploadedBy?.role === 'admin' && primaryAdmin !== file.uploadedBy._id) {
+      toast.error('Cannot change primary admin for files uploaded by admin users. The primary admin must remain the uploader.');
+      return;
+    }
+
     // Ensure primary admin is included in selected admins
     const finalAdmins = selectedAdmins.includes(primaryAdmin) 
       ? selectedAdmins 
@@ -107,6 +113,11 @@ export default function AdminAssignmentModal({ isOpen, onClose, file, currentUse
             <p className="text-xs text-gray-500">
               Currently assigned to {file.assignedAdmins?.length || 1} admin(s)
             </p>
+            {file.uploadedBy?.role === 'admin' && (
+              <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
+                <strong>Note:</strong> This file was uploaded by an admin. The primary admin cannot be changed and must remain the uploader.
+              </div>
+            )}
           </div>
 
           {adminsLoading ? (
@@ -120,12 +131,18 @@ export default function AdminAssignmentModal({ isOpen, onClose, file, currentUse
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Primary Admin *
+                  {file.uploadedBy?.role === 'admin' && (
+                    <span className="text-xs text-gray-500 ml-1">(Locked for admin-uploaded files)</span>
+                  )}
                 </label>
                 <select
                   value={primaryAdmin}
                   onChange={(e) => handlePrimaryAdminChange(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className={`w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    file.uploadedBy?.role === 'admin' ? 'bg-gray-100 cursor-not-allowed' : ''
+                  }`}
                   required
+                  disabled={file.uploadedBy?.role === 'admin'}
                 >
                   <option value="">Select primary admin</option>
                   {admins.map((admin: any) => (

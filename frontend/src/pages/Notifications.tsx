@@ -266,7 +266,7 @@ export default function Notifications() {
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search by registration number..."
+                  placeholder="Search by registration number or name..."
                   className="form-input pl-10 w-full"
                 />
                 {search && (
@@ -324,7 +324,7 @@ export default function Notifications() {
               <BellIcon className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-navy">No notifications</h3>
               <p className="text-gray-600 mt-2">
-                {debouncedSearch ? `No notifications found for "${debouncedSearch}"` : 
+                {debouncedSearch ? `No notifications found for "${debouncedSearch}" (searches registration number and name)` : 
                  filter === 'unread' ? 'No unread notifications' : 'No activity to show'}
               </p>
             </div>

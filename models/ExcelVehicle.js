@@ -170,4 +170,14 @@ excelVehicleSchema.index({
 // Recent uploads index
 excelVehicleSchema.index({ createdAt: -1, excel_file: 1, isActive: 1 });
 
+// Optimized index for alphabetical sorting by registration number
+excelVehicleSchema.index({ 
+  registration_number: 1, 
+  isActive: 1 
+}, { 
+  sparse: true, 
+  background: true, 
+  name: 'reg_alphabetical_sort_idx' 
+});
+
 module.exports = mongoose.model('ExcelVehicle', excelVehicleSchema); 

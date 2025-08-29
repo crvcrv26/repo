@@ -30,6 +30,7 @@ interface ExcelFile {
     _id: string
     name: string
     email: string
+    role?: string
   }
   assignedTo: {
     _id: string
@@ -81,6 +82,10 @@ export default function ExcelFiles() {
   // State for assignment modal
   const [showAssignmentModal, setShowAssignmentModal] = useState(false)
   const [selectedFile, setSelectedFile] = useState<ExcelFile | null>(null)
+  
+  // State for sharing details modal
+  const [showSharingModal, setShowSharingModal] = useState(false)
+  const [selectedSharingFile, setSelectedSharingFile] = useState<ExcelFile | null>(null)
 
   // Fetch Excel files
   const { data, isLoading, error } = useQuery({
@@ -366,6 +371,43 @@ export default function ExcelFiles() {
         </div>
       </div>
 
+      {/* Admin File Sharing Summary */}
+      {currentUser?.role === 'admin' && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center space-x-2 mb-3">
+            <UserIcon className="h-5 w-5 text-blue-600" />
+            <h3 className="text-lg font-medium text-blue-900">Your File Sharing Overview</h3>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+            <div className="bg-white rounded-lg p-3 border border-blue-200">
+              <div className="text-blue-600 font-medium">
+                {files.filter((f: ExcelFile) => f.uploadedBy._id === currentUser._id).length}
+              </div>
+              <div className="text-blue-700">Files You Uploaded</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-blue-200">
+              <div className="text-blue-600 font-medium">
+                {files.filter((f: ExcelFile) => f.uploadedBy._id === currentUser._id).reduce((total: number, file: ExcelFile) => 
+                  total + (file.assignedAdmins?.length || 0), 0
+                )}
+              </div>
+              <div className="text-blue-700">Total Admin Access</div>
+            </div>
+            <div className="bg-white rounded-lg p-3 border border-blue-200">
+              <div className="text-blue-600 font-medium">
+                {files.filter((f: ExcelFile) => f.uploadedBy._id !== currentUser._id && 
+                  (f.assignedTo._id === currentUser._id || f.assignedAdmins?.some((a: any) => a._id === currentUser._id))
+                ).length}
+              </div>
+              <div className="text-blue-700">Files Shared With You</div>
+            </div>
+          </div>
+          <div className="mt-3 text-xs text-blue-600">
+            💡 You can see who has access to your uploaded files below. This ensures complete transparency of data sharing.
+          </div>
+        </div>
+      )}
+
       {/* Filters */}
       <div className="bg-white rounded-lg shadow">
         <div className="p-4 border-b-2 border-gray-400">
@@ -469,6 +511,15 @@ export default function ExcelFiles() {
                           <span className="flex items-center">
                             <UserIcon className="h-3 w-3 mr-1" />
                             Uploaded by {file.uploadedBy.name}
+                            {file.uploadedBy.role && (
+                              <span className={`ml-1 px-1.5 py-0.5 rounded text-xs font-medium ${
+                                file.uploadedBy.role === 'admin' 
+                                  ? 'bg-blue-100 text-blue-700' 
+                                  : 'bg-purple-100 text-purple-700'
+                              }`}>
+                                {file.uploadedBy.role === 'admin' ? 'Admin' : 'Super Admin'}
+                              </span>
+                            )}
                           </span>
                           <span className="flex items-center">
                             <UserIcon className="h-3 w-3 mr-1" />
@@ -481,25 +532,62 @@ export default function ExcelFiles() {
                         </div>
                         
                         {/* Assigned Admins Display */}
-                        {file.assignedAdmins && file.assignedAdmins.length > 1 && (
+                        {file.assignedAdmins && file.assignedAdmins.length > 0 && (
                           <div className="mt-2">
-                            <div className="flex items-center space-x-2 text-xs text-gray-500">
-                              <UserIcon className="h-3 w-3" />
-                              <span>Also assigned to:</span>
-                              <div className="flex flex-wrap gap-1">
-                                {file.assignedAdmins.slice(1).map((admin, index) => (
-                                  <span key={admin._id} className="bg-gray-100 px-2 py-1 rounded text-xs">
-                                    {admin.name}
-                                    {index < file.assignedAdmins!.length - 2 && ','}
-                                  </span>
-                                ))}
+                            {/* Show comprehensive access info for admin who uploaded the file */}
+                            {currentUser?.role === 'admin' && file.uploadedBy._id === currentUser._id && (
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                                <div className="flex items-center space-x-2 text-xs text-blue-700 mb-2">
+                                  <UserIcon className="h-3 w-3" />
+                                  <span className="font-medium">Your file is shared with:</span>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {file.assignedAdmins.map((admin, index) => (
+                                    <span key={admin._id} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs font-medium">
+                                      {admin.name}
+                                      {index < file.assignedAdmins!.length - 1 && ','}
+                                    </span>
+                                  ))}
+                                </div>
+                                <div className="text-xs text-blue-600 mt-1">
+                                  Total: {file.assignedAdmins.length} admin{file.assignedAdmins.length !== 1 ? 's' : ''} have access
+                                </div>
                               </div>
-                            </div>
+                            )}
+                            
+                            {/* Show "Also assigned to" for other cases */}
+                            {!(currentUser?.role === 'admin' && file.uploadedBy._id === currentUser._id) && file.assignedAdmins.length > 1 && (
+                              <div className="flex items-center space-x-2 text-xs text-gray-500">
+                                <UserIcon className="h-3 w-3" />
+                                <span>Also assigned to:</span>
+                                <div className="flex flex-wrap gap-1">
+                                  {file.assignedAdmins.slice(1).map((admin, index) => (
+                                    <span key={admin._id} className="bg-gray-100 px-2 py-1 rounded text-xs">
+                                      {admin.name}
+                                      {index < file.assignedAdmins!.length - 2 && ','}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
+                      {/* Show sharing details button for admin who uploaded the file */}
+                      {currentUser?.role === 'admin' && file.uploadedBy._id === currentUser._id && (
+                        <button
+                          onClick={() => {
+                            setSelectedSharingFile(file);
+                            setShowSharingModal(true);
+                          }}
+                          className="text-green-600 hover:text-green-800 p-2"
+                          title="View sharing details"
+                        >
+                          <EyeIcon className="h-5 w-5" />
+                        </button>
+                      )}
                       {(currentUser?.role === 'superSuperAdmin' || currentUser?.role === 'superAdmin') && (
                         <button
                           onClick={() => {
@@ -757,6 +845,77 @@ export default function ExcelFiles() {
                    </button>
                  </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* File Sharing Details Modal */}
+      {showSharingModal && selectedSharingFile && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="mt-3">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-gray-900">File Sharing Details</h3>
+                <button
+                  onClick={() => {
+                    setShowSharingModal(false);
+                    setSelectedSharingFile(null);
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <XCircleIcon className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <h4 className="font-medium text-blue-900 mb-2">{selectedSharingFile.originalName}</h4>
+                  <div className="text-sm text-blue-700">
+                    <p>Uploaded: {new Date(selectedSharingFile.createdAt).toLocaleDateString()}</p>
+                    <p>Total Rows: {selectedSharingFile.totalRows}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <h4 className="font-medium text-gray-900 mb-2">Admins with Access</h4>
+                  <div className="space-y-2">
+                    {selectedSharingFile.assignedAdmins?.map((admin, index) => (
+                      <div key={admin._id} className="flex items-center justify-between bg-gray-50 rounded-lg p-2">
+                        <div className="flex items-center space-x-2">
+                          <UserIcon className="h-4 w-4 text-gray-500" />
+                          <span className="text-sm font-medium text-gray-900">{admin.name}</span>
+                          {index === 0 && (
+                            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">Primary</span>
+                          )}
+                        </div>
+                        <span className="text-xs text-gray-500">{admin.email}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                  <div className="text-sm text-green-700">
+                    <p className="font-medium">Total Access: {selectedSharingFile.assignedAdmins?.length || 0} admin(s)</p>
+                    <p className="text-xs mt-1">
+                      💡 This file is accessible to all listed admins. SuperAdmin can modify these assignments.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={() => {
+                    setShowSharingModal(false);
+                    setSelectedSharingFile(null);
+                  }}
+                  className="btn-secondary"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>

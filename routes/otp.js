@@ -12,9 +12,17 @@ router.post('/generate', authenticateToken, authorizeRole('admin'), async (req, 
     const { userId } = req.body
     const adminId = req.user._id
 
-    // Validate user exists and is under admin's supervision
+    // Validate user exists, is not deleted, and is under admin's supervision
     const user = await User.findById(userId)
     if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      })
+    }
+
+    // Check if user is deleted
+    if (user.isDeleted) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
@@ -142,11 +150,13 @@ router.get('/list', authenticateToken, authorizeRole('admin'), async (req, res) 
   try {
     const adminId = req.user._id
 
-    // Get all field agents and auditors under this admin
+    // Get all field agents and auditors under this admin, sorted alphabetically by name
+    // Exclude deleted users
     const users = await User.find({
       createdBy: adminId,
-      role: { $in: ['fieldAgent', 'auditor'] }
-    }).select('name email role')
+      role: { $in: ['fieldAgent', 'auditor'] },
+      isDeleted: { $ne: true } // Exclude deleted users
+    }).select('name email role profileImage').sort({ name: 1 })
 
     // Get OTP data for each user
     const otpList = await Promise.all(
@@ -159,6 +169,7 @@ router.get('/list', authenticateToken, authorizeRole('admin'), async (req, res) 
             userName: user.name,
             userEmail: user.email,
             userRole: user.role,
+            profileImage: user.profileImage,
             hasValidOTP: false,
             message: 'No valid OTP'
           }
@@ -172,6 +183,7 @@ router.get('/list', authenticateToken, authorizeRole('admin'), async (req, res) 
           userName: user.name,
           userEmail: user.email,
           userRole: user.role,
+          profileImage: user.profileImage,
           hasValidOTP: true,
           otp: otpData.otp,
           expiresAt: otpData.expiresAt,
@@ -203,9 +215,17 @@ router.delete('/invalidate/:userId', authenticateToken, authorizeRole('admin'), 
     const { userId } = req.params
     const adminId = req.user._id
 
-    // Validate user exists and is under admin's supervision
+    // Validate user exists, is not deleted, and is under admin's supervision
     const user = await User.findById(userId)
     if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      })
+    }
+
+    // Check if user is deleted
+    if (user.isDeleted) {
       return res.status(404).json({
         success: false,
         message: 'User not found'
@@ -258,12 +278,13 @@ router.post('/verify', async (req, res) => {
       })
     }
 
-    // Find user by email or phone
+    // Find user by email or phone (exclude deleted users)
     const user = await User.findOne({
       $or: [
         { email: emailOrPhone },
         { phone: emailOrPhone }
-      ]
+      ],
+      isDeleted: { $ne: true } // Exclude deleted users
     })
     if (!user) {
       return res.status(404).json({

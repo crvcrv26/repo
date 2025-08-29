@@ -20,6 +20,7 @@ interface OTPData {
   userName: string
   userEmail: string
   userRole: string
+  profileImage?: string
   hasValidOTP: boolean
   otp?: string
   expiresAt?: string
@@ -168,6 +169,51 @@ export default function OTPManagement() {
         <div className="flex items-center space-x-2 text-sm text-gray-500">
           <ClockIcon className="h-4 w-4" />
           <span>Auto-refresh every 5 seconds</span>
+          <span>•</span>
+          <span>Users sorted alphabetically</span>
+        </div>
+      </div>
+
+      {/* User Statistics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white border-2 border-gray-400 rounded-lg p-4">
+          <div className="flex items-center space-x-3">
+            <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+              <KeyIcon className="h-5 w-5 text-blue-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{otpData.length}</p>
+              <p className="text-sm text-gray-600">Total Users</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white border-2 border-gray-400 rounded-lg p-4">
+          <div className="flex items-center space-x-3">
+            <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
+              <CheckCircleIcon className="h-5 w-5 text-green-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">
+                {otpData.filter(user => user.hasValidOTP && !user.isExpired).length}
+              </p>
+              <p className="text-sm text-gray-600">Active OTPs</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="bg-white border-2 border-gray-400 rounded-lg p-4">
+          <div className="flex items-center space-x-3">
+            <div className="h-10 w-10 rounded-full bg-purple-100 flex items-center justify-center">
+              <ClockIcon className="h-5 w-5 text-purple-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">
+                {otpData.filter(user => user.userRole === 'fieldAgent').length}
+              </p>
+              <p className="text-sm text-gray-600">Field Agents</p>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -204,14 +250,38 @@ export default function OTPManagement() {
                 <div key={otpData.userId} className="border-2 border-gray-400 rounded-lg p-4">
                   <div className="flex items-center justify-between">
                     <div className="flex-1">
-                      <div className="flex items-center space-x-4">
-                        <div>
-                          <p className="text-sm font-medium text-gray-900">{otpData.userName}</p>
-                          <p className="text-sm text-gray-500">{otpData.userEmail}</p>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                            {otpData.userRole}
+                                        <div className="flex items-center space-x-4">
+                    {/* Profile Image */}
+                    <div className="flex-shrink-0">
+                      {otpData.profileImage ? (
+                        <img
+                          src={otpData.profileImage}
+                          alt={otpData.userName}
+                          className="h-12 w-12 rounded-full object-cover border-2 border-gray-200"
+                        />
+                      ) : (
+                        <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center border-2 border-gray-200">
+                          <span className="text-white font-semibold text-lg">
+                            {otpData.userName.charAt(0).toUpperCase()}
                           </span>
                         </div>
+                      )}
+                    </div>
+                    
+                    {/* User Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center space-x-2">
+                        <p className="text-sm font-medium text-gray-900 truncate">{otpData.userName}</p>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          otpData.userRole === 'fieldAgent' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-purple-100 text-purple-800'
+                        }`}>
+                          {otpData.userRole === 'fieldAgent' ? 'Field Agent' : 'Auditor'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-500 truncate">{otpData.userEmail}</p>
+                    </div>
                         
                         <div className="flex items-center space-x-2">
                           {getStatusIcon(otpData)}

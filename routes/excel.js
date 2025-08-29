@@ -424,6 +424,17 @@ router.post('/upload',
   }
 );
 
+// Function to mask filename for admin users when file is uploaded by SuperAdmin
+const maskFilename = (originalName, uploadedByRole, currentUserRole) => {
+  if (currentUserRole === 'admin' && (uploadedByRole === 'superAdmin' || uploadedByRole === 'superSuperAdmin')) {
+    // Generate a masked filename using the original name's hash
+    const hash = require('crypto').createHash('md5').update(originalName).digest('hex').substring(0, 8);
+    const extension = originalName.split('.').pop();
+    return `FILE_${hash.toUpperCase()}.${extension}`;
+  }
+  return originalName;
+};
+
 // @desc    Get all Excel files (with role-based access)
 // @route   GET /api/excel/files
 // @access  Private (SuperAdmin, Admin)
@@ -474,7 +485,8 @@ router.get('/files',
               {
                 $project: {
                   name: 1,
-                  email: 1
+                  email: 1,
+                  role: 1
                 }
               }
             ]
@@ -551,7 +563,8 @@ router.get('/files',
             uploadedBy: {
               _id: '$uploadedByUser._id',
               name: '$uploadedByUser.name',
-              email: '$uploadedByUser.email'
+              email: '$uploadedByUser.email',
+              role: '$uploadedByUser.role'
             },
             assignedTo: {
               _id: '$assignedToUser._id',
@@ -587,9 +600,27 @@ router.get('/files',
       const files = result.data;
       const total = result.metadata[0]?.total || 0;
 
+      // Mask filenames for admin users when files are uploaded by SuperAdmin
+      const maskedFiles = files.map(file => {
+        const maskedOriginalName = maskFilename(
+          file.originalName, 
+          file.uploadedBy?.role, 
+          req.user.role
+        );
+        
+        return {
+          ...file,
+          originalName: maskedOriginalName,
+          // Also mask the filename field for consistency
+          filename: file.uploadedBy?.role === 'superAdmin' || file.uploadedBy?.role === 'superSuperAdmin' 
+            ? `FILE_${file._id.toString().substring(0, 8).toUpperCase()}.xlsx`
+            : file.filename
+        };
+      });
+
       res.json({
         success: true,
-        data: files,
+        data: maskedFiles,
         pagination: {
           page: parseInt(page),
           limit: parseInt(limit),
@@ -862,6 +893,21 @@ router.put('/files/:id/update-assignments',
         });
       }
 
+      // Check if this is an admin-uploaded file and prevent primary admin change
+      const uploader = await User.findById(excelFile.uploadedBy).select('role').lean();
+      if (uploader && uploader.role === 'admin') {
+        // For admin-uploaded files, the primary admin must remain the uploader
+        if (assignedAdmins[0] !== excelFile.uploadedBy.toString()) {
+          return res.status(403).json({
+            success: false,
+            message: 'Cannot change primary admin for files uploaded by admin users. The primary admin must remain the uploader.',
+            uploaderId: excelFile.uploadedBy,
+            currentPrimary: excelFile.assignedTo,
+            attemptedPrimary: assignedAdmins[0]
+          });
+        }
+      }
+
       // Store previous assignments for cache clearing
       const previousAssignments = [...excelFile.assignedAdmins];
 
@@ -942,6 +988,62 @@ function clearFileAccessCache() {
   keysToDelete.forEach(key => searchCache.delete(key));
   console.log(`🗑️ Cleared file access cache: ${keysToDelete.length} entries`);
 }
+
+// Function to determine visible fields based on user role and file uploader
+const getVisibleFields = (userRole, fileUploaderRole) => {
+  const baseFields = {
+    registration_number: 1,
+    chasis_number: 1,
+    engine_number: 1,
+    customer_name: 1,
+    make: 1,
+    excel_file: 1,
+    createdAt: 1,
+    rowNumber: 1
+  };
+
+  const restrictedFields = {
+    ...baseFields,
+    branch: 1,
+    loan_number: 1,
+    model: 1,
+    emi: 1,
+    pos: 1,
+    bucket: 1,
+    address: 1,
+    sec_17: 1,
+    seasoning: 1,
+    allocation: 1,
+    product_name: 1,
+    first_confirmer_name: 1,
+    first_confirmer_no: 1,
+    second_confirmer_name: 1,
+    second_confirmer_no: 1,
+    third_confirmer_name: 1,
+    third_confirmer_no: 1
+  };
+
+  // SuperAdmin uploaded files - restricted access for non-SuperAdmin roles
+  if (fileUploaderRole === 'superAdmin' || fileUploaderRole === 'superSuperAdmin') {
+    if (userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
+      return restrictedFields; // SuperAdmin can see all fields
+    } else {
+      return baseFields; // Others see limited fields
+    }
+  }
+  
+  // Admin uploaded files
+  if (fileUploaderRole === 'admin') {
+    if (userRole === 'admin' || userRole === 'auditor') {
+      return restrictedFields; // Admin and Auditor can see all fields
+    } else if (userRole === 'fieldAgent') {
+      return baseFields; // Field Agent sees limited fields
+    }
+  }
+
+  // Default fallback
+  return baseFields;
+};
 
 // @desc    Debug endpoint to check file access (remove in production)
 // @route   GET /api/excel/debug-access
@@ -1264,12 +1366,12 @@ router.get('/vehicles',
       }
 
       const searchTerm = search.trim();
-      const cacheKey = `${req.user._id}-${searchTerm.toLowerCase()}-${searchType}-${page}-partial`;
+      const cacheKey = `${req.user._id}-${searchTerm.toLowerCase()}-${searchType}-${page}-alphabetical`;
       
       // Check cache first (INSTANT response for cached partial-match searches)
       const cached = searchCache.get(cacheKey);
       if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
-        console.log(`⚡ Cache hit for partial-match search: "${searchTerm}" (0ms)`);
+        console.log(`⚡ Cache hit for alphabetical search: "${searchTerm}" (0ms)`);
         return res.json(cached.data);
       }
 
@@ -1378,6 +1480,15 @@ router.get('/vehicles',
           { $match: { 'excel_file.0': { $exists: true } } },
           { $unwind: '$excel_file' },
           {
+            $lookup: {
+              from: 'users',
+              localField: 'excel_file.uploadedBy',
+              foreignField: '_id',
+              as: 'uploader'
+            }
+          },
+          { $unwind: '$uploader' },
+          {
             $project: {
               registration_number: 1,
               chasis_number: 1,
@@ -1403,22 +1514,203 @@ router.get('/vehicles',
               second_confirmer_name: 1,
               second_confirmer_no: 1,
               third_confirmer_name: 1,
-              third_confirmer_no: 1
+              third_confirmer_no: 1,
+              uploaderRole: '$uploader.role',
+              uploaderName: '$uploader.name'
             }
           },
-          { $sort: { createdAt: -1 } },
+          { $sort: { registration_number: 1 } }, // Sort alphabetically by registration number
           { $skip: (page - 1) * limit },
           { $limit: limit }
         ])
       ]);
 
       const queryTime = Date.now() - startTime;
-      console.log(`🚀 PARTIAL-MATCH search completed in ${queryTime}ms for "${searchTerm}" (${vehicles.length} results) - supports anywhere in string`);
+      console.log(`🚀 ALPHABETICAL search completed in ${queryTime}ms for "${searchTerm}" (${vehicles.length} results) - sorted A-Z by registration number`);
+
+      // Apply role-based field visibility filtering
+      const filteredVehicles = vehicles.map(vehicle => {
+        const uploaderRole = vehicle.uploaderRole;
+        const userRole = req.user.role;
+        
+        // Determine data type label based on uploader and current user
+        let dataType;
+        if (uploaderRole === 'superAdmin' || uploaderRole === 'superSuperAdmin') {
+          dataType = 'SUPER ADMIN DATA';
+        } else if (uploaderRole === 'admin') {
+          // Show the actual file owner's name (uploaderName), not the current user's name
+          dataType = `${vehicle.uploaderName?.toUpperCase() || 'ADMIN'} DATA`;
+        } else {
+          dataType = 'SELF DATA';
+        }
+
+        // Debug data type determination
+        console.log('🔍 Data Type Debug:', {
+          uploaderRole,
+          userRole,
+          uploaderName: vehicle.uploaderName,
+          uploadedBy: vehicle.excel_file.uploadedBy,
+          currentUserId: req.user._id.toString(),
+          isOwner: vehicle.excel_file.uploadedBy === req.user._id.toString(),
+          dataType
+        });
+
+        // Mask excel_file name for admin users when file is uploaded by SuperAdmin
+        let maskedExcelFile = vehicle.excel_file;
+        if (userRole === 'admin' && (uploaderRole === 'superAdmin' || uploaderRole === 'superSuperAdmin')) {
+          maskedExcelFile = {
+            ...vehicle.excel_file,
+            originalName: maskFilename(
+              vehicle.excel_file.originalName,
+              uploaderRole,
+              userRole
+            ),
+            filename: `FILE_${vehicle.excel_file._id.toString().substring(0, 8).toUpperCase()}.xlsx`
+          };
+        }
+
+        // Base fields that are always visible
+        const baseFields = {
+          registration_number: vehicle.registration_number,
+          chasis_number: vehicle.chasis_number,
+          engine_number: vehicle.engine_number,
+          customer_name: vehicle.customer_name,
+          make: vehicle.make,
+          excel_file: maskedExcelFile,
+          createdAt: vehicle.createdAt,
+          rowNumber: vehicle.rowNumber,
+          dataType: dataType
+        };
+
+        // All fields for full access
+        const allFields = {
+          ...baseFields,
+          branch: vehicle.branch,
+          loan_number: vehicle.loan_number,
+          model: vehicle.model,
+          emi: vehicle.emi,
+          pos: vehicle.pos,
+          bucket: vehicle.bucket,
+          address: vehicle.address,
+          sec_17: vehicle.sec_17,
+          seasoning: vehicle.seasoning,
+          allocation: vehicle.allocation,
+          product_name: vehicle.product_name,
+          first_confirmer_name: vehicle.first_confirmer_name,
+          first_confirmer_no: vehicle.first_confirmer_no,
+          second_confirmer_name: vehicle.second_confirmer_name,
+          second_confirmer_no: vehicle.second_confirmer_no,
+          third_confirmer_name: vehicle.third_confirmer_name,
+          third_confirmer_no: vehicle.third_confirmer_no
+        };
+
+        // Apply field visibility rules
+        if (uploaderRole === 'superAdmin' || uploaderRole === 'superSuperAdmin') {
+          // SuperAdmin uploaded files
+          if (userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
+            return allFields; // SuperAdmin can see all fields of SuperAdmin files
+          } else if (userRole === 'admin') {
+            // Check if this admin is the primary admin (assignedTo) of this file
+            if (vehicle.excel_file.assignedTo?.toString() === req.user._id.toString()) {
+              return allFields; // Primary admin can see all fields including file name
+            } else {
+              return baseFields; // Non-primary admin sees limited fields
+            }
+          } else if (userRole === 'auditor') {
+            // Check if this auditor's admin is the primary admin (assignedTo) of this file
+            if (vehicle.excel_file.assignedTo?.toString() === req.user.createdBy?.toString()) {
+              return allFields; // Auditor of primary admin can see all fields
+            } else {
+              return baseFields; // Other auditors see limited fields
+            }
+          } else {
+            return baseFields; // Others see limited fields
+          }
+        } else if (uploaderRole === 'admin') {
+          // Admin uploaded files
+          if (userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
+            return allFields; // SuperAdmin can see ALL fields of admin files (no restrictions)
+          } else if (userRole === 'admin') {
+            // Check if this admin is the original uploader (owner)
+            const uploadedById = vehicle.excel_file.uploadedBy;
+            const currentUserId = req.user._id.toString();
+            const isOwner = uploadedById.toString() === currentUserId;
+            
+            console.log('🔍 OWNERSHIP CHECK:', {
+              uploadedById,
+              currentUserId,
+              isOwner,
+              uploadedByIdType: typeof uploadedById,
+              currentUserIdType: typeof currentUserId,
+              exactMatch: uploadedById === currentUserId
+            });
+            
+            if (isOwner) {
+              console.log('✅ OWNER ACCESS GRANTED - returning all fields');
+              return allFields; // Owner can see all fields including file name
+            } else {
+              console.log('❌ NON-OWNER ACCESS - returning restricted fields');
+              // Non-owner admin sees restricted fields without file name
+              const restrictedFields = {
+                ...baseFields,
+                excel_file: {
+                  _id: vehicle.excel_file._id,
+                  // Don't include originalName or filename for non-owners
+                }
+              };
+              return restrictedFields;
+            }
+          } else if (userRole === 'auditor') {
+            // Check if this auditor's admin is the original uploader (owner)
+            const auditorAdminId = req.user.createdBy?.toString();
+            const fileUploaderId = vehicle.excel_file.uploadedBy?.toString();
+            const isOwnerAuditor = auditorAdminId === fileUploaderId;
+            
+            console.log('🔍 AUDITOR ACCESS CHECK:', {
+              auditorAdminId,
+              fileUploaderId,
+              isOwnerAuditor,
+              auditorAdminIdType: typeof auditorAdminId,
+              fileUploaderIdType: typeof fileUploaderId,
+              exactMatch: auditorAdminId === fileUploaderId
+            });
+            
+            if (isOwnerAuditor) {
+              console.log('✅ OWNER AUDITOR ACCESS GRANTED - returning all fields');
+              return allFields; // Auditor of owner can see all fields
+            } else {
+              console.log('❌ NON-OWNER AUDITOR ACCESS - returning restricted fields');
+              // Auditor of non-owner sees restricted fields without file name
+              const restrictedFields = {
+                ...baseFields,
+                excel_file: {
+                  _id: vehicle.excel_file._id,
+                  // Don't include originalName or filename for non-owners' auditors
+                }
+              };
+              return restrictedFields;
+            }
+          } else if (userRole === 'fieldAgent') {
+            // Field agents always see restricted fields without file name
+            const restrictedFields = {
+              ...baseFields,
+              excel_file: {
+                _id: vehicle.excel_file._id,
+                // Don't include originalName or filename for field agents
+              }
+            };
+            return restrictedFields;
+          }
+        }
+
+        // Default fallback
+        return baseFields;
+      });
 
       // Prepare response with performance metrics
       const response = {
         success: true,
-        data: vehicles,
+        data: filteredVehicles,
         pagination: {
           page,
           limit,
@@ -1427,10 +1719,11 @@ router.get('/vehicles',
         },
         performance: {
           queryTime: `${queryTime}ms`,
-          resultsCount: vehicles.length,
+          resultsCount: filteredVehicles.length,
           cached: false,
           searchType: searchType === 'all' ? 'multi-field' : searchType,
-          partialMatch: true
+          partialMatch: true,
+          sortedBy: 'registration_number_alphabetical'
         }
       };
 
@@ -1540,6 +1833,15 @@ router.get('/vehicles/sync',
         { $match: { 'excel_file.0': { $exists: true } } },
         { $unwind: '$excel_file' },
         {
+          $lookup: {
+            from: 'users',
+            localField: 'excel_file.uploadedBy',
+            foreignField: '_id',
+            as: 'uploader'
+          }
+        },
+        { $unwind: '$uploader' },
+        {
           $project: {
             registration_number: 1,
             chasis_number: 1,
@@ -1569,27 +1871,194 @@ router.get('/vehicles/sync',
             third_confirmer_name: 1,
             third_confirmer_no: 1,
             assigned_to: 1,
-            file_name: 1
+            file_name: 1,
+            uploaderRole: '$uploader.role',
+            uploaderName: '$uploader.name'
           }
         },
-        { $sort: { createdAt: -1 } },
+        { $sort: { registration_number: 1 } }, // Sort alphabetically by registration number
         { $skip: (page - 1) * limit },
         { $limit: limit }
       ]);
 
       console.log(`✅ Found ${vehicles.length} vehicles for offline sync (page ${page}, limit ${limit})`);
 
+      // Apply role-based field visibility filtering for sync
+      const filteredVehicles = vehicles.map(vehicle => {
+        const uploaderRole = vehicle.uploaderRole;
+        const userRole = req.user.role;
+        
+        // Determine data type label based on uploader and current user
+        let dataType;
+        if (uploaderRole === 'superAdmin' || uploaderRole === 'superSuperAdmin') {
+          dataType = 'SUPER ADMIN DATA';
+        } else if (uploaderRole === 'admin') {
+          if (userRole === 'admin' && vehicle.excel_file.uploadedBy === req.user._id.toString()) {
+            dataType = 'SELF DATA'; // Admin viewing their own uploaded file
+          } else {
+            // SuperAdmin viewing admin's file - show admin's name
+            if (userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
+              dataType = `${vehicle.uploaderName?.toUpperCase() || 'ADMIN'} DATA`;
+            } else {
+              dataType = 'ADMIN DATA'; // Other admin viewing admin's file
+            }
+          }
+        } else {
+          dataType = 'SELF DATA';
+        }
+
+        // Mask excel_file name for admin users when file is uploaded by SuperAdmin
+        let maskedExcelFile = vehicle.excel_file;
+        if (userRole === 'admin' && (uploaderRole === 'superAdmin' || uploaderRole === 'superSuperAdmin')) {
+          maskedExcelFile = {
+            ...vehicle.excel_file,
+            originalName: maskFilename(
+              vehicle.excel_file.originalName,
+              uploaderRole,
+              userRole
+            ),
+            filename: `FILE_${vehicle.excel_file._id.toString().substring(0, 8).toUpperCase()}.xlsx`
+          };
+        }
+
+        // Base fields that are always visible
+        const baseFields = {
+          registration_number: vehicle.registration_number,
+          chasis_number: vehicle.chasis_number,
+          engine_number: vehicle.engine_number,
+          customer_name: vehicle.customer_name,
+          make: vehicle.make,
+          excel_file: maskedExcelFile,
+          createdAt: vehicle.createdAt,
+          rowNumber: vehicle.rowNumber,
+          dataType: dataType
+        };
+
+        // All fields for full access
+        const allFields = {
+          ...baseFields,
+          customer_phone: vehicle.customer_phone,
+          customer_email: vehicle.customer_email,
+          address: vehicle.address,
+          branch: vehicle.branch,
+          loan_number: vehicle.loan_number,
+          model: vehicle.model,
+          emi: vehicle.emi,
+          pos: vehicle.pos,
+          bucket: vehicle.bucket,
+          sec_17: vehicle.sec_17,
+          seasoning: vehicle.seasoning,
+          allocation: vehicle.allocation,
+          product_name: vehicle.product_name,
+          first_confirmer_name: vehicle.first_confirmer_name,
+          first_confirmer_no: vehicle.first_confirmer_no,
+          second_confirmer_name: vehicle.second_confirmer_name,
+          second_confirmer_no: vehicle.second_confirmer_no,
+          third_confirmer_name: vehicle.third_confirmer_name,
+          third_confirmer_no: vehicle.third_confirmer_no,
+          assigned_to: vehicle.assigned_to,
+          file_name: vehicle.file_name
+        };
+
+        // Apply field visibility rules
+        if (uploaderRole === 'superAdmin' || uploaderRole === 'superSuperAdmin') {
+          // SuperAdmin uploaded files
+          if (userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
+            return allFields; // SuperAdmin can see all fields of SuperAdmin files
+          } else if (userRole === 'admin') {
+            // Check if this admin is the primary admin (assignedTo) of this file
+            if (vehicle.excel_file.assignedTo?.toString() === req.user._id.toString()) {
+              return allFields; // Primary admin can see all fields including file name
+            } else {
+              return baseFields; // Non-primary admin sees limited fields
+            }
+          } else if (userRole === 'auditor') {
+            // Check if this auditor's admin is the primary admin (assignedTo) of this file
+            if (vehicle.excel_file.assignedTo?.toString() === req.user.createdBy?.toString()) {
+              return allFields; // Auditor of primary admin can see all fields
+            } else {
+              return baseFields; // Other auditors see limited fields
+            }
+          } else {
+            return baseFields; // Others see limited fields
+          }
+        } else if (uploaderRole === 'admin') {
+          // Admin uploaded files
+          if (userRole === 'superAdmin' || userRole === 'superSuperAdmin') {
+            return allFields; // SuperAdmin can see ALL fields of admin files (no restrictions)
+          } else if (userRole === 'admin') {
+            // Check if this admin is the original uploader (owner)
+            if (vehicle.excel_file.uploadedBy === req.user._id.toString()) {
+              return allFields; // Owner can see all fields including file name
+            } else {
+              // Non-owner admin sees restricted fields without file name
+              const restrictedFields = {
+                ...baseFields,
+                excel_file: {
+                  _id: vehicle.excel_file._id,
+                  // Don't include originalName or filename for non-owners
+                }
+              };
+              return restrictedFields;
+            }
+          } else if (userRole === 'auditor') {
+            // Check if this auditor's admin is the original uploader (owner)
+            const auditorAdminId = req.user.createdBy?.toString();
+            const fileUploaderId = vehicle.excel_file.uploadedBy?.toString();
+            const isOwnerAuditor = auditorAdminId === fileUploaderId;
+            
+            console.log('🔍 AUDITOR ACCESS CHECK (SYNC):', {
+              auditorAdminId,
+              fileUploaderId,
+              isOwnerAuditor,
+              auditorAdminIdType: typeof auditorAdminId,
+              fileUploaderIdType: typeof fileUploaderId,
+              exactMatch: auditorAdminId === fileUploaderId
+            });
+            
+            if (isOwnerAuditor) {
+              console.log('✅ OWNER AUDITOR ACCESS GRANTED (SYNC) - returning all fields');
+              return allFields; // Auditor of owner can see all fields
+            } else {
+              console.log('❌ NON-OWNER AUDITOR ACCESS (SYNC) - returning restricted fields');
+              // Auditor of non-owner sees restricted fields without file name
+              const restrictedFields = {
+                ...baseFields,
+                excel_file: {
+                  _id: vehicle.excel_file._id,
+                  // Don't include originalName or filename for non-owners' auditors
+                }
+              };
+              return restrictedFields;
+            }
+          } else if (userRole === 'fieldAgent') {
+            // Field agents always see restricted fields without file name
+            const restrictedFields = {
+              ...baseFields,
+              excel_file: {
+                _id: vehicle.excel_file._id,
+                // Don't include originalName or filename for field agents
+              }
+            };
+            return restrictedFields;
+          }
+        }
+
+        // Default fallback
+        return baseFields;
+      });
+
       res.json({
         success: true,
-        data: vehicles,
+        data: filteredVehicles,
         pagination: {
           page,
           limit,
           total: totalCount,
           pages: Math.ceil(totalCount / limit)
         },
-        message: `Successfully retrieved ${vehicles.length} vehicles for offline use (page ${page} of ${Math.ceil(totalCount / limit)})`,
-        count: vehicles.length,
+        message: `Successfully retrieved ${filteredVehicles.length} vehicles for offline use (page ${page} of ${Math.ceil(totalCount / limit)})`,
+        count: filteredVehicles.length,
         totalCount
       });
 

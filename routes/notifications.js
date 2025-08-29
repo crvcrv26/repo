@@ -122,11 +122,20 @@ router.get('/',
         query.isRead = false;
       }
 
-      // Add search functionality for vehicle number
+      // Add search functionality for vehicle number and user name
       if (search && search.trim()) {
         const searchTerm = search.trim();
-        query.vehicleNumber = { $regex: searchTerm, $options: 'i' };
+        query.$or = [
+          { vehicleNumber: { $regex: searchTerm, $options: 'i' } },
+          { userName: { $regex: searchTerm, $options: 'i' } }
+        ];
         console.log('🔍 Search query:', { searchTerm, query });
+        
+        // Debug: Log a sample notification to see the userName field
+        const sampleNotification = await Notification.findOne().limit(1);
+        if (sampleNotification) {
+          console.log('🔍 Sample notification userName:', sampleNotification.userName);
+        }
       }
 
       // Get notifications with pagination
