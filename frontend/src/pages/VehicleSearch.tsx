@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { excelAPI, notificationsAPI } from '../services/api'
+import { excelAPI, notificationsAPI, backOfficeNumbersAPI } from '../services/api'
 import {
   MagnifyingGlassIcon,
   EyeIcon,
@@ -11,6 +11,7 @@ import {
   UserIcon,
   CogIcon,
   SparklesIcon,
+  PhoneIcon,
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../hooks/useAuth'
 
@@ -64,6 +65,16 @@ export default function VehicleSearch() {
 
   const vehicles = vehiclesData?.data?.data || []
   const vehiclePagination = vehiclesData?.data?.pagination
+
+  // Get back office numbers for field agents
+  const { data: backOfficeNumbers } = useQuery({
+    queryKey: ['back-office-numbers-field-agent'],
+    queryFn: async () => {
+      const response = await backOfficeNumbersAPI.getFieldAgentNumbers();
+      return response.data.data;
+    },
+    enabled: currentUser?.role === 'fieldAgent',
+  });
 
   const handleViewDetails = async (vehicle: any) => {
     setSelectedVehicle(vehicle)
@@ -291,6 +302,8 @@ export default function VehicleSearch() {
             </div>
           </div>
         )}
+
+
 
         {/* Vehicles List */}
         <div className="mt-6">
@@ -553,35 +566,68 @@ export default function VehicleSearch() {
                   </div>
                 )}
                 
-                                 {currentUser?.role === 'fieldAgent' ? (
-                   // Simplified view for field agents - including make field
-                   <div className="space-y-6">
-                     <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
-                       <h4 className="font-bold text-blue-900 mb-6 text-center text-lg">Vehicle Details</h4>
-                       <div className="grid grid-cols-1 gap-4">
-                         <div className="flex justify-between items-center py-3 border-b border-blue-200">
-                           <span className="text-sm font-semibold text-blue-800">Customer Name:</span>
-                           <span className="text-sm text-blue-900 font-bold">{selectedVehicle.customer_name || 'N/A'}</span>
-                         </div>
-                         <div className="flex justify-between items-center py-3 border-b border-blue-200">
-                           <span className="text-sm font-semibold text-blue-800">Registration No:</span>
-                           <span className="text-sm text-blue-900 font-bold font-mono">{selectedVehicle.registration_number || 'N/A'}</span>
-                         </div>
-                         <div className="flex justify-between items-center py-3 border-b border-blue-200">
-                           <span className="text-sm font-semibold text-blue-800">Make:</span>
-                           <span className="text-sm text-blue-900 font-bold">{selectedVehicle.make || 'N/A'}</span>
-                         </div>
-                         <div className="flex justify-between items-center py-3 border-b border-blue-200">
-                           <span className="text-sm font-semibold text-blue-800">Chassis No:</span>
-                           <span className="text-sm text-blue-900 font-bold font-mono">{selectedVehicle.chasis_number || 'N/A'}</span>
-                         </div>
-                         <div className="flex justify-between items-center py-3">
-                           <span className="text-sm font-semibold text-blue-800">Engine Number:</span>
-                           <span className="text-sm text-blue-900 font-bold font-mono">{selectedVehicle.engine_number || 'N/A'}</span>
-                         </div>
-                       </div>
-                     </div>
-                   </div>
+                                                                   {currentUser?.role === 'fieldAgent' ? (
+                    // Simplified view for field agents - including make field
+                    <div className="space-y-6">
+                      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-6">
+                        <h4 className="font-bold text-blue-900 mb-6 text-center text-lg">Vehicle Details</h4>
+                        <div className="grid grid-cols-1 gap-4">
+                          <div className="flex justify-between items-center py-3 border-b border-blue-200">
+                            <span className="text-sm font-semibold text-blue-800">Customer Name:</span>
+                            <span className="text-sm text-blue-900 font-bold">{selectedVehicle.customer_name || 'N/A'}</span>
+                          </div>
+                          <div className="flex justify-between items-center py-3 border-b border-blue-200">
+                            <span className="text-sm font-semibold text-blue-800">Registration No:</span>
+                            <span className="text-sm text-blue-900 font-bold font-mono">{selectedVehicle.registration_number || 'N/A'}</span>
+                          </div>
+                          <div className="flex justify-between items-center py-3 border-b border-blue-200">
+                            <span className="text-sm font-semibold text-blue-800">Make:</span>
+                            <span className="text-sm text-blue-900 font-bold">{selectedVehicle.make || 'N/A'}</span>
+                          </div>
+                          <div className="flex justify-between items-center py-3 border-b border-blue-200">
+                            <span className="text-sm font-semibold text-blue-800">Chassis No:</span>
+                            <span className="text-sm text-blue-900 font-bold font-mono">{selectedVehicle.chasis_number || 'N/A'}</span>
+                          </div>
+                          <div className="flex justify-between items-center py-3">
+                            <span className="text-sm font-semibold text-blue-800">Engine Number:</span>
+                            <span className="text-sm text-blue-900 font-bold font-mono">{selectedVehicle.engine_number || 'N/A'}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Back Office Numbers for Field Agents */}
+                      {backOfficeNumbers && backOfficeNumbers.length > 0 && (
+                        <div className="bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-xl p-6">
+                          <div className="flex items-center space-x-3 mb-4">
+                            <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-lg">
+                              <PhoneIcon className="w-4 h-4 text-green-600" />
+                            </div>
+                            <h4 className="font-bold text-green-900 text-lg">Back Office Contacts</h4>
+                          </div>
+                          <p className="text-sm text-green-700 mb-4">Contact your admin for assistance</p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {backOfficeNumbers.map((number: any) => (
+                              <div key={number._id} className="bg-white rounded-lg p-4 border border-green-200 shadow-sm">
+                                <div className="flex items-center space-x-3">
+                                  <div className="flex items-center justify-center w-8 h-8 bg-green-100 rounded-full">
+                                    <PhoneIcon className="w-4 h-4 text-green-600" />
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-gray-900 text-sm">{number.name}</p>
+                                    <a 
+                                      href={`tel:${number.mobileNumber}`}
+                                      className="text-green-600 hover:text-green-800 text-sm font-mono"
+                                    >
+                                      {number.mobileNumber}
+                                    </a>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                 ) : (
                   // Full view for other roles - conditionally show fields based on access
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

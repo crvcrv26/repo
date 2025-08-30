@@ -17,6 +17,7 @@ const notificationRoutes = require('./routes/notifications');
 const moneyRoutes = require('./routes/money');
 const paymentRoutes = require('./routes/payments');
 const fileStorageRoutes = require('./routes/fileStorage');
+const backOfficeNumberRoutes = require('./routes/backOfficeNumbers');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -210,6 +211,7 @@ app.use('/api/file-storage', fileStorageRoutes);
 app.use('/api/admin-payments', authenticateToken, require('./routes/adminPayments'));
 app.use('/api/super-super-admin-payments', authenticateToken, require('./routes/superSuperAdminPayments'));
 app.use('/api/app-management', require('./routes/appManagement'));
+app.use('/api/back-office-numbers', authenticateToken, backOfficeNumberRoutes);
 
 // Manual cleanup endpoint for testing (remove in production)
 app.post('/api/cleanup/payment-proofs', async (req, res) => {

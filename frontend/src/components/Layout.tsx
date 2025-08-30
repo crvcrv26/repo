@@ -19,7 +19,8 @@ import {
   QrCodeIcon,
   CheckCircleIcon,
   Cog6ToothIcon,
-  ChartBarIcon
+  ChartBarIcon,
+  PhoneIcon
 } from '@heroicons/react/24/outline';
 import { 
   ChartBarIcon as ChartBarSolid 
@@ -78,6 +79,15 @@ const getNavigation = (userRole?: string) => {
       name: 'Notifications', 
       href: '/notifications', 
       icon: BellIcon
+    });
+  }
+
+  // Add Back Office Numbers only for Admin role
+  if (userRole === 'admin') {
+    baseNavigation.push({ 
+      name: 'Back Office Numbers', 
+      href: '/back-office-numbers', 
+      icon: PhoneIcon
     });
   }
 

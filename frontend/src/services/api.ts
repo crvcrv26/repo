@@ -254,4 +254,19 @@ export const superSuperAdminPaymentsAPI = {
   getPaymentStats: () => api.get('/super-super-admin-payments/stats'),
 }
 
+// Back Office Numbers API
+export const backOfficeNumbersAPI = {
+  // Admin management
+  getAdminNumbers: () => api.get('/back-office-numbers/admin'),
+  createNumber: (data: { name: string; mobileNumber: string }) => 
+    api.post('/back-office-numbers', data),
+  updateNumber: (id: string, data: { name?: string; mobileNumber?: string; isActive?: boolean; order?: number }) => 
+    api.put(`/back-office-numbers/${id}`, data),
+  deleteNumber: (id: string) => api.delete(`/back-office-numbers/${id}`),
+  toggleActive: (id: string) => api.put(`/back-office-numbers/${id}/toggle`),
+  
+  // Field agent access
+  getFieldAgentNumbers: () => api.get('/back-office-numbers/field-agent'),
+}
+
 export default api 
