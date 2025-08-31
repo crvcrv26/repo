@@ -1490,6 +1490,7 @@ router.get('/vehicles',
           { $unwind: '$uploader' },
           {
             $project: {
+              _id: 1,
               registration_number: 1,
               chasis_number: 1,
               engine_number: 1,
@@ -1571,6 +1572,7 @@ router.get('/vehicles',
 
         // Base fields that are always visible
         const baseFields = {
+          _id: vehicle._id,
           registration_number: vehicle.registration_number,
           chasis_number: vehicle.chasis_number,
           engine_number: vehicle.engine_number,

@@ -269,4 +269,16 @@ export const backOfficeNumbersAPI = {
   getFieldAgentNumbers: () => api.get('/back-office-numbers/field-agent'),
 }
 
+// Inventory API
+export const inventoryAPI = {
+  getFieldAgentInventories: () => api.get('/inventory/field-agent'),
+  getAdminInventories: () => api.get('/inventory/admin'),
+  getAuditorInventories: () => api.get('/inventory/auditor'),
+  createInventory: (data: any) => api.post('/inventory', data),
+  getInventory: (id: string) => api.get(`/inventory/${id}`),
+  downloadInventory: (id: string) => api.get(`/inventory/${id}/download`, {
+    responseType: 'arraybuffer'
+  })
+}
+
 export default api 

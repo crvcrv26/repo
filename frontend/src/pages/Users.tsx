@@ -14,7 +14,8 @@ import {
   XMarkIcon,
   ChevronDownIcon,
   ChevronRightIcon,
-  UsersIcon
+  UsersIcon,
+  EyeIcon
 } from '@heroicons/react/24/outline'
 import { useAuth } from '../hooks/useAuth'
 import { useNavigate } from 'react-router-dom'
@@ -86,6 +87,8 @@ export default function Users() {
   
   // State for modal and form
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showViewModal, setShowViewModal] = useState(false)
+  const [selectedUser, setSelectedUser] = useState<User | null>(null)
   const [expandedAdmins, setExpandedAdmins] = useState<Set<string>>(new Set())
   const [createForm, setCreateForm] = useState<CreateUserForm>({
     name: '',
@@ -192,6 +195,11 @@ export default function Users() {
         }
       })
     }
+  }
+
+  const handleViewDetails = (user: User) => {
+    setSelectedUser(user)
+    setShowViewModal(true)
   }
 
   const handleCreateUser = (e: React.FormEvent) => {
@@ -448,6 +456,13 @@ export default function Users() {
               }`} />
             </button>
           )}
+            <button
+              onClick={() => handleViewDetails(user)}
+              className="text-blue-600 hover:text-blue-800 p-1"
+              title="View user details"
+            >
+              <EyeIcon className="h-4 w-4" />
+            </button>
             {canDelete(user) && (
               <button
                 onClick={() => handleDelete(user._id)}
@@ -506,6 +521,13 @@ export default function Users() {
               }`} />
             </button>
           )}
+          <button
+            onClick={() => handleViewDetails(user)}
+            className="text-blue-600 hover:text-blue-800 p-1"
+            title="View user details"
+          >
+            <EyeIcon className="h-5 w-5" />
+          </button>
           {canDelete(user) && (
             <button
               onClick={() => handleDelete(user._id)}
@@ -1051,6 +1073,130 @@ export default function Users() {
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* View User Details Modal */}
+      {showViewModal && selectedUser && (
+        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+          <div className="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-gray-900">User Details</h3>
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <XMarkIcon className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* User Avatar and Basic Info */}
+              <div className="flex items-center space-x-4 p-4 bg-gray-50 rounded-lg">
+                <div className="flex-shrink-0 h-16 w-16 relative">
+                  <div className="h-16 w-16 rounded-full bg-gray-300 flex items-center justify-center">
+                    <UserIcon className="h-8 w-8 text-gray-600" />
+                  </div>
+                  <div className={`absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 border-white ${
+                    selectedUser.isOnline ? 'bg-green-400' : 'bg-gray-400'
+                  }`}></div>
+                </div>
+                <div>
+                  <h4 className="text-lg font-semibold text-gray-900">{selectedUser.name}</h4>
+                  <p className="text-sm text-gray-600 capitalize">{selectedUser.role}</p>
+                  <p className="text-xs text-gray-500">
+                    {selectedUser.isOnline ? 'Online' : `Last seen: ${new Date(selectedUser.lastSeen).toLocaleString()}`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Contact Information */}
+              <div className="space-y-3">
+                <h5 className="font-medium text-gray-900">Contact Information</h5>
+                <div className="grid grid-cols-1 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Email</label>
+                    <p className="text-sm text-gray-900">{selectedUser.email}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">Phone</label>
+                    <p className="text-sm text-gray-900">{selectedUser.phone}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Location Information */}
+              <div className="space-y-3">
+                <h5 className="font-medium text-gray-900">Location</h5>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">City</label>
+                    <p className="text-sm text-gray-900">{selectedUser.location.city}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">State</label>
+                    <p className="text-sm text-gray-900">{selectedUser.location.state}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Account Status */}
+              <div className="space-y-3">
+                <h5 className="font-medium text-gray-900">Account Status</h5>
+                <div className="flex items-center space-x-4">
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium text-gray-700 mr-2">Status:</span>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      selectedUser.isActive 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-red-100 text-red-800'
+                    }`}>
+                      {selectedUser.isActive ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-sm font-medium text-gray-700 mr-2">Online:</span>
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      selectedUser.isOnline 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {selectedUser.isOnline ? 'Online' : 'Offline'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Created By Information */}
+              {selectedUser.createdBy && (
+                <div className="space-y-3">
+                  <h5 className="font-medium text-gray-900">Created By</h5>
+                  <div className="bg-gray-50 p-3 rounded-lg">
+                    <p className="text-sm font-medium text-gray-900">{selectedUser.createdBy.name}</p>
+                    <p className="text-sm text-gray-600">{selectedUser.createdBy.email}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Account Creation Date */}
+              <div className="space-y-3">
+                <h5 className="font-medium text-gray-900">Account Information</h5>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700">Created At</label>
+                  <p className="text-sm text-gray-900">{new Date(selectedUser.createdAt).toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end pt-4 mt-6 border-t">
+              <button
+                onClick={() => setShowViewModal(false)}
+                className="btn-secondary"
+              >
+                Close
+              </button>
             </div>
           </div>
         </div>

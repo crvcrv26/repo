@@ -395,14 +395,17 @@ export default function MoneyManagement() {
             </button>
           )}
           
-          <button 
-            onClick={handleExport} 
-            className="btn btn-outline"
-            title="Export records to Excel"
-          >
-            <DocumentArrowDownIcon className="h-4 w-4 mr-1" />
-            Export
-          </button>
+          {/* Only show Export button for non-field agents */}
+          {currentUser?.role !== 'fieldAgent' && (
+            <button 
+              onClick={handleExport} 
+              className="btn btn-outline"
+              title="Export records to Excel"
+            >
+              <DocumentArrowDownIcon className="h-4 w-4 mr-1" />
+              Export
+            </button>
+          )}
         </div>
       </div>
 

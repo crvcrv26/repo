@@ -20,7 +20,8 @@ import {
   CheckCircleIcon,
   Cog6ToothIcon,
   ChartBarIcon,
-  PhoneIcon
+  PhoneIcon,
+  ClipboardDocumentListIcon
 } from '@heroicons/react/24/outline';
 import { 
   ChartBarIcon as ChartBarSolid 
@@ -88,6 +89,15 @@ const getNavigation = (userRole?: string) => {
       name: 'Back Office Numbers', 
       href: '/back-office-numbers', 
       icon: PhoneIcon
+    });
+  }
+
+  // Add Inventory for Admin, Auditor, and Field Agent
+  if (userRole === 'admin' || userRole === 'auditor' || userRole === 'fieldAgent') {
+    baseNavigation.push({ 
+      name: 'Inventory', 
+      href: '/inventory', 
+      icon: ClipboardDocumentListIcon
     });
   }
 

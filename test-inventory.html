@@ -1,0 +1,193 @@
+
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Inventory - TEST-001</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          margin: 0;
+          padding: 20px;
+          color: #333;
+        }
+        .header {
+          text-align: center;
+          border-bottom: 3px solid #2563eb;
+          padding-bottom: 20px;
+          margin-bottom: 30px;
+        }
+        .title {
+          font-size: 28px;
+          font-weight: bold;
+          color: #2563eb;
+          margin: 0;
+        }
+        .inventory-number {
+          font-size: 18px;
+          color: #666;
+          margin: 10px 0;
+        }
+        .section {
+          margin-bottom: 25px;
+          page-break-inside: avoid;
+        }
+        .section-title {
+          font-size: 18px;
+          font-weight: bold;
+          color: #2563eb;
+          border-bottom: 2px solid #e5e7eb;
+          padding-bottom: 8px;
+          margin-bottom: 15px;
+        }
+        .grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 15px;
+        }
+        .field {
+          margin-bottom: 12px;
+        }
+        .field-label {
+          font-weight: bold;
+          color: #555;
+          font-size: 14px;
+          margin-bottom: 4px;
+        }
+        .field-value {
+          font-size: 16px;
+          color: #333;
+          padding: 8px 12px;
+          background-color: #f9fafb;
+          border: 1px solid #e5e7eb;
+          border-radius: 4px;
+        }
+        .field-value.mono {
+          font-family: 'Courier New', monospace;
+        }
+        .full-width {
+          grid-column: 1 / -1;
+        }
+        .equipment-grid {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+        }
+        .equipment-item {
+          padding: 8px;
+          border: 1px solid #e5e7eb;
+          border-radius: 4px;
+          background-color: #f9fafb;
+        }
+        .equipment-label {
+          font-weight: bold;
+          font-size: 12px;
+          color: #555;
+          margin-bottom: 4px;
+        }
+        .equipment-value {
+          font-size: 14px;
+          color: #333;
+        }
+        .footer {
+          margin-top: 40px;
+          text-align: center;
+          font-size: 12px;
+          color: #666;
+          border-top: 1px solid #e5e7eb;
+          padding-top: 20px;
+        }
+        @media print {
+          body { margin: 0; }
+          .section { page-break-inside: avoid; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1 class="title">INVENTORY</h1>
+        <div class="inventory-number">Inventory #TEST-001</div>
+        <div>Generated on: 31/08/2025</div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Agency Information</div>
+        <div class="grid">
+          <div class="field">
+            <div class="field-label">Agency Name</div>
+            <div class="field-value">Test Admin</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Seizure Agent</div>
+            <div class="field-value">Test Field Agent</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Seizure Phone Number</div>
+            <div class="field-value">1234567890</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Seizure/Surrender Date</div>
+            <div class="field-value">31/08/2025</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Vehicle Information</div>
+        <div class="grid">
+          <div class="field">
+            <div class="field-label">Registration Number</div>
+            <div class="field-value mono">TEST123</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Customer Name</div>
+            <div class="field-value">Test Customer</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Make</div>
+            <div class="field-value">Test Make</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Chassis Number</div>
+            <div class="field-value mono">TESTCHASSIS123</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Engine Number</div>
+            <div class="field-value mono">TESTENGINE123</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Driver Information</div>
+        <div class="grid">
+          <div class="field">
+            <div class="field-label">Driver Name</div>
+            <div class="field-value">Test Driver</div>
+          </div>
+          <div class="field">
+            <div class="field-label">Driver Number</div>
+            <div class="field-value">9876543210</div>
+          </div>
+        </div>
+      </div>
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      
+
+      <div class="footer">
+        <p>This inventory was generated on 31/08/2025 by Test Field Agent</p>
+        <p>Inventory Number: TEST-001</p>
+      </div>
+    </body>
+    </html>
+  
