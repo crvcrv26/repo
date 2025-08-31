@@ -1613,7 +1613,14 @@ router.get('/vehicles',
             return allFields; // SuperAdmin can see all fields of SuperAdmin files
           } else if (userRole === 'admin') {
             // Check if this admin is the primary admin (assignedTo) of this file
-            if (vehicle.excel_file.assignedTo?.toString() === req.user._id.toString()) {
+            const isPrimaryAdmin = vehicle.excel_file.assignedTo?.toString() === req.user._id.toString();
+            console.log('🔍 ADMIN ACCESS CHECK:', {
+              adminId: req.user._id.toString(),
+              assignedTo: vehicle.excel_file.assignedTo?.toString(),
+              isPrimaryAdmin,
+              returning: isPrimaryAdmin ? 'ALL FIELDS' : 'BASE FIELDS'
+            });
+            if (isPrimaryAdmin) {
               return allFields; // Primary admin can see all fields including file name
             } else {
               return baseFields; // Non-primary admin sees limited fields
@@ -1969,7 +1976,14 @@ router.get('/vehicles/sync',
             return allFields; // SuperAdmin can see all fields of SuperAdmin files
           } else if (userRole === 'admin') {
             // Check if this admin is the primary admin (assignedTo) of this file
-            if (vehicle.excel_file.assignedTo?.toString() === req.user._id.toString()) {
+            const isPrimaryAdmin = vehicle.excel_file.assignedTo?.toString() === req.user._id.toString();
+            console.log('🔍 ADMIN ACCESS CHECK:', {
+              adminId: req.user._id.toString(),
+              assignedTo: vehicle.excel_file.assignedTo?.toString(),
+              isPrimaryAdmin,
+              returning: isPrimaryAdmin ? 'ALL FIELDS' : 'BASE FIELDS'
+            });
+            if (isPrimaryAdmin) {
               return allFields; // Primary admin can see all fields including file name
             } else {
               return baseFields; // Non-primary admin sees limited fields

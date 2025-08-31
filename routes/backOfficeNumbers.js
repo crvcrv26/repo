@@ -44,9 +44,21 @@ router.get('/field-agent', authenticateToken, authorizeRole('fieldAgent'), async
       isActive: true 
     }).sort({ order: 1, createdAt: 1 });
     
+    // Get admin name from the first back office number's adminId
+    let adminName = 'Unknown Admin';
+    if (backOfficeNumbers.length > 0) {
+      const adminUser = await User.findById(backOfficeNumbers[0].adminId);
+      adminName = adminUser?.name || 'Unknown Admin';
+    } else {
+      // Fallback to user's createdBy
+      const adminUser = await User.findById(user.createdBy._id);
+      adminName = adminUser?.name || user.createdBy.name || 'Unknown Admin';
+    }
+    
     res.json({
       success: true,
-      data: backOfficeNumbers
+      data: backOfficeNumbers,
+      adminName: adminName
     });
   } catch (error) {
     console.error('Error fetching back office numbers for field agent:', error);

@@ -328,6 +328,22 @@ export default function ExcelFiles() {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
   }
 
+  // Function to determine if user can see original filename
+  const getDisplayFileName = (file: ExcelFile): string => {
+    // Only primary admin (assignedTo) and auditors can see original filename
+    const isPrimaryAdmin = currentUser?.role === 'admin' && file.assignedTo._id === (currentUser as any)?.id
+    const isAuditor = currentUser?.role === 'auditor'
+    const isSuperAdmin = currentUser?.role === 'superAdmin'
+    const isSuperSuperAdmin = currentUser?.role === 'superSuperAdmin'
+    
+    if (isPrimaryAdmin || isAuditor || isSuperAdmin || isSuperSuperAdmin) {
+      return file.originalName
+    }
+    
+    // For others, show a generic name
+    return 'Excel File'
+  }
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -493,7 +509,7 @@ export default function ExcelFiles() {
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-gray-900 truncate">
-                          {file.originalName}
+                          {getDisplayFileName(file)}
                         </p>
                         <div className="flex items-center space-x-4 mt-1 text-sm text-gray-500">
                           <span>{formatFileSize(file.fileSize)}</span>
@@ -870,7 +886,7 @@ export default function ExcelFiles() {
               
               <div className="space-y-4">
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                  <h4 className="font-medium text-blue-900 mb-2">{selectedSharingFile.originalName}</h4>
+                  <h4 className="font-medium text-blue-900 mb-2">{getDisplayFileName(selectedSharingFile)}</h4>
                   <div className="text-sm text-blue-700">
                     <p>Uploaded: {new Date(selectedSharingFile.createdAt).toLocaleDateString()}</p>
                     <p>Total Rows: {selectedSharingFile.totalRows}</p>
